@@ -264,8 +264,8 @@ const Weapons = (() => {
   function forName(name, star) {
     if (typeof PLAYER_WEAPONS !== 'undefined' && PLAYER_WEAPONS[name]) return PLAYER_WEAPONS[name].slice();
     const h = hash(name), roles = Object.keys(POOL), role = roles[h % roles.length], pool = POOL[role];
-    const a = pool[(h >> 4) % pool.length], b = pool[(h >> 9) % pool.length];
-    return star || (h >> 13) % 3 === 0 ? [...new Set([a, b])] : [a];
+    const a = pool[(h >>> 4) % pool.length], b = pool[(h >>> 9) % pool.length];   // >>> (unsigned): '>>' turned big hashes negative → undefined weapons → crashes
+    return star || (h >>> 13) % 3 === 0 ? [...new Set([a, b])] : [a];
   }
   const roleOf = ids => { const c = {}; ids.forEach(id => { const w = WEAPONS[id]; if (w) c[ROLE_OF[w.type]] = (c[ROLE_OF[w.type]] || 0) + 1; }); return Object.entries(c).sort((x, y) => y[1] - x[1])[0]?.[0] || 'slasher'; };
   const STYLE = {
@@ -275,7 +275,7 @@ const Weapons = (() => {
   };
   /* a named player's stat line: team rating + his style (+ a little for stars) */
   function npc(name, rating, star) {
-    const ids = forName(name, star), role = roleOf(ids), st = Balance.profile(rating + (star ? W().npc.star : 0)), adj = STYLE[role] || {};
+    const ids = forName(name, star).filter(id => WEAPONS[id]), role = roleOf(ids), st = Balance.profile(rating + (star ? W().npc.star : 0)), adj = STYLE[role] || {};
     for (const k in adj) st[k] = Math.max(20, Math.min(99, st[k] + adj[k]));
     return { stats: st, weapons: ids, role };
   }

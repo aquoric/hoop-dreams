@@ -212,7 +212,8 @@ const SFX = (() => {
       const up = new Float32Array(32).map((_, i) => Math.sin(i / 31 * Math.PI / 2)), down = up.slice().reverse();
       out.gain.setValueAtTime(0, ctx.currentTime); out.gain.linearRampToValueAtTime(lvlGain(k), ctx.currentTime + FADE); out.connect(crowdBus);
       let next = ctx.currentTime + .02, alive = true; const srcs = new Set();
-      const sched = () => { while (alive && next < ctx.currentTime + 3) { const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = b; s.connect(g); g.connect(out);
+      const sched = () => { if (next < ctx.currentTime + .05) next = ctx.currentTime + .05;   // fell behind (throttled timers): curves in the past get clamped onto each other
+        while (alive && next < ctx.currentTime + 3) { const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = b; s.connect(g); g.connect(out);
         try { g.gain.setValueCurveAtTime(up, next, xf); g.gain.setValueCurveAtTime(down, next + len - xf, xf); }
         catch (e) { g.gain.cancelScheduledValues(0); g.gain.setValueAtTime(0, next); g.gain.linearRampToValueAtTime(1, next + xf); g.gain.setValueAtTime(1, next + len - xf); g.gain.linearRampToValueAtTime(0, next + len); }   // some browsers refuse touching curves: plain ramps
         s.start(next, skip, len); srcs.add(s); s.onended = () => srcs.delete(s); next += len - xf; } };
@@ -254,7 +255,7 @@ const SFX = (() => {
     /* stop everything crowd-related (scene / game / cutscene over) */
     function stopAll() { ambience(null); react.forEach(r => r.fade()); react = []; }
     /* duck the crowd under dialogue / cutscenes (counted, so nested calls are safe) */
-    function duck(on) { ducks = Math.max(0, ducks + (on ? 1 : -1)); if (!ctx || !duckGain) return; const t = ctx.currentTime; duckGain.gain.cancelScheduledValues(t); duckGain.gain.setTargetAtTime(ducks ? .3 : 1, t, .25); }
+    function duck(on) { ducks = on === null ? 0 : Math.max(0, ducks + (on ? 1 : -1)); if (!ctx || !duckGain) return; const t = ctx.currentTime; duckGain.gain.cancelScheduledValues(t); duckGain.gain.setTargetAtTime(ducks ? .3 : 1, t, .25); }
     const info = () => ({ amb: ambKind, playing: !!amb, level: +level.toFixed(2), reacts: ctx ? react.filter(r => r.end > ctx.currentTime).length : 0, ducks, loaded: Object.keys(files ? el : buf).length });
     return { load, ambience, level: setLevel, react: reactTo, oneShot, stopAll, duck, info, vol() { }, get kind() { return ambKind; } };
   })();
@@ -456,6 +457,9 @@ const SFX = (() => {
   function stopMusic() { music(null); }
   function skip() { if (band) band.skip(); }
   /* crowd API: venue ambience ('arena' | 'gym' | 'street' | null), excitement level, reactions, ducking, stop */
-  const crowd = { ambience: (k, h) => { if (ctx) Crowd.ambience(k, h); }, level: h => Crowd.level(h), react: (k, v) => !vol.muted && Crowd.react(k, v), duck: on => Crowd.duck(on), info: () => Crowd.info(), stop: () => { if (ctx) Crowd.stopAll(); } };
+  /* every crowd call is fenced off: audio problems must never break the game flow */
+  const safe = f => (...a) => { try { return f(...a); } catch (e) { console.warn('crowd audio', e); } };
+  const crowd = { ambience: safe((k, h) => { if (ctx) Crowd.ambience(k, h); }), level: safe(h => Crowd.level(h)), react: safe((k, v) => !vol.muted && Crowd.react(k, v)), duck: safe(on => Crowd.duck(on)),
+    info: () => Crowd.info(), stop: safe(() => { if (ctx) Crowd.stopAll(); }), reset: safe(() => Crowd.duck(null)) };
   return { init, play, has, music, stopMusic, skip, setVol, toggleMute, vol, crowd, get mood() { return band ? band.mood : pendingMood; }, get song() { return band && band.song; } };
 })();

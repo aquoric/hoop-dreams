@@ -80,9 +80,9 @@ const Match = (() => {
       this.kick *= Math.pow(.004, dt);
       for (let i = this.tweens.length - 1; i >= 0; i--) {
         const tw = this.tweens[i]; tw.el += sdt; const k = tw.ease(clamp(tw.el / tw.dur, 0, 1));
-        for (const p in tw.to) tw.obj[p] = lerp(tw.from[p], tw.to[p], k);
-        tw.onUpd && tw.onUpd(k);
-        if (tw.el >= tw.dur) { this.tweens.splice(i, 1); tw.res(); }
+        try { for (const p in tw.to) tw.obj[p] = lerp(tw.from[p], tw.to[p], k); tw.onUpd && tw.onUpd(k); }
+        catch (e) { console.error('tween', e); tw.el = tw.dur; }   // a broken tween finishes instead of blocking whatever waits on it
+        if (tw.el >= tw.dur) { this.tweens.splice(i, 1); tw.res(); this.onBeat && this.onBeat(); }
       }
       this.pops.forEach(p => { p.life -= dt; p.y -= dt * 14; }); this.pops = this.pops.filter(p => p.life > 0);
       this.shakeAmt *= Math.pow(0.02, dt); this.netWave *= Math.pow(0.05, dt); this.rimBend *= Math.pow(0.01, dt); this.flashA *= Math.pow(0.02, dt);
@@ -184,14 +184,14 @@ const Match = (() => {
     /* impact: hit-stop freeze + shake + flash + camera punch-in */
     impact(stop = .12, shake = 10, flash = .25, kick = .05, col = '255,255,255') { this.stopT = Math.max(this.stopT, stop); this.shakeAmt = Math.max(this.shakeAmt, shake); this.flashA = Math.max(this.flashA, flash); this.flashCol = col; this.kick = Math.max(this.kick, kick); }
     /* quick anime close-up cut for your highlight plays (rate-limited, needs the portrait ready) */
-    highlight(kind, caption, delay = 200, o = {}) { setTimeout(() => this.mini(kind, caption, o), delay); }
+    highlight(kind, caption, delay = 200, o = {}) { setTimeout(() => { if (this.alive && !busyElsewhere()) this.mini(kind, caption, o); }, delay); }
     /* mini cutscene (2–3s, tap to skip): the court freezes underneath, then play picks up right where it was.
        A few per game: at least 6s apart, max 6 per game (o.force skips the spacing for huddles / face-offs). */
     async mini(kind, caption, o = {}) {
       const u = this.user(); if (!u || typeof Cutscene === 'undefined' || !Cutscene.highlight || !this.alive) return false;
       const look = o.look || u.look, canRp = REPLAY[kind] && this.buf && this.buf.length > 20;
       if (!canRp && (!Cutscene.ready(look) || (o.look2 && !Cutscene.ready(o.look2)))) return false;
-      if (!o.force && (this.t - this.cutAt < 6 || this.cuts >= 6)) return false;
+      if (!o.force && (this.t - this.cutAt < 6 || this.cuts >= 6 || busyElsewhere())) return false;
       this.cutAt = this.t; this.cuts = (this.cuts || 0) + 1;
       const name = o.name || (Game.state ? `${Game.state.player.first} ${Game.state.player.last}` : u.name);
       // plays that just happened on the court are REPLAYED from the court's own recording (right player, colours, shot and result);
@@ -397,6 +397,7 @@ const Match = (() => {
      All support mouse, touch, and keyboard.
      ================================================================= */
   function mgShell(layer, title, hint, extraCls = '') {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();   // Space / Enter must reach the minigame, not a focused button
     const el = document.createElement('div');
     el.className = 'mg ' + extraCls;
     el.innerHTML = `<div class="mg-card"><div class="mg-title">${title}</div><div class="mg-body"></div><div class="mg-hint">${hint}</div></div>`;
@@ -408,17 +409,18 @@ const Match = (() => {
       el.classList.remove('in'); await sleep(180); el.remove(); if (!layer.children.length) layer.classList.remove('on');
     } };
   }
+  const mgOffs = new Set();   // input listeners of the running minigame (released if it's cut short)
   /* universal "tap" input: pointer on element, or Space/Enter */
   function onTap(target, fn) {
     const pd = e => { e.preventDefault(); fn(); };
     const kd = e => { if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); fn(); } };
     target.addEventListener('pointerdown', pd); window.addEventListener('keydown', kd);
-    return () => { target.removeEventListener('pointerdown', pd); window.removeEventListener('keydown', kd); };
+    const off = () => { target.removeEventListener('pointerdown', pd); window.removeEventListener('keydown', kd); mgOffs.delete(off); }; mgOffs.add(off); return off;
   }
   function dirInput(fn) { // arrows / WASD
     const map = { ArrowLeft: 'L', KeyA: 'L', ArrowRight: 'R', KeyD: 'R', ArrowUp: 'U', KeyW: 'U', ArrowDown: 'D', KeyS: 'D' };
     const kd = e => { if (map[e.code]) { e.preventDefault(); fn(map[e.code]); } };
-    window.addEventListener('keydown', kd); return () => window.removeEventListener('keydown', kd);
+    window.addEventListener('keydown', kd); const off = () => { window.removeEventListener('keydown', kd); mgOffs.delete(off); }; mgOffs.add(off); return off;
   }
   const ARROW = { L: '◀', R: '▶', U: '▲', D: '▼' };
   /* GREEN: perfect timing in any minigame (and arcade releases) — its own sound + a quick "GREEN!" flash */
@@ -879,6 +881,26 @@ const Match = (() => {
       });
     },
   };
+  /* ---------- MINIGAME GUARD — one minigame at a time, and it always hands control back ----------
+     If a minigame throws or stops responding (its animation loop died), it resolves with a neutral result after
+     MG_LIMIT seconds of visible time; its card is removed and its key / pointer listeners are released. */
+  const MG_LIMIT = { freeThrow: 150 }, MG_FALLBACK = { success: false, quality: .35, perfect: false, good: false, hits: 0, total: 3, made: 0, result: 'late', read: 'late', clean: false, sloppy: true, travel: false };
+  let mgActive = null;
+  const busyElsewhere = () => !!(mgActive || document.querySelector('.arc, .cs:not(.cs-hl), #panel .talk'));
+  function guardMG(name, fn, layer, o) {
+    if (mgActive) mgActive.kill('another minigame started');
+    return new Promise(res => {
+      let done = false, secs = 0;
+      const clean = () => { mgOffs.forEach(f => f()); mgOffs.clear(); if (layer) { layer.querySelectorAll('.mg').forEach(e => e.remove()); layer.classList.remove('on', 'ftmode'); } };
+      const end = (v, why, silent) => { if (done) return; done = true; clearInterval(iv); removeEventListener('error', onErr); if (mgActive === tok) mgActive = null;
+        if (why) { console.warn(`minigame ${name}: ${why}`); clean(); } if (!silent) res(v || Object.assign({}, MG_FALLBACK)); };
+      const tok = { name, kill: why => end(null, why, true) }; mgActive = tok;
+      const onErr = e => { if (/\/js\/match\.js/.test(e.filename || '')) end(null, 'error: ' + e.message); }; addEventListener('error', onErr);
+      const iv = setInterval(() => { if (!document.hidden && ++secs > (MG_LIMIT[name] || 25)) end(null, 'timed out'); }, 1000);
+      try { Promise.resolve(fn(layer, o)).then(v => end(v), e => end(null, 'error: ' + (e && e.message))); } catch (e) { end(null, 'error: ' + e.message); }
+    });
+  }
+  for (const k of Object.keys(MG)) { const fn = MG[k]; MG[k] = (layer, o = {}) => guardMG(k, fn, layer, o); }
 
   /* =================================================================
      MATCH FLOW
@@ -919,7 +941,7 @@ const Match = (() => {
       us: 0, them: 0, i: 0, box: { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, to: 0 },
       succ: 0, att: 0, streak: 0, fire: false, sig: 0, sigUsed: false, sigUses: 0, mirror: 0, zone: false, postponed: false, fatigue: s.meta.fatigue * .4, clutchN: 0, clutchW: 0, perfects: 0, highlights: [],
       counters: {}, gameWinner: false, lastType: '', posterizers: 0, clutch: false, last: false, fb: 0,
-      wUses: {}, oppSig: 0, starRun: 0, takeover: 0, closeN: 0, closeKinds: {}, mateMakes: 0, wMini: {}, run: { side: null, pts: 0 }, talkN: 0, talkAt: -9, talkQ: null, failRun: 0, bench: 0, nextBonus: null, rattled: 0, shaken: 0, refFavor: false, minutes: false,
+      wUses: {}, waitInput: 0, inputOffs: new Set(), beatAt: 0, oppSig: 0, starRun: 0, takeover: 0, closeN: 0, closeKinds: {}, mateMakes: 0, wMini: {}, run: { side: null, pts: 0 }, talkN: 0, talkAt: -9, talkQ: null, failRun: 0, bench: 0, nextBonus: null, rattled: 0, shaken: 0, refFavor: false, minutes: false,
     };
     const cnt = (k, v = 1) => st.counters[k] = (st.counters[k] || 0) + v;
 
@@ -947,7 +969,7 @@ const Match = (() => {
     SFX.music('game'); UI.setBg('matchbg', cfg.us.abbr);
     const $ = id => document.getElementById(id);
     // fullscreen: remembered from last time, otherwise offered (non-blocking) at tip-off
-    $('fsBtn').onclick = () => UI.setFullscreen(!UI.isFull()); $('fsBtn').classList.toggle('on', UI.isFull());
+    $('fsBtn').onclick = e => { e.currentTarget.blur(); UI.setFullscreen(!UI.isFull()); }; $('fsBtn').classList.toggle('on', UI.isFull());
     const offerFs = () => { if (UI.fsPref() === '1') { if (!UI.isFull()) UI.setFullscreen(true); return; } if (UI.isFull() || !$('courtWrap')) return; const of = document.createElement('div'); of.className = 'fs-offer'; of.innerHTML = '<b>PLAY FULLSCREEN?</b><button class="btn primary sm" data-f="1">⛶ Fullscreen</button><button class="btn ghost sm" data-f="0">Not now</button>';
       $('courtWrap').appendChild(of); const close = () => { of.classList.add('out'); setTimeout(() => of.remove(), 300); }; of.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.f === '1') UI.setFullscreen(true); close(); }; setTimeout(close, 7000); };
     const court = new Court($('court'), cfg.us, cfg.them, cfg.venueId && VENUES[cfg.venueId] ? cfg.venueId : Venues.forMatch(cfg));
@@ -1006,8 +1028,9 @@ const Match = (() => {
     }
 
     /* ---------- UI helpers ---------- */
-    const pbp = (txt, cls = '') => { const li = document.createElement('li'); li.className = cls; li.innerHTML = `<time>${clockStr()}</time>${sentence(txt)}`; $('pbp').prepend(li); };
-    const banner = async (txt, cls = '', ms = 1300) => { const el = $('banner'); el.className = 'court-banner show ' + cls; el.innerHTML = txt; await sleep(ms); el.className = 'court-banner'; };
+    const beat = () => { st.beatAt = performance.now(); };
+    const pbp = (txt, cls = '') => { beat(); const li = document.createElement('li'); li.className = cls; li.innerHTML = `<time>${clockStr()}</time>${sentence(txt)}`; $('pbp').prepend(li); };
+    const banner = async (txt, cls = '', ms = 1300) => { beat(); const el = $('banner'); el.className = 'court-banner show ' + cls; el.innerHTML = txt; await sleep(ms); el.className = 'court-banner'; };
     const say = (key, extra = {}) => {
       const pool = C[key] || [key];
       const v = Object.assign({ me: myName, first: properName(s.player.first), def: properName(star.name.split(' ').slice(-1)[0]), mate: pick(mateNames.length ? mateNames : ['a teammate']), them: cfg.them.name, us: cfg.us.name }, extra);
@@ -1082,8 +1105,15 @@ const Match = (() => {
     const green = stat => (.06 + Balance.eff(stat) / 99 * .14) * WIN();
 
     /* ---------- decision panel (options show % + breakdown on hover / long-press) ---------- */
-    function choose(setupHtml, options) {
+    /* waiting on the player (a choice or a reply): not a stall; its listeners are released if the moment is reset */
+    function waitInput(setup) {
       return new Promise(res => {
+        let rm = null, done = false; const off = () => { if (done) return; done = true; st.waitInput = Math.max(0, st.waitInput - 1); st.inputOffs.delete(off); rm && rm(); beat(); };
+        st.waitInput++; st.inputOffs.add(off); rm = setup(v => { off(); res(v); }, off);
+      });
+    }
+    function choose(setupHtml, options) {
+      return waitInput((res, off) => {
         const p = $('panel');
         p.innerHTML = `<div class="mp-setup">${setupHtml}</div><div class="mp-opts">${options.map((o, i) => {
           const pc = o.pct != null ? `<span class="pct ${o.pct >= 55 ? 'hi' : o.pct >= 38 ? 'mid' : 'lo'}">${o.pct}%</span>` : `<span class="pct mg">🕹</span>`;
@@ -1092,7 +1122,7 @@ const Match = (() => {
         }).join('')}</div><div class="mp-hint">Hover or long-press an option to see what affects its %.</div>`;
         p.classList.add('show'); p.classList.remove('busy');
         let long = false, timer = null;
-        const go = i => { if (!options[i]) return; window.removeEventListener('keydown', kd); p.classList.remove('show'); SFX.play('click'); res(options[i]); };
+        let gone = false; const go = i => { if (!options[i] || gone) return; gone = true; p.classList.remove('show'); SFX.play('click'); res(options[i]); };
         const kd = e => { const k = parseInt(e.key, 10); if (k >= 1 && k <= options.length) go(k - 1); };
         window.addEventListener('keydown', kd);
         p.querySelectorAll('.opt').forEach(b => {
@@ -1100,12 +1130,13 @@ const Match = (() => {
           b.addEventListener('pointerup', () => clearTimeout(timer)); b.addEventListener('pointerleave', () => clearTimeout(timer));
           b.addEventListener('click', () => { if (long) { long = false; return; } go(+b.dataset.i); });
         });
+        return () => window.removeEventListener('keydown', kd);
       });
     }
     /* Keeps the situation text readable while a minigame plays */
-    function busy(setupHtml, now) { const p = $('panel'); p.innerHTML = `<div class="mp-setup">${setupHtml}</div><div class="mp-now">${now || 'Get ready…'}</div>`; p.classList.add('show', 'busy'); }
+    function busy(setupHtml, now) { beat(); const p = $('panel'); p.innerHTML = `<div class="mp-setup">${setupHtml}</div><div class="mp-now">${now || 'Get ready…'}</div>`; p.classList.add('show', 'busy'); }
     async function showSetup(html, ms = 900) { busy(html); await sleep(ms); }
-    const idle = () => { const p = $('panel'); p.classList.remove('show', 'busy'); p.innerHTML = '<div class="mp-idle">Play continues…</div>'; };
+    const idle = () => { beat(); const p = $('panel'); p.classList.remove('show', 'busy'); p.innerHTML = '<div class="mp-idle">Play continues…</div>'; };
 
     /* ---------- outcome helpers (animate + score + stats) ---------- */
     async function myShot(kind, made, o = {}) {
@@ -1527,7 +1558,7 @@ const Match = (() => {
         const ex = script[k], opts = ex.opts.slice().sort(() => Math.random() - .5);
         p.innerHTML = `<div class="talk">${head()}<div class="tk-line">“${escH(fillT(ex.say))}”</div><div class="mp-opts">${opts.map((o, i) => `<button class="opt talk-opt" data-i="${i}"><kbd>${i + 1}</kbd><span class="opt-l">${escH(fillT(o[1]))}</span></button>`).join('')}</div></div>`;
         p.classList.add('show'); p.classList.remove('busy'); face(k === 0 && type !== 'rival' ? 'neutral' : type === 'rival' ? 'smile' : 'neutral'); SFX.play('blip', { f: type === 'ref' ? 160 : type === 'rival' ? 330 : 140, w: 'square', g: .04 });
-        const pickI = await new Promise(res => { const kd = e => { const n = parseInt(e.key, 10); if (n >= 1 && n <= opts.length) { removeEventListener('keydown', kd); res(n - 1); } }; addEventListener('keydown', kd); p.querySelectorAll('.talk-opt').forEach(b => b.onclick = () => { removeEventListener('keydown', kd); res(+b.dataset.i); }); });
+        const pickI = await waitInput((res, off) => { const kd = e => { const n = parseInt(e.key, 10); if (n >= 1 && n <= opts.length) res(n - 1); }; addEventListener('keydown', kd); p.querySelectorAll('.talk-opt').forEach(b => b.onclick = () => res(+b.dataset.i)); return () => removeEventListener('keydown', kd); });
         const style = opts[pickI][0], v = Math.round((P.styles[style] || 0) + rnd(-3, 3)), good = v > 0;
         if (ego) g = clamp(g - v, 0, 130); else g = clamp(g + v, 0, 100); if (!good) backfires++;
         const bar = p.querySelector('.tk-bar i'), dl = p.querySelector('.tk-delta'); if (bar) bar.style.width = Math.min(100, g) + '%'; if (dl) { dl.textContent = (ego ? (good ? '−' : '+') : (good ? '+' : '−')) + Math.abs(v); dl.className = 'tk-delta ' + (good ? 'good' : 'bad'); }
@@ -1896,10 +1927,12 @@ const Match = (() => {
       SFX.play('whoosh'); court.excite = 1; if (kind === 'final') { SFX.music('clutch'); SFX.play('heartbeat'); }
       await banner(`<small>${escH(o.sub || '')}</small>${K.title}`, 'fb seg-' + kind, kind === 'final' ? 1200 : 800);
       const hd = no > 1 ? (o.handler || 'me') : 'me';
-      const r = await Arcade.segment({ kind, setup, offense, clock, clockLabel, untilClock, title: kind === 'fastbreak' && no > nd ? `FAST BREAK! ${no} ON ${nd}` : K.title,
+      let r = null; try { r = await Arcade.segment({ kind, setup, offense, clock, clockLabel, untilClock, title: kind === 'fastbreak' && no > nd ? `FAST BREAK! ${no} ON ${nd}` : K.title,
         us: cfg.us, them: cfg.them, star, oppRating: oppR, mateRating: cfg.mateRating || 45, numbers: [no, nd], backD, handler: hd,
-        score: [st.us, st.them], venue: court.venueId, bonus: a => bonuses(a), stats: Object.assign({}, ME), stamina: 100 - st.fatigue, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank })), level: s.player.level });
-      st.inSeg = false;
+        score: [st.us, st.them], venue: court.venueId, bonus: a => bonuses(a), stats: Object.assign({}, ME), stamina: 100 - st.fatigue, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank })), level: s.player.level }); } catch (e) { console.error('arcade segment', e); }
+      document.querySelectorAll('.arc').forEach(el => el.remove()); document.body.classList.remove('arc-open');   // nothing left on top of the match
+      if (!r || typeof r !== 'object') r = { ptsUs: 0, ptsThem: 0, end: 'set', me: {}, all: [], log: [], weapons: [] };
+      st.inSeg = false; beat();
       // box score, counters, fatigue
       const b = r.me || {};
       (r.all || []).forEach(x => { if (x.isUser) return; const p = (x.team === 0 ? US : TH).find(q => q.name === x.name); if (!p || !p.box) return; ['pts', 'reb', 'ast', 'stl', 'blk', 'fgm', 'fga', 'tpm', 'tpa', 'to'].forEach(k => p.box[k] += x.box[k] || 0); });
@@ -1991,12 +2024,46 @@ const Match = (() => {
       const ctx = { team: cfg.us, them: cfg.them, usAbbr: cfg.us.abbr, themAbbr: cfg.them.abbr, themName: cfg.them.name, venue: court.venueId, city: cfg.them.city, night: VD.sky === 'night' || VD.style === 'arena' || VD.style === 'gym',
         homeCols: kind === 'away' ? cfg.them.colors : cfg.us.colors, homeScene: VD.style === 'arena' ? 'arena' : 'gym',
         looks: { star: Object.assign({}, STAR.look, { jersey: cfg.them.colors[0], trim: cfg.them.colors[1], outfit: 'jersey' }), coach: coachId ? talkLook(coachId) : null, mate: TMATE() ? TMATE().look : null }, names: { star: STAR.full, coach: coachId ? talkName(coachId) : 'Coach', mate: TMATE() ? TMATE().full || TMATE().name : 'Teammate' } };
-      cnt('pregames'); await Cutscene.pregame({ kind, tier: pgTier, flight: kind === 'away' && /college|pro/.test(cfg.level || ''), city: cfg.them.city, place: vName, starName: STAR.full, starSub: `${cfg.them.name}'s best player`, starStats: top }, ctx);
+      try { cnt('pregames'); await Cutscene.pregame({ kind, tier: pgTier, flight: kind === 'away' && /college|pro/.test(cfg.level || ''), city: cfg.them.city, place: vName, starName: STAR.full, starSub: `${cfg.them.name}'s best player`, starStats: top }, ctx);
       SFX.music('game'); Pixel.ambient(court.V, court.excite);
       if (TK) { const who = kind === 'pickup' ? (Math.random() < .6 ? 'rival' : 'mate') : kind === 'away' ? (rivalId === 'kai' || oppR >= usR + 3 ? 'rival' : 'coach') : (Math.random() < .5 || !coachId ? 'mate' : 'coach');
         await talk(who === 'coach' && !coachId ? 'mate' : who === 'mate' && !TMATE() ? 'rival' : who, null, true); }
+      } catch (e) { console.error('[match] pre-game', e); st.inputOffs.forEach(f => f()); st.inputOffs.clear(); st.waitInput = 0; idle(); if (SFX.crowd && SFX.crowd.reset) SFX.crowd.reset(); }
     }
     offerFs();
+
+    /* ---------- SAFETY NET — every moment runs inside guardMoment():
+       • an error inside a moment is caught (logged) and the game moves on to the next moment;
+       • a WATCHDOG notices when nothing has happened for WD_MS (no play-by-play, panel, banner, court animation
+         finishing…) while the game isn't waiting on the player, a minigame, an arcade segment or a cutscene — and moves on;
+       • recover() clears whatever was left behind: minigame cards + their listeners, choice listeners, stray overlays,
+         frozen court state, a ducked crowd. Only one moment ever runs at a time. */
+    const WD_MS = 20000;
+    court.onBeat = beat;
+    function guardMoment(fn, label) {
+      return new Promise(res => {
+        let done = false; beat();
+        const end = (v, why) => { if (done) return; done = true; clearInterval(iv); if (why) { console.warn(`[match] ${label}: ${why}`); cnt('recovered'); recover(); } res(v); };
+        const iv = setInterval(() => {
+          const waiting = document.hidden || st.waitInput > 0 || st.inSeg || mgActive || (typeof Cutscene !== 'undefined' && Cutscene.playing) || court.rp;
+          if (waiting) return beat();
+          if (performance.now() - st.beatAt > WD_MS) end(undefined, 'no progress — moving on');
+        }, 1000);
+        Promise.resolve().then(fn).then(v => end(v), e => { console.error(`[match] ${label}`, e); end(undefined, 'error: ' + (e && e.message)); });
+      });
+    }
+    function recover() {
+      try {
+        st.inputOffs.forEach(f => f()); st.inputOffs.clear(); st.waitInput = 0;
+        if (mgActive) mgActive.kill('moment reset');
+        const L = $('mg'); if (L) { L.querySelectorAll('.mg').forEach(e => e.remove()); L.classList.remove('on', 'ftmode'); }
+        if (!st.inSeg) { document.querySelectorAll('.arc').forEach(e => e.remove()); document.body.classList.remove('arc-open'); }
+        court.tweens.length = 0; court.stopT = 0; court.timeScale = 1; court.zoom = 1; court.kick = 0;   // the stuck moment's animations are dropped (never resumed)
+        court.players.forEach(p => { p.anim = null; p.pose = ''; p.moving = false; p.z = 0; }); court.ball.holder = U; court.ball.show = true; court.ball.z = 3;
+        $('banner').className = 'court-banner'; if (SFX.crowd && SFX.crowd.reset) SFX.crowd.reset();
+        formation('us'); idle(); updBug(); pbp('Play resets.', 'sys');
+      } catch (e) { console.error('recover', e); }
+    }
 
     /* ---------- GAME LOOP ---------- */
     updBug(); formation('us');
@@ -2014,9 +2081,11 @@ const Match = (() => {
       if (clk.per !== prevPer) { SFX.play('buzzer'); await banner(`END OF ${L.label === 'H' ? '1ST HALF' : 'Q' + prevPer}`, '', 1000); prevPer = clk.per; pbp(`— ${L.label}${clk.per} —`, 'sys'); }
       if (st.talkQ && st.talkAt < i) {   // dead ball: a quick conversation (huddle or face-off first)
         const q = st.talkQ; st.talkQ = null; formation('us');
-        if (q.type === 'coach') { const cl = talkLook(coachId); await court.mini('huddle', 'TIMEOUT', { look: cl, name: talkName(coachId), force: true }); }
-        if (q.type === 'rival') await court.mini('faceoff', 'FACE-OFF', { look2: STAR.look, name2: STAR.full, colors2: cfg.them.colors, force: true });
-        await talk(q.type, q.topic || (q.type === 'coach' ? pick(['play', 'minutes']) : null)); updBug();
+        await guardMoment(async () => {
+          if (q.type === 'coach') { const cl = talkLook(coachId); await court.mini('huddle', 'TIMEOUT', { look: cl, name: talkName(coachId), force: true }); }
+          if (q.type === 'rival') await court.mini('faceoff', 'FACE-OFF', { look2: STAR.look, name2: STAR.full, colors2: cfg.them.colors, force: true });
+          await talk(q.type, q.topic || (q.type === 'coach' ? pick(['play', 'minutes']) : null));
+        }, 'talk'); updBug();
         if (st.done) break;
       }
       if (st.bench > 0) { st.bench--; pbp(`🪑 You watch from the bench as ${escH(cfg.us.name)} play on.`, 'bad'); simSegment(1 / (n + 1)); updBug(); st.lastType = 'bench'; await sleep(600); continue; }
@@ -2024,8 +2093,8 @@ const Match = (() => {
       st.clutch = clk.per === L.periods && (i >= n - 2) && Math.abs(diff) <= 6; st.last = last;
       $('vig').classList.toggle('on', st.clutch); court.clutch = st.clutch;
       if (st.clutch) { SFX.music('clutch'); SFX.play('heartbeat'); st.clutchN++; if (i === n - 2 || last) await banner('CLUTCH TIME', 'clutch', 1100); }
-      let type;
       const periodEnds = !last && clockFor(i + 1).per !== clk.per;
+      const type = await guardMoment(async () => { let type;
       if (last && st.clutch && canSeg()) {   // FINAL POSSESSION — the biggest moment of the game, played live
         const secs = clamp(Math.ceil(clk.rem), 6, 14);
         if (diff <= 0) {
@@ -2048,6 +2117,7 @@ const Match = (() => {
         type = st.playCalled ? 'off_poss' : st.takeover > 0 && Math.random() < OB.star.askGuard ? 'guard_star' : pickMoment();
         if (type === 'def_poss' || type === 'quick_def' || type === 'guard_star') await withMirror(RUN[type]); else await RUN[type]();
       }
+      return type; }, `moment ${i + 1}`) || 'recovered';
       st.lastType = type; idle(); st.nextBonus = st.playCalled ? st.nextBonus : null; st.playCalled = false; if (st.rattled > 0) st.rattled--; if (st.shaken > 0) st.shaken--;
       if (clk.per === L.periods && last) clk.rem = 0;
       updBug(); await sleep(500);
@@ -2058,7 +2128,7 @@ const Match = (() => {
       const near = st.us >= cfg.target - 3 && st.them >= cfg.target - 3;
       if (sd === 1 || near) { await banner(`<small>${st.us} – ${st.them} · FIRST TO ${cfg.target}</small>${near ? 'NEXT BUCKET WINS' : 'KEEP PLAYING'}`, 'clutch', 1100); pbp(near ? `${st.us}-${st.them}. Next bucket wins.` : `${st.us}-${st.them}. First to ${cfg.target} — keep playing.`, 'hot'); }
       st.clutch = near; st.last = near; $('vig').classList.toggle('on', near);
-      const type = pickMoment(); if (type === 'def_poss' || type === 'quick_def') await withMirror(RUN[type]); else await RUN[type]();
+      const type = pickMoment(); await guardMoment(() => type === 'def_poss' || type === 'quick_def' ? withMirror(RUN[type]) : RUN[type](), 'next bucket');
       st.lastType = type; idle(); updBug(); await sleep(400);
     }
     if (PICK && !st.done) { const side = st.us === st.them ? (Math.random() < .5 ? 'us' : 'them') : st.us > st.them ? 'us' : 'them'; const add = cfg.target - st[side]; st.done = side; st[side] = cfg.target; pbp(`${side === 'us' ? escH(cfg.us.name) : escH(cfg.them.name)} close it out (+${add}).`, side === 'us' ? 'good' : 'bad'); }
@@ -2068,8 +2138,10 @@ const Match = (() => {
       ot++; SFX.play('buzzer'); await banner('OVERTIME', 'clutch', 1200); clk = { per: L.periods + ot, rem: 20 }; st.clutch = true; $('vig').classList.add('on');
       st.us += Math.floor(rnd(2, 7)); st.them += Math.floor(rnd(2, 7)); const d = st.us - st.them; if (d > 0) st.them += d; else st.us -= d;
       updBug(); const before = st.us;
-      if (canSeg() && (st.segKinds.final || 0) < 2) { pbp(`Overtime. Tied ${st.us}-${st.them}. Final possession — make a play.`, 'hot'); await arcadeSegment('final', { offense: 0, clock: 10, sub: 'OVERTIME · LAST SHOT' }); }
-      else await offPossession({ text: `Overtime. Tied ${st.us}-${st.them}. Final possession — make a play.` });
+      await guardMoment(async () => {
+        if (canSeg() && (st.segKinds.final || 0) < 2) { pbp(`Overtime. Tied ${st.us}-${st.them}. Final possession — make a play.`, 'hot'); await arcadeSegment('final', { offense: 0, clock: 10, sub: 'OVERTIME · LAST SHOT' }); }
+        else await offPossession({ text: `Overtime. Tied ${st.us}-${st.them}. Final possession — make a play.` });
+      }, 'overtime');
       if (st.us > before) { st.gameWinner = true; cnt('gameWinners'); st.highlights.push('Won it in overtime'); }
     }
     if (!PICK && st.us === st.them) st.them += 1;

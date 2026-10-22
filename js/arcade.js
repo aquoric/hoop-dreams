@@ -69,8 +69,19 @@ const Arcade = (() => {
      ================================================================= */
   const VENUE_ALIAS = { street: 'street_night', gym: 'rec_center', arena: 'college_arena' };
   const blendAI = (a, b, k) => { const o = {}; for (const key in b) o[key] = a[key] + (b[key] - a[key]) * k; return o; };
+  /* a neutral result for a segment / game that could not run (never leave the match waiting) */
+  const fallbackResult = cfg => cfg.mode === 'game' ? { win: false, score: [0, 0], box: {}, forfeit: true, all: [], log: [], weapons: [], fatigue: 15 }
+    : { kind: (cfg.seg || {}).kind, ptsUs: 0, ptsThem: 0, pts: 0, end: 'set', offense: 0, scorer: null, me: {}, foul: null, stamina: 0, log: [], all: [], weapons: [], ankles: 0 };
   function run(cfg) {
     return new Promise(resolve => {
+      let settled = false; const done = r => { if (settled) return; settled = true; resolve(r); };
+      try { runInner(cfg, done); }
+      catch (e) { console.error('arcade setup', e); document.querySelectorAll('.arc').forEach(el => el.remove()); document.body.classList.remove('arc-open'); done(fallbackResult(cfg)); }
+    });
+  }
+  function runInner(cfg, resolve) {
+    {
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();   // keys belong to the game, not a focused button
       const PACE = CF().pace, MV = CF().moves;
       const diff = DIFFICULTY[cfg.difficulty] ? cfg.difficulty : (Game.state && DIFFICULTY[Game.state.difficulty] ? Game.state.difficulty : 'pro');
       const AIP = BALANCE.difficulty.pro.arcade, WINDOW = DIFFICULTY[diff].window;
@@ -120,7 +131,7 @@ const Arcade = (() => {
       cfg.teams.forEach((tm, ti) => tm.players.forEach((pl, i) => {
         const look = pl.look || Art.lookFromSeed(pl.name);
         players.push({ team: ti, i, name: pl.name, short: String(pl.name).replace(/"[^"]*"\s*/, '').trim().split(' ').slice(-1)[0], st: pl.stats, arch: pl.arch, isUser: !!pl.isUser, bonusFn: pl.bonus, isStar: !!pl.star,
-          weapons: (pl.weapons || []).map(w => typeof w === 'string' ? { id: w, rank: 1 } : w).filter(w => WEAPONS[w.id]), wpn: null, wUsed: 0,
+          weapons: (pl.weapons || []).map(w => typeof w === 'string' ? { id: w, rank: 1 } : w).filter(w => w && WEAPONS[w.id]), wpn: null, wUsed: 0,
           num: pl.num != null ? pl.num : (look.num || (7 + i * 13 + ti * 5) % 60),
           skin: look.skin || '#a86b43', skinD: shade(look.skin || '#a86b43', -.28), hair: look.hair || 'fade', hairC: look.hairColor || '#111', band: look.headband || '', shoe: look.shoeColor || '#f8fafc',
           col: tm.colors[0], colD: shade(tm.colors[0], -.32), colL: shade(tm.colors[0], .18), col2: tm.colors[1] || '#ffffff',
@@ -1008,8 +1019,13 @@ const Arcade = (() => {
       let last = performance.now(), acc = 0, raf = 0;
       const loop = now => {
         if (G.over) return;
+        G.beat = performance.now(); raf = requestAnimationFrame(loop);
+        try { frame(now); G.errs = 0; }
+        catch (e) { console.error('arcade frame', e); if (++G.errs > 5) { cancelAnimationFrame(raf); safeEnd('error'); } }
+      };
+      const frame = now => {
         const rdt = Math.min(.05, (now - last) / 1000); last = now; G.real += rdt;
-        if (G.rp) { try { drawReplay(Math.min(.12, (now - (G.rp.last || now)) / 1000)); G.rp && (G.rp.last = now); } catch (e) { G.rp && G.rp.done(); } raf = requestAnimationFrame(loop); return; }
+        if (G.rp) { try { drawReplay(Math.min(.12, (now - (G.rp.last || now)) / 1000)); G.rp && (G.rp.last = now); } catch (e) { G.rp && G.rp.done(); } return; }
         // hit-stop: freeze the sim and the visuals for a few frames on big impacts
         const stopped = G.stop > 0; if (stopped) G.stop = Math.max(0, G.stop - rdt);
         const vdt = stopped ? 0 : rdt * (G.slowT > 0 ? Math.max(.45, PACE.slowmo) : 1); G.vt += vdt;
@@ -1018,8 +1034,9 @@ const Arcade = (() => {
         G.shake *= Math.pow(.02, rdt); G.flash *= Math.pow(.02, rdt); G.kick *= Math.pow(.004, rdt);
         if (!stopped) acc += rdt * PACE.game * (G.slowT > 0 ? PACE.slowmo : 1);
         let n = 0; while (acc >= 1 / 60 && n < 8) { update(1 / 60); acc -= 1 / 60; n++; }
+        if (G.paused !== true && !G.rp) G.active = (G.active || 0) + rdt;   // real playing time (help card / pause menu don't count)
         if ((lvlT -= rdt) <= 0) { lvlT = .8; SFX.crowd && SFX.crowd.level(E.hype); }
-        render(rdt, vdt); if (vdt > 0) capture(rdt); raf = requestAnimationFrame(loop);
+        render(rdt, vdt); if (vdt > 0) capture(rdt);
       };
       Pixel.ambient(VEN, E.hype); let lvlT = 0;   // the venue ambience loop (same one the match court uses — never a second layer)
 
@@ -1039,9 +1056,23 @@ const Arcade = (() => {
         intro.innerHTML = '<b class="cd">BALL!</b>'; SFX.play('whistle'); await sleep(450); intro.className = 'arc-intro';
         G.paused = false;
       }
+      function cleanup() { G.over = true; cancelAnimationFrame(raf); clearInterval(watch); removeEventListener('keydown', kd); removeEventListener('keyup', ku); if (G.rp) G.rp.done(); }
+      function safeEnd(why) {   // last resort: hand a neutral result back right away
+        if (G.closed) return; G.closed = true; cleanup(); console.warn('arcade: ended early (' + why + ')');
+        root.remove(); document.body.classList.remove('arc-open'); resolve(Object.assign(fallbackResult(cfg), SEGM ? { ptsUs: G.score[0], ptsThem: G.score[1], pts: G.score[0], me: Object.assign({}, me.box) } : {}));
+      }
+      /* watchdog: the loop stopped drawing while the page is visible → restart it; a segment running far past its clock → end it */
+      const watch = setInterval(() => {
+        if (G.over || document.hidden) return;
+        if (performance.now() - (G.beat || performance.now()) > 2500) { cancelAnimationFrame(raf); last = performance.now(); raf = requestAnimationFrame(loop); }
+        if (SEGM && (G.active || 0) > (SEG.clock || 8) + 25) { G.pending = null; finish({ end: G.off === 0 ? 'set' : 'stop' }); }
+      }, 1000);
       function finish(extra = {}) {
-        if (G.over) return; G.over = true;
-        removeEventListener('keydown', kd); removeEventListener('keyup', ku);
+        if (G.over) return;
+        try { finishInner(extra); } catch (e) { console.error('arcade finish', e); safeEnd('finish error'); }
+      }
+      function finishInner(extra) {
+        cleanup();
         let res, banner, sub = '';
         if (SEGM) {
           const scorer = extra.scorer || null;
@@ -1059,17 +1090,17 @@ const Arcade = (() => {
         SFX.play(SEGM ? (res.ptsUs || res.end === 'stop' ? 'roar' : res.ptsThem ? 'groan' : 'whistle') : (res.win ? 'roar' : 'groan'));
         const hold = SEGM ? 1000 : 2000;
         setTimeout(() => {
-          cancelAnimationFrame(raf);
+          if (G.closed) return;
           if (SEGM) { trans.querySelector('b').textContent = 'BACK TO THE GAME'; trans.className = 'arc-trans in'; }
           root.classList.add('out');
-          setTimeout(() => { root.remove(); document.body.classList.remove('arc-open'); resolve(res); }, SEGM ? 520 : 320);
+          setTimeout(() => { G.closed = true; root.remove(); document.body.classList.remove('arc-open'); resolve(res); }, SEGM ? 520 : 320);
         }, hold);
       }
       requestAnimationFrame(() => root.classList.add('in'));
       raf = requestAnimationFrame(loop);
       let seen = false; try { seen = localStorage.getItem('hd_arcade_help2') === '1'; } catch (e) { }
       if (!seen) { showHelp(); G.wasPaused = true; } else begin();
-    });
+    }
   }
 
   /* =================================================================
