@@ -8,7 +8,7 @@
    after ~32 bars. Edit SONGS to add or change tracks.
    ===================================================================== */
 
-/* ---------- SONG LIST (moods: menu, hub, story, game, clutch, victory, sad) ----------
+/* ---------- SONG LIST (moods: menu, hub, story, game, clutch, build, victory, sad) ----------
    root: MIDI note of the key (45 = A2). scale: see SCALES. prog: scale degrees (0 = i/I).
    drums: 16-step patterns. 'x' = hit, 'o' = soft hit, '.' = rest.
      k kick, s snare, c clap, h closed hat, oh open hat, r rimshot
@@ -66,6 +66,10 @@ const SONGS = [
     drums: { k: 'x.......x..x....', c: '........x.......', h: 'x.x.x.x.x.x.x.x.' },
     drumsB: { k: 'x.....x.x..x....', c: '........x.......', h: 'x.xxx.x.xxx.x.xx' },
     bass: 'x.......x..x....', bassType: '808', keys: 'pad', lead: 'bell', leadDensity: .25, rolls: true, kick808: true },
+  // ---------------- BUILD (cutscene tension that leads into the big moment) ----------------
+  { name: 'Rising Tension', gain: 0.9, mood: 'build', bpm: 124, swing: 0, root: 40, scale: 'harm', prog: [0, 0, 5, 4],
+    drums: { k: 'x.......x.......', h: '' }, drumsB: { k: 'x...x...x...x...', h: '..x...x...x...x.', c: '............x...' },
+    bass: 'x.x.x.x.x.x.x.x.', bassType: 'saw', keys: 'pad', lead: 'bell', leadDensity: .12 },
   // ---------------- VICTORY ----------------
   { name: 'Banner Night', gain: 0.85, mood: 'victory', bpm: 116, swing: 0, root: 48, scale: 'major', prog: [0, 4, 5, 3],
     drums: { k: 'x...x...x...x...', c: '....x.......x...', h: '..x...x...x...x.' },
@@ -135,8 +139,8 @@ const SFX = (() => {
     hover: () => tone(1400, 0.03, 'sine', 0.04),
     swish: () => { noise(0.28, 'bandpass', 2600, 0.35, 0, 6500, 1.2); noise(0.18, 'highpass', 5000, 0.1, 0.05); },
     rim: () => { tone(520, 0.35, 'triangle', 0.2); tone(1310, 0.25, 'sine', 0.08); noise(0.08, 'bandpass', 3000, 0.15); },
-    bounce: () => tone(110, 0.14, 'sine', 0.45, 0, sfxBus, 45),
-    squeak: () => { tone(2300, 0.09, 'sine', 0.07, 0, sfxBus, 3300); tone(2900, 0.06, 'sine', 0.05, 0.07, sfxBus, 2100); },
+    bounce: (v = 1) => { tone(110, 0.14, 'sine', 0.45 * v, 0, sfxBus, 45); noise(0.03, 'bandpass', 900, 0.06 * v, 0, 500, 1); },
+    squeak: (v = 1) => { const f = 2100 + Math.random() * 500; tone(f, 0.09, 'sine', 0.07 * v, 0, sfxBus, f * 1.4); tone(f * 1.25, 0.06, 'sine', 0.05 * v, 0.07, sfxBus, f * .9); },
     whistle: () => { tone(2900, 0.45, 'sine', 0.15); tone(2960, 0.45, 'sine', 0.08); },
     buzzer: () => { tone(220, 1.1, 'sawtooth', 0.14); tone(233, 1.1, 'square', 0.07); },
     crowd: (intensity = 1) => { noise(1.8 * intensity, 'bandpass', 900, 0.25 * intensity, 0, 1400, 0.6, sfxBus, 0.25); noise(1.4 * intensity, 'bandpass', 2200, 0.08 * intensity, 0.1, 1800, 0.8, sfxBus, 0.3); },
@@ -154,6 +158,23 @@ const SFX = (() => {
     heartbeat: () => { tone(60, 0.12, 'sine', 0.5); tone(55, 0.12, 'sine', 0.35, 0.18); },
     sig: () => { noise(0.8, 'bandpass', 300, 0.3, 0, 5000, 3); [392, 523, 659, 784].forEach((f, i) => tone(f, 0.4, 'sawtooth', 0.06, i * 0.06)); },
     page: () => noise(0.12, 'highpass', 3000, 0.06),
+    /* animation + cutscene sounds */
+    thud: (v = 1) => { tone(90, 0.12, 'sine', 0.3 * v, 0, sfxBus, 48); noise(0.06, 'lowpass', 700, 0.08 * v); },
+    slap: () => { noise(0.07, 'bandpass', 1600, 0.35, 0, 900, 1.4); tone(220, 0.08, 'triangle', 0.15, 0, sfxBus, 120); },
+    ooh: () => { noise(1.1, 'bandpass', 520, 0.22, 0, 820, 3, sfxBus, 0.18); noise(1.1, 'bandpass', 1050, 0.08, 0, 1500, 3, sfxBus, 0.2); },
+    net: () => { noise(0.22, 'highpass', 4200, 0.12, 0, 7000, 0.8); noise(0.16, 'bandpass', 2000, 0.08, 0.04, 3200, 1); },
+    shutter: (v = 1) => { noise(0.02, 'highpass', 5000, 0.12 * v); noise(0.03, 'bandpass', 2400, 0.08 * v, 0.05); },
+    riser: (dur = 2) => { noise(dur, 'bandpass', 250, 0.16, 0, 6000, 2.5, sfxBus, dur * .9); tone(110, dur, 'sawtooth', 0.04, 0, sfxBus, 880); },
+    impact: () => { tone(64, 1.1, 'sine', 0.7, 0, sfxBus, 28); noise(0.5, 'lowpass', 900, 0.4, 0, 120, 0.7); noise(0.06, 'highpass', 3500, 0.2); },
+    stinger: () => { LIB.impact(); [0, 7, 12, 15].forEach(n => tone(110 * Math.pow(2, n / 12), 0.9, 'sawtooth', 0.045, 0.01)); },
+    crack: () => { noise(0.05, 'highpass', 2500, 0.45); tone(180, 0.09, 'square', 0.12, 0, sfxBus, 60); },
+    crash: () => { LIB.impact(); for (let i = 0; i < 9; i++) tone(2600 + Math.random() * 3000, 0.25, 'triangle', 0.035, 0.05 + i * 0.03); noise(0.9, 'highpass', 3000, 0.14, 0.05, 6000, 0.6); },
+    thunder: () => { noise(2.8, 'lowpass', 300, 0.35, 0, 80, 0.5, sfxBus, 0.05); noise(0.4, 'lowpass', 1200, 0.2, 0, 300, 0.6); },
+    engine: () => { tone(48, 2.2, 'sawtooth', 0.06, 0, sfxBus, 40); noise(2.2, 'lowpass', 220, 0.12, 0, 160, 0.6, sfxBus, 0.4); },
+    beep: () => tone(1046, 0.09, 'sine', 0.06),
+    write: () => { for (let i = 0; i < 4; i++) noise(0.05, 'bandpass', 3500 + Math.random() * 1500, 0.05, i * 0.07); },
+    /* dialogue voice blip — v: { f: pitch, w: wave } per character */
+    blip: (v = {}) => tone((v.f || 300) * (0.94 + Math.random() * 0.12), 0.05, v.w || 'square', v.g || 0.035),
     /* venue ambience (called every few seconds by the court; h = crowd hype 0..1) */
     amb_city: (h = .3) => { noise(3.5, 'lowpass', 260, 0.12, 0, 180, 0.5, sfxBus, 0.8); if (Math.random() < .35) tone(392, 0.25, 'square', 0.025, Math.random() * 2, sfxBus, 370); LIB.crowd(.25 + h * .4); },
     amb_park: (h = .3) => { for (let i = 0; i < 3; i++) { const t = Math.random() * 2.5, f = 2600 + Math.random() * 1400; tone(f, 0.07, 'sine', 0.035, t, sfxBus, f * 1.25); tone(f * 1.1, 0.06, 'sine', 0.03, t + .1, sfxBus, f); } LIB.crowd(.2 + h * .4); },

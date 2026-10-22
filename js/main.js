@@ -57,7 +57,7 @@ const Game = {
     const nid = s.story.chapter + ':' + s.story.node;
     if (node.fx && s.story.fxApplied !== nid) { s.story.fxApplied = nid; const ch2 = this.applyFx(node.fx); node._fxChanges = ch2; this.save(); }
     else node._fxChanges = null;
-    // cinematic cutscene when entering this node (once per visit, skippable)
+    // cinematic cutscene when entering this node (once per visit, unskippable)
     if (node.cutscene && s.story.cs !== nid && typeof Cutscene !== 'undefined') {
       s.story.cs = nid; this.save();
       return Cutscene.play(node.cutscene, this.csCtx(s.story.node)).then(() => this.runNode());
@@ -132,10 +132,10 @@ const Game = {
   csCtx(nodeId) {
     const s = this.state, g = s.lastGame || {}, END = { crash2: 'crash', c2_broken: 'broken', c2_scheme2: 'locked' };
     const team = s.career.hs && LOCAL_TEAMS[s.career.hs];
-    return { score: g.us != null ? `${g.us}-${g.them}` : '', usAbbr: g.usAbbr, themAbbr: g.themAbbr, ending: END[nodeId] && STORY.endings[END[nodeId]].title, injury: s.meta.injury && s.meta.injury.name, team: team ? { colors: team.colors } : null };
+    return { score: g.us != null ? `${g.us}-${g.them}` : '', usAbbr: g.usAbbr, themAbbr: g.themAbbr, ending: END[nodeId] && STORY.endings[END[nodeId]].title, injury: s.meta.injury && s.meta.injury.name, team: team ? { colors: team.colors } : null, them: g.themColors ? { colors: g.themColors } : null, venue: g.venue || (s.career.hs && VENUES['gym_' + s.career.hs] ? 'gym_' + s.career.hs : null) };
   },
   gradeOf(gs) { return gs >= 92 ? 'A+' : gs >= 85 ? 'A' : gs >= 80 ? 'A-' : gs >= 75 ? 'B+' : gs >= 68 ? 'B' : gs >= 62 ? 'B-' : gs >= 56 ? 'C+' : gs >= 50 ? 'C' : gs >= 44 ? 'C-' : gs >= 36 ? 'D' : 'F'; },
-  async bigMoment(r) { if (r.gameWinner && r.importance >= 2 && typeof Cutscene !== 'undefined') await Cutscene.play('game_winner', { score: `${r.us}-${r.them}`, usAbbr: r.cfg.us.abbr, themAbbr: r.cfg.them.abbr, team: { colors: r.cfg.us.colors } }); },
+  async bigMoment(r) { if (r.gameWinner && r.importance >= 2 && typeof Cutscene !== 'undefined') await Cutscene.play('game_winner', { score: `${r.us}-${r.them}`, usAbbr: r.cfg.us.abbr, themAbbr: r.cfg.them.abbr, team: { colors: r.cfg.us.colors }, them: { colors: r.cfg.them.colors }, venue: r.venueId }); },
   /* Pickup run in the hub: 3v3 to 21 on a court you pick (uses 1 action). Arcade segments are built into the game.
      Sometimes the run moves to a street court you haven't played yet, which unlocks it. */
   async pickup() {
@@ -229,7 +229,7 @@ const Game = {
     if (r.grade === 'A+') s.counters.aPlus++;
     this.healTick();
     if (r.win && r.cfg.them.star && r.cfg.them.star.name === 'Kai Sterling') s.flags.beat_kai = true;
-    s.lastGame = { us: r.us, them: r.them, usAbbr: r.cfg.us.abbr, themAbbr: r.cfg.them.abbr };
+    s.lastGame = { us: r.us, them: r.them, usAbbr: r.cfg.us.abbr, themAbbr: r.cfg.them.abbr, themColors: r.cfg.them.colors, venue: r.venueId };
     // XP + meta
     const xp = Math.round((L.xp * (0.6 + rate) + r.successes * 8) * (r.win ? 1.25 : 1) * gm * (1 + (imp - 1) * .35));
     const xr = Engine.addXP(s, xp);

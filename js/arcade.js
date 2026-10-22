@@ -130,13 +130,15 @@ const Arcade = (() => {
       const teamOf = t => players.filter(p => p.team === t);
       const ball = { state: 'held', owner: null, x: 192, y: 160, z: 10, vx: 0, vy: 0, vz: 0, spin: 0, shot: null, pass: null, lastPasser: null, passT: -9, sx: 0, sy: 0, sz: 0 };
       const G = { score: [0, 0], off: 0, clock: SEGM ? SEG.clock : PACE.shotClock, over: false, paused: true, started: false, time: 0, real: 0, cam: (A.W - VW) / 2,
-        slowT: 0, zoom: 1, zf: { x: A.hoop.x, y: 40 }, shake: 0, flash: 0, speedT: 0,
+        slowT: 0, zoom: 1, zf: { x: A.hoop.x, y: 40 }, shake: 0, flash: 0, speedT: 0, stop: 0, kick: 0, vt: 0, cutAt: -99, cuts: 0, flashCol: '255,255,255',
         anyFire: false, mustClear: false, endAt: 0, pending: null, log: [], stamUsed: 0, lastScorer: null, lastShooter: null, fbStart: 0 };
       const RD = Pixel.renderer(c, VEN), E = RD.E;
+      E.onLand = (p, h) => { if (h > 14) SFX.play('thud', p === me ? .9 : .45); };
+      if (typeof Cutscene !== 'undefined' && Cutscene.prep) Cutscene.prep(me.look || Engine.look(Game.state));   // portrait for highlight close-ups
       const input = { jx: 0, jy: 0, shoot: false };
 
       /* ---------- setup ---------- */
-      function resetP(p) { p.z = 0; p.vz = 0; p.vx = 0; p.vy = 0; p.stun = 0; p.act = null; p.goal = null; p.burst = 0; p.slide = 0; }
+      function resetP(p) { p.z = 0; p.vz = 0; p.vx = 0; p.vy = 0; p.stun = 0; p.act = null; p.goal = null; p.burst = 0; p.slide = 0; p.celebNext = null; p.bumpTo = null; }
       function giveBall(p) { ball.state = 'held'; ball.owner = p; ball.shot = null; ball.pass = null; p.catchT = G.time; }
       function setupHalf(off) {
         G.off = off; G.clock = SEGM ? SEG.clock : PACE.shotClock; G.mustClear = false;
@@ -211,6 +213,23 @@ const Arcade = (() => {
         tagEl.appendChild(el); setTimeout(() => el.remove(), 1100);
       }
       const logLine = t => G.log.push(t);
+      /* ---- impact feel: hit-stop freeze, camera punch-in, flash ---- */
+      function impact(stop, shake, flash, kick = .05, col = '255,255,255') { G.stop = Math.max(G.stop, stop); G.shake = Math.max(G.shake, shake); G.flash = Math.max(G.flash, flash); G.flashCol = col; G.kick = Math.max(G.kick, kick); }
+      /* ---- quick cut to an anime close-up for highlight plays (rate-limited) ---- */
+      function highlight(kind, p, caption, delay = 170) {
+        if (typeof Cutscene === 'undefined' || !Cutscene.highlight || G.over || G.real - G.cutAt < 7 || G.cuts >= (SEGM ? 1 : 3)) return;
+        const tm = cfg.teams[p.team], ok = p === me ? Cutscene.ready(me.look) : false; if (!ok) return;
+        G.cutAt = G.real; G.cuts++;
+        setTimeout(() => { if (G.over) return; G.stop = Math.max(G.stop, 1.25); Cutscene.highlight({ kind, look: me.look, name: p.name, caption, colors: tm.colors, bench: teamOf(p.team).length }); }, delay);
+      }
+      /* ---- celebrations + reactions after a basket ---- */
+      function celebrate(p, kind, pts) {
+        const big = kind === 'dunk' || pts === 3 || p.fire > 0;
+        p.celebNext = kind === 'dunk' ? pick(['flex', 'thump', 'flex']) : pts === 3 ? pick(['point', 'point', 'celebrate']) : pick(['celebrate', 'clap', 'point']);
+        teamOf(p.team).filter(q => q !== p && q.stun <= 0).forEach(q => { q.celebNext = 'joy'; if (big && dist(q, p) < 90) q.bumpTo = p; });
+        teamOf(1 - p.team).forEach(q => { if (q.stun <= 0) q.celebNext = 'hang'; });
+        RD.cheer(big ? 1 : .55, big);
+      }
       function burst(x, y, col, n = 14, sp = 60) { for (let i = 0; i < n; i++) E.fx.push({ x, y, vx: rnd(-sp, sp), vy: rnd(-sp * 1.3, sp * .2), life: rnd(.4, .8), col }); }
 
       /* =================================================================
@@ -253,7 +272,8 @@ const Arcade = (() => {
       function blocked(q, shooter) {
         q.box.blk++; ball.shot = null; ball.owner = null; ball.state = 'loose';
         ball.x = shooter.x + shooter.face * 4; ball.y = shooter.y; ball.z = Math.max(18, shooter.z + 26); ball.vx = (q.x < shooter.x ? 1 : -1) * rnd(50, 110); ball.vy = rnd(10, 60); ball.vz = 50;
-        pop(pick(A.lines.block), '#38bdf8', true); SFX.play('dunk'); G.shake = 4; E.hype = Math.min(1, E.hype + .3); burst(ball.x, ball.y - ball.z, '#e0f2fe', 12);
+        pop(pick(A.lines.block), '#38bdf8', true); SFX.play('dunk'); SFX.play('crowd', 1.5); impact(.13, 7, .25, .06, '186,230,253'); E.hype = Math.min(1, E.hype + .3); burst(ball.x, ball.y - ball.z, '#e0f2fe', 16); RD.ring(ball.x, ball.y - ball.z, '#bae6fd', 140, .3); RD.sweat(shooter.x, shooter.y - shooter.z - 22, 5); RD.cheer(.8);
+        if (q === me) highlight('block', q, pick(A.lines.block), 140);
         shooter.streak = 0; if (shooter.fire) shooter.fire = 0;
         logLine(`${q.name} blocks ${shooter.name}!`);
       }
@@ -266,7 +286,7 @@ const Arcade = (() => {
         const from = { x: p.x + p.face * 2, y: p.y, z: p.z + 32 }, H = A.hoop;
         const to = res === 'airball' ? { x: H.x + rnd(-8, 8), y: H.y + 10, z: H.z - 9 } : res === 'rimout' ? { x: H.x + rnd(-3, 3), y: H.y + 3, z: H.z + 1 } : res === 'back' ? { x: H.x + rnd(-2, 2), y: H.y - 3, z: H.z + 2 } : { x: H.x, y: H.y, z: H.z + 1 };
         ball.shot = { by: p, from, to, t: 0, T: PACE.shotFlight(sc.dh), made, res, three: sc.three, action: sc.action, peak: 18 + sc.dh * .16, pct };
-        if (SEGM && SEG.untilClock && G.clock < 2.2) { G.slowT = .9; G.zoomT = 1; SFX.play('heartbeat'); }
+        if ((SEGM && SEG.untilClock && G.clock < 2.2) || (!SEGM && made && G.score[p.team] + (sc.three ? 3 : 2) >= target)) { G.slowT = 1.2; G.zoomT = 1; G.winShot = !SEGM && made; SFX.play('heartbeat'); }
         Object.assign(ball, { x: from.x, y: from.y, z: from.z }); void hand;
         p.box.fga++; if (sc.three) p.box.tpa++; G.lastShooter = p;
       }
@@ -295,16 +315,19 @@ const Arcade = (() => {
         if (p.streak === 2 && !p.fire) pop(pick(A.lines.heating), '#fb923c');
         if (p.streak >= 3 && !p.fire) { p.fire = 4; G.anyFire = G.anyFire || p === me; pop(pick(A.lines.fire), '#f97316', true); SFX.play('roar'); } else if (p.fire) p.fire--;
         pop(kind === 'dunk' ? pick(A.lines.dunk) : pts === 3 ? pick(A.lines.three) : pick(A.lines.two), p.team === me.team ? '#facc15' : '#f87171', kind === 'dunk');
-        SFX.play(kind === 'dunk' ? 'dunk' : 'swish'); SFX.play('crowd', kind === 'dunk' ? 1.6 : 1.1);
+        SFX.play(kind === 'dunk' ? 'dunk' : 'swish'); SFX.play('net'); SFX.play('crowd', kind === 'dunk' ? 1.6 : 1.1);
+        celebrate(p, kind, pts);
+        const wins = !SEGM && G.score[p.team] + (foul ? 1 : 0) >= target;
+        if (wins) { RD.confetti(180); SFX.play('roar'); if (p.team === me.team) highlight('winner', me, 'GAME!', 420); }
         E.hype = Math.min(1, E.hype + (kind === 'dunk' ? .5 : .25));
         $('ahS' + p.team).textContent = (SEGM ? (p.team ? sc1 : sc0) : 0) + G.score[p.team];
         $('ahS' + p.team).classList.remove('bump'); void $('ahS' + p.team).offsetWidth; $('ahS' + p.team).classList.add('bump');
         logLine(`${p.name} ${kind === 'dunk' ? 'throws it down' : pts === 3 ? 'drills a three' : kind === 'layup' ? 'finishes at the rim' : 'knocks down the jumper'}${assist ? ` (assist: ${assist.name})` : ''}`);
         if (foul) { pop('AND ONE!', '#f472b6', true); SFX.play('whistle'); }
-        if (SEGM) { const bz = SEG.untilClock && G.clock <= 0; if (bz) pop('AT THE BUZZER!!', '#fde047', true); return endSoon({ end: foul ? 'foul' : 'score', foul: foul ? { shots: 1, team: p.team } : null, pts, scorer: p, dunk: kind === 'dunk', buzzer: bz }, 1.1); }
+        if (SEGM) { const bz = SEG.untilClock && G.clock <= 0; if (bz) { pop('AT THE BUZZER!!', '#fde047', true); RD.confetti(120); if (p.team === me.team) highlight('winner', me, 'AT THE BUZZER!', 350); } return endSoon({ end: foul ? 'foul' : 'score', foul: foul ? { shots: 1, team: p.team } : null, pts, scorer: p, dunk: kind === 'dunk', buzzer: bz }, 1.1); }
         if (foul) { G.score[p.team] += 1; p.box.pts += 1; $('ahS' + p.team).textContent = G.score[p.team]; }
         if (G.score[0] >= target || G.score[1] >= target) return endSoon({}, 1.2);
-        G.paused = 'score'; setTimeout(() => { if (!G.over) { setupHalf(1 - p.team); G.paused = false; } }, PACE.afterScore * 1000 / PACE.game);   // loser's ball
+        G.paused = 'score'; G.resume = { at: G.time + PACE.afterScore + .35, fn: () => setupHalf(1 - p.team) };   // loser's ball (sim time: waits through hit-stops + close-ups)
       }
       function changePossession(team, why, by) {
         if (SEGM) return endSoon({ end: G.off === 0 ? 'to' : 'stop' }, .9);
@@ -343,7 +366,7 @@ const Arcade = (() => {
         const busy = h.act && (h.act.type === 'move' || h.act.type === 'shoot');
         const pct = pctOf('steal', p, h) * .62 * (busy ? .6 : 1);
         if (Math.random() * 100 < pct) {
-          h.box.to++; p.box.stl++; pop(pick(A.lines.steal), '#38bdf8'); SFX.play('whoosh'); E.hype = Math.min(1, E.hype + .25);
+          h.box.to++; p.box.stl++; pop(pick(A.lines.steal), '#38bdf8'); SFX.play('whoosh'); SFX.play('slap'); E.hype = Math.min(1, E.hype + .25); burst(h.x + h.face * 5, h.y - 12, '#7dd3fc', 8, 40); G.kick = Math.max(G.kick, .03);
           logLine(`${p.name} picks ${h.name}'s pocket!`);
           if (Math.random() < .5) { h.act = null; giveBall(p); changePossession(p.team, 'stl', p); }
           else { h.act = null; looseBall(h.x + p.face * -4, h.y, (p.x - h.x) * 3 + rnd(-20, 20), rnd(-10, 20), 22); ball.stripFrom = h.team; }
@@ -351,7 +374,7 @@ const Arcade = (() => {
       }
       function shove(p, h) {
         const ok = Math.random() * 100 < Balance.pct('stop', { perD: p.st.str, speed: p.st.str }, { def: { handle: h.st.str, speed: h.st.str } }).pct;
-        if (ok) { knockDown(h, 1.3); looseBall(h.x, h.y, rnd(-40, 40), rnd(10, 40), 20); pop(pick(A.lines.shove), '#f472b6', true); G.shake = 6; SFX.play('dunk'); h.box.to++; logLine(`${p.name} bulldozes ${h.name}!`); }
+        if (ok) { knockDown(h, 1.3); looseBall(h.x, h.y, rnd(-40, 40), rnd(10, 40), 20); pop(pick(A.lines.shove), '#f472b6', true); impact(.1, 7, .12); RD.dust(h.x, h.y, 8); RD.sweat(h.x, h.y - 24, 4); SFX.play('dunk'); h.box.to++; logLine(`${p.name} bulldozes ${h.name}!`); }
         else { p.stun = .7; tag('WHIFFED!', p, '#94a3b8'); }
       }
       function knockDown(p, T) { p.act = { type: 'down', t: 0, T }; p.stun = T; p.vx = -p.face * 20; p.vz = 0; }
@@ -409,7 +432,7 @@ const Arcade = (() => {
       function resolveMove(p, a) {   // at the moment the move "hits"
         if (a.beat) {
           const d = a.beat.def;
-          if (a.beat.ankles) { d.act = { type: 'sit', t: 0, T: MV.ankles }; d.stun = MV.ankles; pop(pick(A.lines.ankles), '#f472b6', true); G.slowT = .55; G.shake = 3; SFX.play('crowd', 1.8); E.hype = 1; logLine(`${p.name} breaks ${d.name}'s ankles!`); if (p === me) G.anklesBy = (G.anklesBy || 0) + 1; }
+          if (a.beat.ankles) { d.act = { type: 'sit', t: 0, T: MV.ankles }; d.stun = MV.ankles; pop(pick(A.lines.ankles), '#f472b6', true); G.slowT = .7; G.zoomT = 1; impact(.18, 5, .2, .08, '244,114,182'); RD.dust(d.x, d.y, 12); RD.sweat(d.x, d.y - 22, 6); RD.ring(d.x, d.y, '#f9a8d4', 90, .4, 1, .35); SFX.play('ooh'); SFX.play('crowd', 1.8); RD.cheer(1, true); E.hype = 1; if (p === me) highlight('ankles', p, pick(A.lines.ankles), 380); logLine(`${p.name} breaks ${d.name}'s ankles!`); if (p === me) G.anklesBy = (G.anklesBy || 0) + 1; }
           else { d.act = { type: 'stumble', t: 0, T: MV.freeze }; d.stun = MV.freeze; tag(pick(A.lines.beat), d, '#fde68a'); E.hype = Math.min(1, E.hype + .15); }
         } else if (a.stayed) tag('STAYED WITH IT', a.stayed, '#94a3b8');
       }
@@ -574,6 +597,7 @@ const Arcade = (() => {
       function update(dt) {
         G.time += dt;
         if (G.paused === true || G.over) return;
+        if (G.resume && G.time >= G.resume.at) { const f = G.resume.fn; G.resume = null; f(); G.paused = false; }
         const frozen = typeof G.paused === 'string';     // after a basket / whistle: animations continue, play doesn't
         if (G.pending && G.time >= G.endAt) return finish(G.pending);
         // clocks
@@ -600,7 +624,14 @@ const Arcade = (() => {
           if (G.time - p.lastMove > MV.spamWindow) p.spam = 0;
           let ix = 0, iy = 0;
           const ctrl = p === me;
-          if (frozen) { /* stand still */ }
+          p.sweaty = p.stamina < 45;
+          if (!p.act && p.celebNext && p.z <= 0 && p.stun <= 0) { p.act = { type: p.celebNext, t: 0, T: p.celebNext === 'hang' ? 1.3 : 1.1, hop: true }; p.celebNext = null; }
+          if (p.bumpTo) {   // teammates run in for a chest bump
+            const q = p.bumpTo, dx = q.x - p.x, dy = q.y - p.y, l = Math.hypot(dx, dy * 1.3);
+            if (l < 11 || !(p.act && p.act.type === 'joy') && p.act) { if (l < 11 && q.z <= 0) { p.face = dx >= 0 ? 1 : -1; q.face = -p.face; p.act = { type: 'chestbump', t: 0, T: .55 }; q.act = { type: 'chestbump', t: 0, T: .55 }; q.celebNext = null; SFX.play('slap'); burst((p.x + q.x) / 2, Math.min(p.y, q.y) - 26, '#ffffff', 8, 40); RD.cheer(.9); } p.bumpTo = null; }
+            else { ix = dx / l; iy = dy / l; }
+          }
+          else if (frozen) { /* stand still */ }
           else if (ctrl) { ix = six; iy = siy; p.stance = G.off !== p.team; }
           else {
             p.aiT -= dt; if (p.aiT <= 0) aiThink(p);
@@ -613,7 +644,7 @@ const Arcade = (() => {
           }
           if (p.act) tickAct(p, dt);
           // movement
-          const a = p.act, locked = p.stun > 0 || (a && ['shoot', 'pass', 'down', 'sit', 'stumble'].includes(a.type)) || (a && a.type === 'dunk') || (a && a.type === 'layup' && a.t > .2);
+          const a = p.act, locked = p.stun > 0 || (a && ['shoot', 'pass', 'down', 'sit', 'stumble', 'hang', 'flex', 'point', 'thump', 'clap', 'chestbump'].includes(a.type)) || (a && a.type === 'dunk') || (a && a.type === 'layup' && a.t > .2);
           let l = Math.hypot(ix, iy);
           if (p.burst > 0 && ball.owner === p && a && a.type === 'move' && a.t < a.T * .45) { ix *= .15; iy *= .15; l *= .15; }      // the move itself is slow — the burst comes after
           else if (p.burst > 0 || p.slide > 0) { if (l < .3) { ix = p.bdx; iy = p.bdy; l = 1; } }
@@ -628,7 +659,11 @@ const Arcade = (() => {
           if (!(a && a.type === 'dunk' && a.t > .22)) { p.x = clamp(p.x + p.vx * dt, A.court.x0, A.court.x1); p.y = clamp(p.y + p.vy * dt, A.court.y0 + 8, A.court.y1); }
           const spd = Math.hypot(p.vx, p.vy);
           p.phase += spd * dt * .21;
-          if (hasBall) { const per = spd > 12 ? PACE.dribble.run : PACE.dribble.stand, prev = p.dribT % 1; p.dribT += dt / per; if (p === me && prev < .5 && p.dribT % 1 >= .5 && (!a || a.type !== 'move')) SFX.play('bounce'); }
+          if (hasBall) { const per = spd > 12 ? PACE.dribble.run : PACE.dribble.stand, prev = p.dribT % 1; p.dribT += dt / per; if (prev < .5 && p.dribT % 1 >= .5 && (!a || a.type !== 'move')) SFX.play('bounce', p === me ? 1 : .3); }
+          // sneaker squeak + dust on hard cuts
+          const hd = Math.atan2(p.vy, p.vx);
+          if (spd > 34 && p.z <= 0 && p._hd != null && G.time - (p._sqk || 0) > .3) { let dh = Math.abs(hd - p._hd); if (dh > Math.PI) dh = Math.PI * 2 - dh; if (dh > .9) { p._sqk = G.time; SFX.play('squeak', p === me ? 1 : .45); RD.dust(p.x, p.y, 3); } }
+          if (spd > 20) p._hd = hd;
           // facing
           if (!(a && ['move', 'shoot', 'layup', 'dunk', 'pass', 'down', 'sit'].includes(a.type))) {
             if (Math.abs(p.vx) > 7 && !(p.stance && !hasBall && ball.owner)) p.face = Math.sign(p.vx);
@@ -639,7 +674,7 @@ const Arcade = (() => {
           // jumping
           if (p.z > 0 || p.vz > 0) {
             if (!(a && a.type === 'dunk')) { p.z += p.vz * dt; p.vz -= PACE.gravity * dt; }
-            if (p.z <= 0) { p.z = 0; p.vz = 0; if (a && ['block', 'reb', 'jump', 'celebrate'].includes(a.type)) p.act = null; if (a && a.type === 'shoot' && a.released) p.act = null; if (a && a.type === 'layup' && a.released) p.act = null; }
+            if (p.z <= 0) { p.z = 0; p.vz = 0; if (a && (['block', 'reb', 'jump', 'celebrate'].includes(a.type) || (['shoot', 'layup'].includes(a.type) && a.released))) p.act = p.stun > 0 ? null : { type: 'land', t: 0, T: .17 }; }
           }
         });
         // separation: players don't stack on top of each other
@@ -695,13 +730,14 @@ const Arcade = (() => {
               a.slammed = true; p.box.fga++; G.lastShooter = p;
               const q = p === me ? (a.relT != null ? releaseQuality(p, Math.abs(a.relT - .6), p.st.dunk, 2) : .55) : clamp(aiFor(p).shotQ + .1 + rnd(-.15, .15), 0, 1);
               a.made = Math.random() * 100 < Balance.apply('dunk', a.sc.pct, q);
-              G.slowT = 0; G.shake = 8; G.flash = .35; E.rim = 1; E.net.swish = 1;
+              G.slowT = 0; impact(a.big ? .2 : .14, a.big ? 11 : 8, .35, a.big ? .1 : .06); E.rim = 1; E.net.swish = 1; RD.sweat(p.x, p.y - p.z - 26, 6);
               if (a.made) {
                 const shatter = p.st.dunk >= 75 && Math.random() < .04;
                 if (shatter) { E.shatter = true; G.flash = 1; G.shake = 16; for (let i = 0; i < 70; i++) E.glass.push({ x: H.x + rnd(-20, 20), y: H.y - H.z - rnd(0, 20), vx: rnd(-90, 90), vy: rnd(-60, 40), life: rnd(1, 2.2) }); pop(pick(A.lines.shatter), '#e0f2fe', true); SFX.play('roar'); }
-                burst(H.x, H.y - H.z, '#facc15', 26);
+                burst(H.x, H.y - H.z, '#facc15', 30); RD.ring(H.x, H.y - H.z + 2, '#fde68a', 170, .4); RD.cheer(1, true); if (shatter) G.stop = .32;
                 const vic = players.find(q2 => q2.team !== p.team && q2.stun <= 0 && toHoop(q2) < 22 && q2.z === 0);
-                if (vic && a.poster) { knockDown(vic, 1.5); pop('POSTERIZED!', '#f472b6', true); logLine(`${p.name} posterizes ${vic.name}!`); }
+                if (vic && a.poster) { knockDown(vic, 1.5); pop('POSTERIZED!', '#f472b6', true); RD.dust(vic.x, vic.y, 10); SFX.play('ooh'); logLine(`${p.name} posterizes ${vic.name}!`); }
+                if (p === me && (a.big || a.poster || shatter)) highlight('dunk', p, shatter ? 'SHATTERED!' : a.poster ? 'POSTERIZED!' : pick(A.lines.dunk), 230);
                 ball.owner = null; ball.state = 'net'; ball.x = H.x; ball.y = H.y; ball.z = H.z; ball.vz = -40; ball.netT = 0;
                 scoreBasket(p, 2, 'dunk', a.foul);
               } else {
@@ -722,7 +758,7 @@ const Arcade = (() => {
             if (a.t >= a.T) { p.face = a.id === 'spin' ? a.f0 : a.f1; p.act = null; }
             break;
           }
-          case 'catch': case 'reach': case 'stumble': case 'celebrate': if (a.t >= (a.T || .3)) p.act = null; break;
+          case 'catch': case 'reach': case 'stumble': case 'celebrate': case 'land': case 'flex': case 'point': case 'thump': case 'joy': case 'clap': case 'hang': case 'chestbump': if (a.t >= (a.T || .3)) p.act = null; break;
           case 'down': case 'sit': if (a.t >= a.T) p.act = null; break;
           case 'block': case 'reb': case 'jump': if (a.t > 2) p.act = null; break;
         }
@@ -817,13 +853,16 @@ const Arcade = (() => {
           RD.px(bx - 1, by - 1, 5, 24, '#0a0a12'); RD.px(bx, by, 3, 22, '#1e293b'); RD.px(bx, by + 11 - gh / 2, 3, gh, '#22c55e'); RD.px(bx - 1, by + 21 - Math.round(kk * 21), 5, 1, '#fff');
         }
       }
-      function render(rdt) {
-        E.t = G.real;
+      function render(rdt, vdt) {
+        E.t = G.vt;
         if (VW < A.W) { const tgt = ball.owner ? ball.owner.x : ball.x; G.cam += (clamp(tgt - VW / 2, 0, A.W - VW) - G.cam) * Math.min(1, rdt * 3); }
         const cam = Math.round(G.cam);
         c.setTransform(1, 0, 0, 1, 0, 0);
-        const z = G.zoom;
-        if (z > 1.001) { const fx_ = G.zf.x - cam, fy = G.zf.y; c.setTransform(z, 0, 0, z, fx_ * (1 - z), fy * (1 - z)); }
+        // camera focus follows the action (ball / dunker); zoom = big-moment push-in + impact punch-in
+        const act = players.find(p => p.act && p.act.type === 'dunk') || (ball.owner) || null, tx = act ? act.x : ball.x, ty = act ? act.y - act.z - 14 : ball.y - ball.z;
+        G.zf.x += (tx - G.zf.x) * Math.min(1, rdt * 5); G.zf.y += (clamp(ty, 30, A.H - 40) - G.zf.y) * Math.min(1, rdt * 5);
+        const z = G.zoom + G.kick;
+        if (z > 1.001) { const fx_ = clamp(G.zf.x - cam, 0, VW), fy = G.zf.y; c.setTransform(z, 0, 0, z, fx_ * (1 - z), fy * (1 - z)); }
         if (G.shake > .3) c.translate(Math.round(rnd(-1, 1) * G.shake), Math.round(rnd(-1, 1) * G.shake));
         c.translate(-cam, 0);
         c.drawImage(VEN.bg, 0, 0);
@@ -836,12 +875,13 @@ const Arcade = (() => {
         const dunker = players.find(p => p.act && p.act.type === 'dunk' && p.act.t > .5 && p.act.t < .95);
         RD.hoop(true);
         if (dunker) drawP(dunker);   // hanging on the rim, in front of it
-        RD.fx(rdt);
+        RD.fx(vdt);
         if (G.speedT > 0) { c.fillStyle = 'rgba(255,255,255,.28)'; for (let i = 0; i < 18; i++) { const x = (i * 53 + G.real * 900) % A.W, y = (i * 37 + G.real * 620) % A.H; c.fillRect(Math.round(x), Math.round(y), 1, 10 + (i % 3) * 8); } }
-        RD.weather(rdt); RD.lights();
+        RD.weather(vdt); RD.lights();
         c.setTransform(1, 0, 0, 1, 0, 0);
         c.drawImage(VEN.vg, cam, 0, VW, A.H, 0, 0, VW, A.H);
-        if (G.flash > .05) { c.fillStyle = `rgba(255,255,255,${G.flash})`; c.fillRect(0, 0, VW, A.H); }
+        if (G.flash > .05) { c.fillStyle = `rgba(${G.flashCol},${Math.min(.85, G.flash)})`; c.fillRect(0, 0, VW, A.H); }
+        if (G.slowT > 0 && G.zoomT) { c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(0, 0, VW, 12); c.fillRect(0, A.H - 12, VW, 12); }   // letterbox during slow motion
         // HUD values (HTML)
         $('abStam').style.width = me.stamina + '%'; $('abStam').classList.toggle('low', me.stamina < 25);
         const mv = $('abMove'), ready = me.cool <= 0; mv.classList.toggle('cd', !ready); mv.querySelector('b').textContent = ready ? (ball.owner === me ? 'READY' : G.off === me.team ? 'CUT' : 'SLIDE') : '…';
@@ -856,12 +896,15 @@ const Arcade = (() => {
       const loop = now => {
         if (G.over) return;
         const rdt = Math.min(.05, (now - last) / 1000); last = now; G.real += rdt;
-        G.slowT = Math.max(0, G.slowT - rdt); G.speedT = Math.max(0, G.speedT - rdt);
-        const zt = G.slowT > 0 && G.zoomT ? 1.18 : 1; G.zoom += (zt - G.zoom) * Math.min(1, rdt * 6); if (G.slowT <= 0) G.zoomT = 0;
-        G.shake *= Math.pow(.02, rdt); G.flash *= Math.pow(.02, rdt);
-        acc += rdt * PACE.game * (G.slowT > 0 ? PACE.slowmo : 1);
+        // hit-stop: freeze the sim and the visuals for a few frames on big impacts
+        const stopped = G.stop > 0; if (stopped) G.stop = Math.max(0, G.stop - rdt);
+        const vdt = stopped ? 0 : rdt * (G.slowT > 0 ? Math.max(.45, PACE.slowmo) : 1); G.vt += vdt;
+        if (!stopped) { G.slowT = Math.max(0, G.slowT - rdt); G.speedT = Math.max(0, G.speedT - rdt); }
+        const zt = G.slowT > 0 && G.zoomT ? (G.winShot ? 1.3 : 1.22) : 1; G.zoom += (zt - G.zoom) * Math.min(1, rdt * 6); if (G.slowT <= 0) G.zoomT = 0;
+        G.shake *= Math.pow(.02, rdt); G.flash *= Math.pow(.02, rdt); G.kick *= Math.pow(.004, rdt);
+        if (!stopped) acc += rdt * PACE.game * (G.slowT > 0 ? PACE.slowmo : 1);
         let n = 0; while (acc >= 1 / 60 && n < 8) { update(1 / 60); acc -= 1 / 60; n++; }
-        render(rdt); raf = requestAnimationFrame(loop);
+        render(rdt, vdt); raf = requestAnimationFrame(loop);
       };
       const amb = setInterval(() => { if (!G.paused && !G.over) Pixel.ambient ? Pixel.ambient(VEN, E.hype) : SFX.play('crowd', .4 + E.hype * .5); }, 4200);
 

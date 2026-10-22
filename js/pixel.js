@@ -6,7 +6,7 @@
    World = the half court in canvas pixels (PIX.W × PIX.H = 384 × 216, hoop at the top).
    A venue can be built wider than 384 (wide screens); the court is centered at V.ox.
 
-   Pixel.venue(id, home, away, width) -> V          prerendered backdrop + floor for a VENUES entry
+   Pixel.venue(id, home, away, width) -> V          prerendered backdrop + floor for a VENUES entry (or a def object: { base: venueId, ...overrides })
    Pixel.renderer(ctx, V)             -> R          draws players, ball, hoop, crowd, lights, weather
    Pixel.text(ctx, str, x, y, color, scale, align)  crisp bitmap-font text
    Pixel.pixelate(svg, w, h)          -> Promise<canvas>   any SVG (avatars, logos) as pixel art
@@ -43,7 +43,7 @@ const Pixel = (() => {
   /* ---------- SVG -> pixel art ---------- */
   const PXC = new Map();
   function pixelate(svg, w, h) {
-    const key = svg.length + ':' + w + 'x' + h + ':' + svg.slice(0, 80) + svg.slice(-200);
+    const key = (typeof Art !== 'undefined' ? Art.hashStr(svg) : svg.slice(-200)) + ':' + svg.length + ':' + w + 'x' + h;
     if (PXC.has(key)) return PXC.get(key);
     const p = new Promise(res => {
       const im = new Image(); im.onload = () => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const g = cv.getContext('2d'); g.imageSmoothingEnabled = true; g.drawImage(im, 0, 0, w, h); res(cv); };
@@ -57,7 +57,7 @@ const Pixel = (() => {
      VENUES — static backdrop + floor prerendered, animated parts listed
      ================================================================= */
   function venue(id, home, away, width = 384) {
-    const def = Venues.get(id), W = Math.max(384, Math.round(width)), H = PIX.H, ox = Math.round((W - 384) / 2), top = PIX.court.y0, HX = PIX.hoop.x + ox, HY = PIX.hoop.y;
+    const def = typeof id === 'object' ? Object.assign({}, Venues.get(id.base || 'street_night'), id, { id: 'cs_' + (id.base || 'x') + (id.sky || '') }) : Venues.get(id), W = Math.max(384, Math.round(width)), H = PIX.H, ox = Math.round((W - 384) / 2), top = PIX.court.y0, HX = PIX.hoop.x + ox, HY = PIX.hoop.y;
     const team = def.team && Venues.team(def.team), tc = team ? team.colors : home.colors;
     const c0 = tc[0], c1 = tc[1] || '#ffffff', a0 = away.colors[0], h0 = home.colors[0];
     const bg = document.createElement('canvas'); bg.width = W; bg.height = H; const g = bg.getContext('2d');
@@ -198,86 +198,121 @@ const Pixel = (() => {
 
   /* =================================================================
      RENDERER
+     Every player pose is blended toward its target each frame (no snapping between frames),
+     with anticipation (crouch / wind-up), follow-through, squash & stretch on jumps and landings,
+     and celebration / reaction poses: celebrate, flex, point, thump, joy, chestbump, clap, hang, land.
+     Effects: dust, sweat, sparks, shockwave rings, confetti, net ripple, crowd waves + cheers.
      ================================================================= */
   const SKL = { thigh: 6, shin: 6, torso: 10, ua: 5, fa: 5 };
   const OUT = '#0a0a12';
   function renderer(c, V) {
-    const E = { t: 0, hype: .3, net: { swish: 0, sway: 0 }, rim: 0, shatter: false, fx: [], glass: [] };
+    const E = { t: 0, hype: .3, net: { swish: 0, sway: 0, w0: -9 }, rim: 0, shatter: false, fx: [], glass: [], rings: [], cheer: 0, waveT: -9, onLand: null, lastSwish: 0, bsq: 0, bLast: null };
     const px = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), w, h); };
     function seg(x1, y1, x2, y2, w, col) { const n = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1))); c.fillStyle = col; const hw = w / 2; for (let i = 0; i <= n; i++) { const t = i / n; c.fillRect(Math.round(x1 + (x2 - x1) * t - hw), Math.round(y1 + (y2 - y1) * t - hw), w, w); } }
     function limb(a, b, cc, w, col) { seg(a[0], a[1], b[0], b[1], w + 2, OUT); seg(a[0], a[1], b[0], b[1], w, col); seg(b[0], b[1], cc[0], cc[1], w + 2, OUT); seg(b[0], b[1], cc[0], cc[1], w, col); }
 
-    /* pose from the player's current action (p.act) and state */
+    /* target pose from the player's current action (p.act) and state */
     function poseOf(p) {
       const a = p.act, t = E.t, sp = Math.hypot(p.vx || 0, p.vy || 0), air = p.z > .5, hasBall = !!p.hasBall;
-      const o = { lean: 0, rot: 0, hip: null, legs: [[.1, -.18], [-.08, -.18]], arms: [[-.15, .45], [.25, .5]], ball: hasBall ? (p.holdBall ? 'chest' : 'dribble') : null, layer: 'front' };
-      const br = Math.sin(t * 3 + (p.i || 0) * 1.7) * .07; o.legs[0][1] -= br; o.legs[1][1] -= br;
+      const o = { lean: 0, rot: 0, hip: null, hop: 0, bob: 0, stretch: 0, legs: [[.1, -.18], [-.08, -.18]], arms: [[-.15, .45], [.25, .5]], ball: hasBall ? (p.holdBall ? 'chest' : 'dribble') : null, layer: 'front' };
+      const br = Math.sin(t * 3 + (p.i || 0) * 1.7) * .07; o.legs[0][1] -= br; o.legs[1][1] -= br; o.arms[0][1] += br * .6;   // idle breathing
       const s = Math.sin(p.phase || 0), c2 = Math.cos(p.phase || 0);
       if (p.stance && !hasBall && !air) {
-        o.legs = [[.42 + (sp > 8 ? s * .2 : 0), -.62], [-.42 - (sp > 8 ? s * .2 : 0), -.62]]; o.arms = [[1.35, .25], [1.05, .3]]; o.lean = .12;
+        o.legs = [[.42 + (sp > 8 ? s * .2 : 0), -.62], [-.42 - (sp > 8 ? s * .2 : 0), -.62]]; o.arms = [[1.35, .25], [1.05, .3]]; o.lean = .12; o.bob = sp > 8 ? Math.abs(s) * .8 : 0;
         if (sp > 8) o.arms = [[1.45 + s * .1, .2], [.95, .3]];
-      } else if (sp > 8 && !air) {
-        o.legs = [[s * .8, -(.25 + Math.max(0, c2) * 1.25)], [-s * .8, -(.25 + Math.max(0, -c2) * 1.25)]];
-        o.arms = [[-s * .75, 1.25], [s * .75, 1.25]]; o.lean = .2 + (p.burst > 0 ? .15 : 0);
+        o.rate = 30;
+      } else if (sp > 8 && !air) {   // run cycle: knee drive, arm swing, body bob
+        const k = Math.min(1, sp / 60);
+        o.legs = [[s * .85 * k, -(.25 + Math.max(0, c2) * 1.35 * k)], [-s * .85 * k, -(.25 + Math.max(0, -c2) * 1.35 * k)]];
+        o.arms = [[-s * .8 * k, 1.2 + .15 * k], [s * .8 * k, 1.2 + .15 * k]]; o.lean = .14 + .1 * k + (p.burst > 0 ? .15 : 0); o.bob = Math.abs(c2) * 1.3 * k; o.rate = 34;
       }
-      if (hasBall && !p.holdBall && (!a || a.type === 'catch')) { const u = (p.dribT || 0) % 1, b = 1 - Math.abs(1 - 2 * u); o.arms[1] = [.62 + b * .2, .15 + (1 - b) * .35]; }
+      if (hasBall && !p.holdBall && (!a || a.type === 'catch')) { const u = (p.dribT || 0) % 1, b = 1 - Math.abs(1 - 2 * u); o.arms[1] = [.62 + b * .2, .15 + (1 - b) * .45]; o.rate = 34; }
       if (air && (!a || a.type === 'jump')) { o.legs = [[.55, -1.15], [.15, -.65]]; o.arms = [[2.2, .4], [2.45, .3]]; }
       if (!a) return o;
       const k = a.T ? clamp(a.t / a.T, 0, 1) : 0;
       switch (a.type) {
-        case 'catch': o.arms = [[1.3, .5], [1.4, .4]]; o.ball = 'chest'; break;
+        case 'catch': o.arms = [[1.3, .5], [1.4, .4]]; o.ball = 'chest'; o.legs = [[.25, -.45], [-.2, -.4]]; break;
         case 'shoot':
-          if (!a.air) { o.legs = [[.5, -1.1], [-.22, -1.0]]; o.arms = [[.95, 1.7], [1.05, 1.75]]; o.ball = 'chest'; o.lean = .05; }
-          else if (!a.released) { o.legs = [[.22, -.4], [-.06, -.45]]; o.arms = [[2.15, 1.25], [2.3, 1.15]]; o.ball = 'set'; }
-          else { o.legs = [[.15, -.2], [-.05, -.3]]; o.arms = [[2.1, .7], [2.55, .2]]; o.ball = null; o.flick = true; }
+          if (!a.air) { const g = clamp(a.t / .2, 0, 1); o.legs = [[.35 + g * .3, -.55 - g * .75], [-.12 - g * .15, -.5 - g * .65]]; o.arms = [[.8 + g * .2, 1.55 + g * .25], [.9 + g * .2, 1.6 + g * .25]]; o.ball = 'chest'; o.lean = .04 + g * .06; }
+          else if (!a.released) { o.legs = [[.22, -.4], [-.06, -.45]]; o.arms = [[2.15, 1.25], [2.3, 1.15]]; o.ball = 'set'; o.stretch = .14; }
+          else { o.legs = [[.15, -.2], [-.05, -.3]]; o.arms = [[2.25, .55], [2.65, .12]]; o.ball = null; o.flick = true; o.snap = a.t - (a.relAt || 0) < .05; o.stretch = .08; }
           break;
         case 'layup':
-          o.legs = a.t < .18 ? [[.5, -.9], [-.3, -.5]] : [[1.5, -1.65], [-.15, -.2]]; o.lean = .15;
-          o.arms = a.released ? [[1.6, .4], [2.6, 0]] : a.t < .18 ? [[1.0, 1.6], [1.1, 1.6]] : [[1.8, .6], [2.45 + Math.min(.15, a.t * .3), .15]];
-          o.ball = a.released ? null : a.t < .18 ? 'chest' : 'hand'; break;
+          if (a.t < .18) { o.legs = [[.55, -1.0], [-.35, -.45]]; o.arms = [[1.0, 1.6], [1.1, 1.6]]; o.ball = 'chest'; o.lean = .22; }
+          else if (!a.released) { o.legs = [[1.55, -1.7], [-.2, -.15]]; o.arms = [[1.8, .6], [2.45 + Math.min(.2, a.t * .3), .15]]; o.ball = 'hand'; o.lean = .12; o.stretch = .16; }
+          else { o.legs = [[1.2, -1.4], [-.1, -.2]]; o.arms = [[1.6, .4], [2.8, 0]]; o.ball = null; o.lean = .05; o.flick = true; }
+          break;
         case 'dunk':
-          if (a.t < .22) { o.legs = [[.55, -1.2], [-.25, -1.0]]; o.arms = [[1.0, 1.6], [1.1, 1.7]]; o.ball = 'chest'; o.lean = .1; }
-          else if (a.t < .64) { o.legs = [[.65, -1.35], [.05, -.55]]; o.arms = [[2.5, .6], [3.75, .7]]; o.ball = 'hand'; o.lean = -.05; }
-          else if (a.made && a.t < .9) { o.legs = [[.12, -.15], [-.1, -.2]]; o.arms = [[2.6, 0], [2.7, 0]]; o.ball = null; }
+          if (a.t < .22) { const g = a.t / .22; o.legs = [[.55 + g * .2, -1.1 - g * .4], [-.25 - g * .1, -.95 - g * .35]]; o.arms = [[.8 - g * .2, 1.5], [.9 - g * .2, 1.6]]; o.ball = 'chest'; o.lean = .14 + g * .08; }
+          else if (a.t < .42) { o.legs = [[.8, -1.45], [.0, -.5]]; o.arms = [[3.3, .9], [3.55, .8]]; o.ball = 'behind'; o.lean = -.14; o.stretch = .2; }
+          else if (a.t < .64) { o.legs = [[.65, -1.2], [.1, -.55]]; o.arms = [[2.5, .2], [2.2, .12]]; o.ball = 'hand'; o.lean = .12; o.rate = 40; }
+          else if (a.made && a.t < .9) { const sw = Math.sin(t * 11) * .25; o.legs = [[.35 + sw, -.5], [.05 + sw, -.45]]; o.arms = [[2.95, 0], [3.02, 0]]; o.ball = null; o.snap = a.t < .67; }
           else { o.legs = [[.3, -.6], [-.1, -.4]]; o.arms = [[2.4, .3], [2.0, .3]]; o.ball = null; }
           if (a.stuffed) o.ball = null; break;
-        case 'pass': o.arms = a.t < .1 ? [[1.0, 1.5], [1.1, 1.5]] : [[1.45, .1], [1.55, 0]]; o.lean = .12; o.ball = a.thrown ? null : 'chest'; break;
-        case 'reach': o.lean = .45; o.arms = [[.5, .3], [1.15, 0]]; o.legs = [[-.55, -.2], [.85, -.7]]; break;
-        case 'block': o.arms = [[2.3, .2], [2.6, 0]]; o.legs = [[.3, -.6], [-.1, -.4]]; break;
-        case 'reb': o.arms = [[2.45, .2], [2.6, .15]]; o.legs = [[.45, -1.0], [.1, -.5]]; if (hasBall) o.ball = 'over'; break;
-        case 'celebrate': o.arms = [[2.5, .4], [2.65, .3]]; break;
-        case 'stumble': o.lean = -.4; o.legs = [[-.35, -.2], [.4, -.5]]; o.arms = [[2.2, .6], [1.3, .3]]; break;
-        case 'down': { const up = a.T - a.t < .45, r = up ? (a.T - a.t) / .45 : Math.min(1, a.t / .15); o.rot = -1.5 * r; o.hip = 2 + (1 - r) * 10; o.legs = [[.25, -.1], [-.05, -.25]]; o.arms = [[2.6, .2], [2.0, .4]]; if (up) o.hip = null; break; }
+        case 'pass':
+          if (!a.thrown && a.t < .1) { o.arms = [[.7, 1.75], [.8, 1.75]]; o.ball = 'chest'; o.lean = -.06; o.legs = [[.3, -.5], [-.3, -.45]]; }
+          else { o.arms = [[1.5, .05], [1.62, 0]]; o.lean = .22; o.legs = [[.7, -.55], [-.45, -.25]]; o.ball = a.thrown ? null : 'chest'; o.snap = a.t < .14; }
+          break;
+        case 'reach': o.lean = .45; o.arms = [[.6, .3], [1.95 - k * 1.1, .1]]; o.legs = [[-.55, -.2], [.95, -.75]]; o.rate = 40; break;
+        case 'block': o.arms = (a.t || 0) < .22 ? [[2.5, .2], [2.75, 0]] : [[2.15, .1], [1.85, 0]]; o.legs = [[.35, -.75], [-.1, -.45]]; o.stretch = p.z > 2 ? .14 : 0; break;
+        case 'reb': if (hasBall && p.z < 3) { o.arms = [[1.0, 1.9], [1.1, 1.9]]; o.ball = 'chest'; o.legs = [[.4, -.7], [-.3, -.6]]; } else { o.arms = [[2.6, .15], [2.75, .1]]; o.legs = [[.5, -1.05], [.12, -.5]]; if (hasBall) o.ball = 'over'; o.stretch = .1; } break;
+        case 'land': { const g = 1 - k; o.legs = [[.6 * g + .1, -1.25 * g - .2], [-.35 * g - .05, -1.05 * g - .2]]; o.arms = [[.9, .6], [1.3, .5]]; o.lean = .2 * g; if (hasBall) o.ball = 'chest'; o.snap = a.t < .03; break; }
+        case 'celebrate': o.arms = [[2.6 + Math.sin(t * 12) * .25, .3], [2.8, .2]]; o.hop = a.hop ? Math.abs(Math.sin(a.t * 9)) * 5 : 0; break;
+        case 'flex': { const pu = Math.sin(t * 10); o.legs = [[.38, -.28], [-.38, -.28]]; o.arms = [[-2.05, -1.25 - pu * .25], [2.05, 1.25 + pu * .25]]; o.lean = -.16; o.bob = Math.max(0, pu) * .8; break; }
+        case 'point': o.arms = [[-.6, 1.9], [2.78 + Math.sin(t * 6) * .06, -.05]]; o.lean = -.12; o.legs = [[.25, -.25], [-.2, -.2]]; break;
+        case 'thump': { const pu = Math.sin(t * 13); o.arms = [[-2.1, -1.0], [.9 + pu * .35, 2.2]]; o.lean = -.18; o.legs = [[.45, -.4], [-.4, -.35]]; o.bob = Math.max(0, pu); break; }
+        case 'joy': { const h = Math.abs(Math.sin(a.t * 8.5)); o.hop = h * 7; o.arms = [[2.75, .1 + h * .2], [2.95, 0]]; o.legs = h > .3 ? [[.5, -.95], [.2, -.75]] : [[.25, -.45], [-.2, -.45]]; break; }
+        case 'chestbump': { const u = Math.sin(k * Math.PI); o.hop = u * 9; o.lean = -.5 * u; o.arms = [[-1.15, .25], [-.95, .2]]; o.legs = [[.55 * u, -.9 * u - .15], [.15, -.6 * u - .1]]; break; }
+        case 'clap': { const cl = .5 + .5 * Math.sin(t * 16); o.arms = [[1.35, .95 - cl * .55], [1.45, .85 - cl * .55]]; o.legs = [[.2, -.25], [-.2, -.25]]; o.rate = 40; break; }
+        case 'hang': o.lean = .42; o.arms = [[.1, .05], [.06, .08]]; o.legs = [[.05, -.08], [-.06, -.08]]; o.headDown = true; o.rate = 7; break;
+        case 'stumble': o.lean = -.4; o.legs = [[-.35, -.2], [.4, -.5]]; o.arms = [[2.2, .6], [1.3, .3]]; o.rate = 34; break;
+        case 'down': { const up = a.T - a.t < .45, r = up ? (a.T - a.t) / .45 : Math.min(1, a.t / .15); o.rot = -1.5 * r; o.hip = 2 + (1 - r) * 10; o.legs = [[.25, -.1], [-.05, -.25]]; o.arms = [[2.6, .2], [2.0, .4]]; if (up) o.hip = null; o.rate = 30; break; }
         case 'sit':
           if (a.t < .2) { o.lean = -.5; o.legs = [[-.4, -.3], [.6, -.6]]; o.arms = [[2.4, .4], [1.8, .3]]; }
           else { o.hip = 3; o.legs = [[1.45, -.05], [1.3, .1]]; o.lean = -.4; o.arms = [[-.6, 0], [-.35, 0]]; o.stars = true; }
-          break;
+          o.rate = 30; break;
         case 'move': {
           const id = a.id;
-          o.ball = id === 'hesi' ? (k < .55 ? 'hip' : 'dribble') : id === 'spin' ? 'chest' : id;
-          if (id === 'hesi') { if (k < .55) { o.legs = [[.38, -.3], [-.38, -.3]]; o.lean = -.14; o.arms[1] = [.7, .9]; } else o.lean = .32; }
-          else if (id === 'cross') { o.legs = [[.5, -.75], [-.5, -.75]]; o.lean = .12; o.arms = [[.6, .4], [.4 + k * .4, .3]]; }
-          else if (id === 'btl') { o.legs = [[-.65, -.35], [.95, -.55]]; o.lean = .15; o.arms = [[.5, .5], [.3, .3]]; o.layer = 'mid'; }
+          o.ball = id === 'hesi' ? (k < .55 ? 'hip' : 'dribble') : id === 'spin' ? 'chest' : id; o.rate = 36;
+          if (id === 'hesi') { if (k < .55) { o.legs = [[.38, -.3], [-.38, -.3]]; o.lean = -.14; o.arms[1] = [.7, .9]; } else { o.lean = .34; o.legs = [[.7, -.9], [-.5, -.4]]; } }
+          else if (id === 'cross') { o.legs = [[.5, -.75], [-.5, -.75]]; o.lean = .12; o.arms = [[.6, .4], [.4 + k * .4, .3]]; o.bob = -Math.sin(k * Math.PI) * 1.5; }
+          else if (id === 'btl') { o.legs = [[-.65, -.35], [.95, -.55]]; o.lean = .15; o.arms = [[.5, .5], [.3, .3]]; o.layer = 'mid'; o.bob = -1; }
           else if (id === 'btb') { o.legs = [[.45, -.65], [-.45, -.65]]; o.arms = [[-.9, .4], [-.7 + k * .5, .3]]; o.layer = 'back'; }
-          else if (id === 'spin') { o.legs = [[.4, -.9], [-.4, -.9]]; o.arms = [[.9, 1.5], [.85, 1.45]]; o.lean = .1; }
+          else if (id === 'spin') { o.legs = [[.4, -.9], [-.4, -.9]]; o.arms = [[.9, 1.5], [.85, 1.45]]; o.lean = .1; o.rate = 50; }
           break;
         }
       }
       return o;
     }
+    /* blend the drawn pose toward the target (smooth in-betweens at any frame rate) */
+    function blended(p, o) {
+      const dt = p._pt == null ? 1 : E.t - p._pt; p._pt = E.t;
+      let B = p._po;
+      if (!B || dt < 0 || dt > .3) { B = p._po = { lean: o.lean, rot: o.rot, legs: o.legs.map(l => l.slice()), arms: o.arms.map(l => l.slice()), hipN: o.hip != null ? o.hip : 0, hipW: o.hip != null ? 1 : 0 }; return B; }
+      const k = 1 - Math.exp(-dt * (o.snap ? 70 : o.rate || 24)), mix = (A, T) => { for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) A[i][j] += (T[i][j] - A[i][j]) * k; };
+      B.lean += (o.lean - B.lean) * k; B.rot += ((o.rot || 0) - B.rot) * k; mix(B.legs, o.legs); mix(B.arms, o.arms);
+      if (o.hip != null) { if (B.hipW < .02) B.hipN = o.hip; B.hipN += (o.hip - B.hipN) * k; }
+      B.hipW += ((o.hip != null ? 1 : 0) - B.hipW) * k;
+      return B;
+    }
     function skeleton(p) {
-      const o = poseOf(p), f = p.face || 1, r = o.rot || 0;
+      const o = poseOf(p), B = blended(p, o), f = p.face || 1, r = B.rot || 0;
+      // squash & stretch: landing squashes (impulse), jumping/reaching stretches (from the pose)
+      const pz = p._pz != null ? p._pz : p.z; p._pz = p.z;
+      if (pz > 2.5 && p.z <= .5) { p._sq = Math.min(.55, .2 + pz * .012); dust(p.x, p.y, 5 + Math.min(6, pz * .1)); if (E.onLand) E.onLand(p, pz); }
+      p._sq = (p._sq || 0) * Math.pow(.004, Math.max(0, Math.min(.1, E.t - (p._sqt || E.t)))); p._sqt = E.t;
+      const sq = p._sq > .05 ? p._sq : -(o.stretch || 0), lk = 1 - Math.max(0, sq) * .45 + Math.max(0, -sq) * .22, tk = 1 - Math.max(0, sq) * .22 + Math.max(0, -sq) * .12;
       const Vv = (a, l) => [Math.sin(a) * l * f, Math.cos(a) * l];
-      const lr = o.legs.map(([a1, a2]) => { const kk = Vv(a1 + r, SKL.thigh), ff = Vv(a1 + a2 + r, SKL.shin); return { knee: kk, foot: [kk[0] + ff[0], kk[1] + ff[1]] }; });
-      const drop = o.hip != null ? o.hip : Math.max(lr[0].foot[1], lr[1].foot[1], 4);
-      const hip = [p.x, p.y - p.z - drop];
-      const tv = Vv(Math.PI - (o.lean || 0) + r, SKL.torso), neck = [hip[0] + tv[0], hip[1] + tv[1]];
-      const hv = Vv(Math.PI - (o.lean || 0) + r, 4.5), head = [neck[0] + hv[0], neck[1] + hv[1]];
+      const lr = B.legs.map(([a1, a2]) => { const kk = Vv(a1 + r, SKL.thigh * lk), ff = Vv(a1 + a2 + r, SKL.shin * lk); return { knee: kk, foot: [kk[0] + ff[0], kk[1] + ff[1]] }; });
+      const nat = Math.max(lr[0].foot[1], lr[1].foot[1], 4 * lk), drop = lerp(nat, B.hipN, clamp(B.hipW, 0, 1));
+      const hip = [p.x, p.y - p.z - drop - (o.hop || 0) + (o.bob || 0)];
+      const tv = Vv(Math.PI - (B.lean || 0) + r, SKL.torso * tk), neck = [hip[0] + tv[0], hip[1] + tv[1]];
+      const hv = Vv(Math.PI - (B.lean || 0) * (o.headDown ? 2.2 : 1) - (o.headDown ? .35 : 0) + r, 4.5), head = [neck[0] + hv[0], neck[1] + hv[1]];
       const legs = lr.map(L => ({ knee: [hip[0] + L.knee[0], hip[1] + L.knee[1]], foot: [hip[0] + L.foot[0], hip[1] + L.foot[1]] }));
       const sh = [neck[0] - tv[0] * .12, neck[1] - tv[1] * .12 + 1];
       const shs = [[sh[0] - f * 3 * Math.cos(r), sh[1]], [sh[0] + f * 2 * Math.cos(r), sh[1] + 1]];
-      const arms = o.arms.map(([a1, a2], i) => { const S = shs[i], e = Vv(a1 + r, SKL.ua), h = Vv(a1 + a2 + r, SKL.fa); return { sh: S, elbow: [S[0] + e[0], S[1] + e[1]], hand: [S[0] + e[0] + h[0], S[1] + e[1] + h[1]] }; });
-      return { o, f, hip, neck, head, legs, arms };
+      const arms = B.arms.map(([a1, a2], i) => { const S = shs[i], e = Vv(a1 + r, SKL.ua), h = Vv(a1 + a2 + r, SKL.fa); return { sh: S, elbow: [S[0] + e[0], S[1] + e[1]], hand: [S[0] + e[0] + h[0], S[1] + e[1] + h[1]] }; });
+      return { o, f, hip, neck, head, legs, arms, sq };
     }
     function drawShoe(ft, f, col) { const x = Math.round(ft[0]) - 2 + (f > 0 ? 1 : -1), y = Math.round(ft[1]) - 1; px(x - 1, y - 1, 6, 4, OUT); px(x, y, 4, 2, col); px(x + (f > 0 ? 3 : 0), y + 1, 1, 1, '#0f172a'); }
     function drawHair(p, hx, hy, f) {
@@ -286,75 +321,95 @@ const Pixel = (() => {
       if (s === 'afro') { px(hx - 2, hy - 3, 10, 5, OUT); px(hx - 1, hy - 3, 8, 5, hc); px(hx - 2, hy - 2, 10, 3, hc); return; }
       if (s === 'flattop') { px(hx, hy - 3, 6, 4, hc); px(hx, hy - 4, 6, 1, OUT); return; }
       if (s === 'curly') { px(hx - 1, hy - 2, 8, 3, hc); for (let i = 0; i < 4; i++) px(hx - 1 + i * 2, hy - 3, 1, 1, hc); return; }
-      if (s === 'braids' || s === 'dreads' || s === 'long' || s === 'ponytail') { px(hx, hy - 1, 6, 2, hc); px(back, hy, 1, s === 'ponytail' ? 3 : 7, hc); px(back + (f > 0 ? -1 : 1), hy + 2, 1, s === 'ponytail' ? 5 : 6, hc); return; }
+      if (s === 'braids' || s === 'dreads' || s === 'long' || s === 'ponytail') { const sw = Math.round(Math.sin(E.t * 9 + (p.i || 0)) * Math.min(1, Math.hypot(p.vx || 0, p.vy || 0) / 40)); px(hx, hy - 1, 6, 2, hc); px(back - (f > 0 ? sw : -sw), hy, 1, s === 'ponytail' ? 3 : 7, hc); px(back + (f > 0 ? -1 : 1) - (f > 0 ? sw : -sw), hy + 2, 1, s === 'ponytail' ? 5 : 6, hc); return; }
       px(hx, hy - 1, 6, s === 'buzz' ? 1 : 2, hc); px(back + (f > 0 ? 1 : -1), hy, 1, 2, hc);
     }
     function ballAt(p, K) {
       const o = K.o, f = K.f, hand = K.arms[1].hand, a = p.act, k = a && a.T ? clamp(a.t / a.T, 0, 1) : 0, floorY = p.y + 1;
       switch (o.ball) {
-        case 'dribble': { const u = (p.dribT || 0) % 1, b = 1 - Math.abs(1 - 2 * u); return [hand[0] + f * 1.5, lerp(hand[1] + 2, floorY - 2, b * b * (3 - 2 * b))]; }
+        case 'dribble': { const u = (p.dribT || 0) % 1, b = 1 - Math.abs(1 - 2 * u); return [hand[0] + f * 1.5, lerp(hand[1] + 2, floorY - 2, b * b * (3 - 2 * b)), b > .93 ? .8 : b < .2 ? -.4 : 0]; }
         case 'chest': return [K.neck[0] + f * 4, K.neck[1] + 4];
         case 'set': return [hand[0] - f, hand[1] - 3];
         case 'hand': return [hand[0], hand[1] - 2];
+        case 'behind': return [K.head[0] - f * 3, K.head[1] - 6];
         case 'over': return [K.head[0] + f, K.head[1] - 7];
         case 'hip': return [hand[0] + f, hand[1]];
-        case 'cross': return [lerp(p.x + a.f0 * 6, p.x + a.f1 * 6, k), lerp(hand[1], floorY - 2, Math.sin(k * Math.PI))];
+        case 'cross': return [lerp(p.x + a.f0 * 6, p.x + a.f1 * 6, k), lerp(hand[1], floorY - 2, Math.sin(k * Math.PI)), Math.abs(k - .5) < .08 ? .8 : 0];
         case 'btl': return [lerp(p.x + a.f0 * 6, p.x + a.f1 * 6, k), k < .5 ? lerp(hand[1], floorY - 3, k * 2) : lerp(floorY - 3, hand[1], (k - .5) * 2)];
         case 'btb': return [p.x + Math.cos(k * Math.PI) * 6 * a.f0, K.hip[1] + 2];
       }
       return [hand[0], hand[1]];
     }
-    function ball(x, y, fire, spin) {
-      x = Math.round(x - 2); y = Math.round(y - 2);
-      const base = fire ? '#fbbf24' : '#e8651b', hi = fire ? '#fef08a' : '#fb923c', sm = '#7c2d12';
-      px(x, y + 1, 5, 3, OUT); px(x + 1, y, 3, 5, OUT); px(x, y + 1, 5, 3, base); px(x + 1, y, 3, 5, base); px(x + 1, y + 1, 1, 1, hi);
-      const fr = Math.floor((spin || 0) * 2) % 4;
-      if (fr === 0) px(x + 2, y, 1, 5, sm); else if (fr === 1) { px(x + 1, y + 1, 1, 1, sm); px(x + 2, y + 2, 1, 1, sm); px(x + 3, y + 3, 1, 1, sm); } else if (fr === 2) px(x, y + 2, 5, 1, sm); else { px(x + 3, y + 1, 1, 1, sm); px(x + 2, y + 2, 1, 1, sm); px(x + 1, y + 3, 1, 1, sm); }
-      if (fire) E.fx.push({ x: x + 2 + rnd(-2, 2), y: y + 2, vx: rnd(-6, 6), vy: -rnd(10, 30), life: .22, col: pick(['#f97316', '#ef4444']) });
+    /* the ball: 1px outline, highlight, spinning seam; sq > 0 squash (impact), sq < 0 stretch (speed) */
+    function ball(cx, cy, fire, spin, sq = 0) {
+      const x = Math.round(cx), y = Math.round(cy), s = sq > .35 ? 1 : sq < -.35 ? -1 : 0;
+      const [w, h] = s > 0 ? [7, 3] : s < 0 ? [3, 7] : [5, 5], x0 = x - (w >> 1), y0 = y - (h >> 1) + (s > 0 ? 1 : 0);
+      const base = fire ? '#fbbf24' : '#e8651b', hi = fire ? '#fef08a' : '#fdba74', sm = '#7c2d12';
+      px(x0 - 1, y0, w + 2, h, OUT); px(x0, y0 - 1, w, h + 2, OUT);
+      px(x0, y0 + (h > 3 ? 1 : 0), w, h - (h > 3 ? 2 : 0), base); px(x0 + 1, y0, w - 2, h, base); px(x0 + 1, y0 + (h > 3 ? 1 : 0), 1, 1, hi);
+      const fr = Math.floor((spin || 0) * 2) % 4, mx = x0 + (w >> 1), my = y0 + (h >> 1);
+      if (fr === 0) px(mx, y0, 1, h, sm); else if (fr === 2) px(x0, my, w, 1, sm); else { const d = fr === 1 ? 1 : -1; px(mx - d, my - 1, 1, 1, sm); px(mx, my, 1, 1, sm); px(mx + d, my + 1, 1, 1, sm); }
+      if (fire) E.fx.push({ x: x + rnd(-2, 2), y, vx: rnd(-6, 6), vy: -rnd(10, 30), life: .22, col: pick(['#f97316', '#ef4444', '#facc15']) });
     }
-    function freeBall(b, fire) { const ss = Math.max(2, 5 - b.z * .05); px(b.x - ss / 2, b.y, ss, 1, 'rgba(0,0,0,.35)'); ball(b.x, b.y - b.z - 2, fire, b.spin || E.t * 8); }
-    /* o: { me, mate, meCol } */
+    /* a ball that isn't in someone's hands: shadow, auto squash on bounces, stretch when it flies fast */
+    function freeBall(b, fire) {
+      const ss = Math.max(2, 5 - b.z * .05); px(b.x - ss / 2, b.y, ss, 1, 'rgba(0,0,0,.35)');
+      const L = E.bLast, now = E.t; let sq = b.sq || 0;
+      if (L && now > L.t) { const dt = now - L.t, vz = (b.z - L.z) / dt, v = Math.hypot((b.x - L.x) / dt, (b.y - b.z - (L.y - L.z)) / dt);
+        if (L.z > 2.5 && b.z <= 2 && L.vz < -40) E.bsq = 1;
+        if (v > 140 && b.z > 6) sq = Math.min(sq, -.5); L.vz = vz; }
+      E.bLast = { x: b.x, y: b.y, z: b.z, t: now, vz: L ? L.vz : 0 };
+      if (E.bsq > .3) sq = Math.max(sq, E.bsq);
+      ball(b.x, b.y - b.z - 2, fire, b.spin || E.t * 8, sq);
+    }
+    /* o: { me, mate, fire, tag } */
     function player(p, o = {}) {
-      const K = skeleton(p), po = K.o, f = K.f, z = p.z;
+      const K = skeleton(p), po = K.o, f = K.f, z = p.z, sqW = K.sq > .25 ? 2 : 0;
       p.hand = { x: K.arms[1].hand[0], y: K.arms[1].hand[1] }; p.headY = K.head[1];
-      const sw = Math.max(6, 13 - z * .12);
+      const sw = Math.max(6, 13 - z * .12 - (po.hop || 0) * .4);
       px(p.x - sw / 2, p.y - 1, sw, 3, 'rgba(0,0,0,.38)'); px(p.x - sw / 2 + 2, p.y - 2, sw - 4, 5, 'rgba(0,0,0,.18)');
       if (o.me) { c.strokeStyle = o.fire ? '#f97316' : '#facc15'; c.lineWidth = 1; c.beginPath(); c.ellipse(Math.round(p.x) + .5, Math.round(p.y) + .5, 9, 3.5, 0, 0, 7); c.stroke(); }
       else if (o.mate) { c.strokeStyle = p.col + 'aa'; c.lineWidth = 1; c.beginPath(); c.ellipse(Math.round(p.x) + .5, Math.round(p.y) + .5, 8, 3, 0, 0, 7); c.stroke(); }
-      const held = () => { const [x, y] = ballAt(p, K); ball(x, y, p.fire, p.hasBall ? (p.dribT || 0) * 6 : 0); px(x - 2, p.y, 4, 1, 'rgba(0,0,0,.3)'); };
+      const held = () => { const [x, y, bs] = ballAt(p, K); ball(x, y, p.fire, p.hasBall ? (p.dribT || 0) * 6 : 0, bs || 0); px(x - 2, p.y, 4, 1, 'rgba(0,0,0,.3)'); };
       if (po.ball && po.layer === 'back') held();
       limb(K.hip, K.legs[0].knee, K.legs[0].foot, 3, p.skinD); px(K.legs[0].foot[0] - 1, K.legs[0].foot[1] - 3, 3, 2, '#e2e8f0'); drawShoe(K.legs[0].foot, f, shade(p.shoe || '#fff', -.25));
       limb(K.arms[0].sh, K.arms[0].elbow, K.arms[0].hand, 2, p.skinD);
       const sv = [lerp(K.legs[0].knee[0], K.legs[1].knee[0], .5), lerp(K.legs[0].knee[1], K.legs[1].knee[1], .5)], sb = [lerp(K.hip[0], sv[0], .55), lerp(K.hip[1], sv[1], .55)];
-      seg(K.hip[0], K.hip[1], sb[0], sb[1], 9, OUT); seg(K.hip[0], K.hip[1], sb[0], sb[1], 7, p.colD);
-      seg(K.hip[0], K.hip[1] - 1, K.neck[0], K.neck[1] + 1, 11, OUT); seg(K.hip[0], K.hip[1] - 1, K.neck[0], K.neck[1] + 1, 9, p.col);
+      seg(K.hip[0], K.hip[1], sb[0], sb[1], 9 + sqW, OUT); seg(K.hip[0], K.hip[1], sb[0], sb[1], 7 + sqW, p.colD);
+      seg(K.hip[0], K.hip[1] - 1, K.neck[0], K.neck[1] + 1, 11 + sqW, OUT); seg(K.hip[0], K.hip[1] - 1, K.neck[0], K.neck[1] + 1, 9 + sqW, p.col);
       seg(K.hip[0] - f * 3, K.hip[1] - 1, K.neck[0] - f * 3, K.neck[1] + 1, 2, p.colD);
       seg(K.hip[0] + f * 2, K.hip[1] - 2, K.neck[0] + f * 2, K.neck[1] + 2, 1, p.colL);
       px(K.neck[0] - 2, K.neck[1] - 1, 4, 1, p.col2);
-      if (Math.abs(po.rot) < .5 && p.num != null) {
+      if (Math.abs(K.o.rot || 0) < .5 && Math.abs(p._po ? p._po.rot : 0) < .5 && p.num != null) {
         const ds = String(p.num % 100).split('').map(Number), w = ds.length * 4 - 1, nx = Math.round(lerp(K.hip[0], K.neck[0], .55) - w / 2), ny = Math.round(lerp(K.hip[1], K.neck[1], .62) - 2);
         c.fillStyle = p.col2; ds.forEach((d, i) => { const gl = DIG[d]; for (let j = 0; j < 15; j++) if (gl[j] === '1') c.fillRect(nx + i * 4 + j % 3, ny + Math.floor(j / 3), 1, 1); });
       }
       if (po.ball && po.layer === 'mid') held();
       limb(K.hip, K.legs[1].knee, K.legs[1].foot, 3, p.skin); px(K.legs[1].foot[0] - 1, K.legs[1].foot[1] - 3, 3, 2, '#f8fafc'); drawShoe(K.legs[1].foot, f, p.shoe || '#fff');
-      const high = ['set', 'over', 'hand'].includes(po.ball);
+      const high = ['set', 'over', 'hand', 'behind'].includes(po.ball);
       if (po.ball && po.layer === 'front' && !high) held();
       limb(K.arms[1].sh, K.arms[1].elbow, K.arms[1].hand, 2, p.skin); px(K.arms[1].sh[0] - 1, K.arms[1].sh[1] - 1, 3, 2, p.col);
       if (po.flick) px(K.arms[1].hand[0] + f, K.arms[1].hand[1] - 1, 2, 2, p.skin);
       const hx = Math.round(K.head[0] - 3), hy = Math.round(K.head[1] - 3);
       px(hx - 1, hy - 1, 8, 8, OUT); px(hx, hy, 6, 6, p.skin); px(hx + (f > 0 ? 0 : 4), hy + 3, 2, 3, p.skinD);
-      px(hx + (f > 0 ? 4 : 1), hy + 2, 1, 1, '#111'); px(hx + (f > 0 ? 5 : 0), hy + 4, 1, 1, shade(p.skin, -.4));
+      if (po.headDown) px(hx + (f > 0 ? 3 : 1), hy + 3, 2, 1, '#111'); else { px(hx + (f > 0 ? 4 : 1), hy + 2, 1, 1, '#111'); px(hx + (f > 0 ? 5 : 0), hy + 4, 1, 1, shade(p.skin, -.4)); }
+      if (['celebrate', 'joy', 'flex', 'point', 'chestbump', 'thump'].includes(p.act && p.act.type)) px(hx + (f > 0 ? 3 : 1), hy + 4, 2, 1, '#7f1d1d');   // shouting
       drawHair(p, hx, hy, f);
       if (p.band) { px(hx - 1, hy + 1, 8, 1, p.band); px(hx + (f > 0 ? -2 : 7), hy + 1, 1, 3, p.band); }
       if (po.ball && high) held();
       if (po.stars) for (let i = 0; i < 3; i++) { const a = E.t * 6 + i * 2.1; px(K.head[0] + Math.cos(a) * 6, K.head[1] - 7 + Math.sin(a) * 2, 2, 2, '#fde047'); }
       if (o.me) { const by = Math.round(K.head[1] - 12 + Math.sin(E.t * 5) * 1.5), bx = Math.round(K.head[0]), col = o.fire ? '#f97316' : '#facc15'; px(bx - 3, by, 7, 1, col); px(bx - 2, by + 1, 5, 1, col); px(bx - 1, by + 2, 3, 1, col); px(bx, by + 3, 1, 1, col); }
       if (o.tag) text(c, o.tag, K.head[0], K.head[1] - 13, '#e2e8f0', 1, 'center', OUT);
-      if (p.fire && Math.random() < .5) E.fx.push({ x: p.x + rnd(-4, 4), y: p.y - z - rnd(6, 28), vx: rnd(-8, 8), vy: -rnd(20, 40), life: .3, col: pick(['#f97316', '#facc15', '#ef4444']) });
-      if (p.burst > 0 && Math.hypot(p.vx || 0, p.vy || 0) > 40) E.fx.push({ x: p.x - p.vx * .05 + rnd(-2, 2), y: p.y - rnd(4, 24), vx: -p.vx * .4, vy: 0, life: .15, col: 'rgba(255,255,255,.55)' });
+      const spd = Math.hypot(p.vx || 0, p.vy || 0);
+      if (p.fire) {   // on fire: flames off the body + a fire trail behind the feet
+        if (Math.random() < .6) E.fx.push({ x: p.x + rnd(-4, 4), y: p.y - z - rnd(6, 28), vx: rnd(-8, 8), vy: -rnd(20, 40), life: .3, col: pick(['#f97316', '#facc15', '#ef4444']), sz: Math.random() < .3 ? 3 : 2 });
+        if (spd > 20) for (let i = 0; i < 2; i++) E.fx.push({ x: p.x - (p.vx || 0) * .04 + rnd(-3, 3), y: p.y - z - rnd(0, 6), vx: -(p.vx || 0) * .3, vy: -rnd(10, 30), life: rnd(.2, .4), col: pick(['#f97316', '#fbbf24', '#ef4444', '#fde047']), sz: 2, g: -.3 });
+      }
+      if (p.burst > 0 && spd > 40) { E.fx.push({ x: p.x - p.vx * .05 + rnd(-2, 2), y: p.y - rnd(4, 24), vx: -p.vx * .4, vy: 0, life: .15, col: 'rgba(255,255,255,.55)' }); if (Math.random() < .35) dust(p.x - (p.vx || 0) * .03, p.y, 1); }
+      if (p.sweaty && Math.random() < .025) sweat(K.head[0], K.head[1] - 2, 1);
       return K;
     }
-    function reflection(p, o) { if (!V.def.reflect) return; c.save(); c.globalAlpha = .18; c.translate(0, p.y * 2 + 2); c.scale(1, -1); const fx = E.fx.length; player(p, {}); E.fx.length = fx; c.restore(); }
+    function reflection(p, o) { if (!V.def.reflect) return; c.save(); c.globalAlpha = .18; c.translate(0, p.y * 2 + 2); c.scale(1, -1); const fx = E.fx.length, pt = p._pt, pz = p._pz, sqv = p._sq; player(p, {}); E.fx.length = fx; p._pt = pt; p._pz = pz; p._sq = sqv; c.restore(); }
     function hoop(front) {
       const H0 = PIX.hoop, rx = H0.x, ry = H0.y - H0.z + Math.round(Math.sin(E.t * 60) * E.rim * 1.5), metal = V.def.backboard === 'metal';
       if (!front) {
@@ -366,20 +421,25 @@ const Pixel = (() => {
         px(rx - 6, ry - 1, 12, 1, '#c2410c');
         return;
       }
+      if (E.net.swish > E.lastSwish + .25) E.net.w0 = E.t; E.lastSwish = E.net.swish;     // a new swish starts a ripple down the net
+      const age = E.t - E.net.w0, rip = age < 1.2 ? (1 - age / 1.2) : 0;
       const Ln = 9 + E.net.swish * 5, sway = Math.sin(E.t * 18) * E.net.sway * 2, nc = V.def.net === 'chain' ? '#94a3b8' : '#f1f5f9';
-      for (let i = 0; i < 5; i++) seg(rx - 6 + i * 3, ry + 1, rx - 3 + i * 1.5 + sway, ry + Ln, 1, nc);
-      for (let j = 3; j < Ln; j += 3) { const w = lerp(12, 6, j / Ln); px(rx - w / 2 + sway * j / Ln, ry + j, w, 1, nc + '99'); }
+      const wob = j => rip ? Math.sin(j * .9 - age * 26) * rip * 1.6 : 0;
+      for (let i = 0; i < 5; i++) seg(rx - 6 + i * 3, ry + 1, rx - 3 + i * 1.5 + sway + wob(Ln), ry + Ln, 1, nc);
+      for (let j = 3; j < Ln; j += 3) { const w = lerp(12, 6, j / Ln) + (rip ? Math.max(0, Math.sin(j * .7 - age * 26)) * rip * 2 : 0); px(rx - w / 2 + sway * j / Ln + wob(j), ry + j, w, 1, nc + '99'); }
       px(rx - 7, ry, 14, 2, '#ea580c'); px(rx - 7, ry + 1, 14, 1, '#9a3412');
     }
     function crowd() {
-      const t = E.t, amp = 1 + E.hype * 2;
+      const t = E.t, amp = 1 + E.hype * 2 + E.cheer * 3, wx = (t - E.waveT) * 260 - 30, waving = wx > -40 && wx < V.W + 40;
       V.crowd.forEach(d => {
-        const bob = Math.max(0, Math.sin(t * (4 + E.hype * 6) + d.ph)) * amp * (E.hype > .5 || d.ph > 3 ? 1 : .4), x = Math.round(d.x), y = Math.round(d.y - bob);
-        if (d.kind === 'stand') { px(x - 2, y - d.h + 5, 5, d.h - 8, d.c); px(x - 1, y - d.h + 1, 3, 4, d.skin); px(x - 2, y - 3, 2, 3, '#1f2937'); px(x + 1, y - 3, 2, 3, '#1f2937'); if (E.hype > .6) px(x - 3, y - d.h + 2 - bob, 1, 3, d.skin); }
-        else { px(x - 1, y - 3, 4, 3, d.c); px(x, y - 5 - (d.h > 5 ? 1 : 0), 2, 2, d.skin); if (E.hype > .7 && d.ph > 4.5) px(x - 1, y - 8, 1, 3, d.skin); }
+        let lift = 0; if (waving) { const dd = Math.abs(d.x - wx); if (dd < 28) lift = (1 - dd / 28) * 5; }
+        const up = E.cheer > .35 && d.ph > 1.2;
+        const bob = Math.max(0, Math.sin(t * (4 + E.hype * 6 + E.cheer * 6) + d.ph)) * amp * (E.hype > .5 || E.cheer > .2 || d.ph > 3 ? 1 : .4) + lift, x = Math.round(d.x), y = Math.round(d.y - bob);
+        if (d.kind === 'stand') { px(x - 2, y - d.h + 5, 5, d.h - 8, d.c); px(x - 1, y - d.h + 1, 3, 4, d.skin); px(x - 2, y - 3, 2, 3, '#1f2937'); px(x + 1, y - 3, 2, 3, '#1f2937'); if (E.hype > .6 || up || lift > 2) { px(x - 3, y - d.h + 2 - bob, 1, 3, d.skin); px(x + 3, y - d.h + 2 - bob, 1, 3, d.skin); } }
+        else { px(x - 1, y - 3, 4, 3, d.c); px(x, y - 5 - (d.h > 5 ? 1 : 0), 2, 2, d.skin); if ((E.hype > .7 && d.ph > 4.5) || up || lift > 2) { px(x - 1, y - 8, 1, 3, d.skin); px(x + 2, y - 8, 1, 3, d.skin); } }
       });
-      if (!V.street && V.crowd.length && Math.random() < .08 + E.hype * .25) { const d = pick(V.crowd); E.fx.push({ x: d.x, y: d.y - 5, vx: 0, vy: 0, life: .06, col: '#ffffff', flash: 1 }); }
-      if (V.led) { const y = PIX.court.y0 - 6; px(0, y, V.W, 5, '#05070d'); const msg = (V.led.text + '   ').repeat(4), w = textWidth(msg); c.save(); c.beginPath(); c.rect(0, y, V.W, 5); c.clip(); text(c, msg + msg, -((t * 22) % w), y, (Math.floor(t * 2) % 2) ? V.led.a : (V.led.b || '#fff')); c.restore(); }
+      if (!V.street && V.crowd.length && Math.random() < .08 + E.hype * .25 + E.cheer * .6) { const d = pick(V.crowd); E.fx.push({ x: d.x, y: d.y - 5, vx: 0, vy: 0, life: .06, col: '#ffffff', flash: 1 }); if (E.cheer > .3 && Math.random() < .3) E.fx.push({ x: d.x - 1, y: d.y - 6, vx: 0, vy: 0, life: .05, col: 'rgba(255,255,255,.6)', sz: 3 }); }
+      if (V.led) { const y = PIX.court.y0 - 6; px(0, y, V.W, 5, '#05070d'); const msg = (V.led.text + '   ').repeat(4), w = textWidth(msg); c.save(); c.beginPath(); c.rect(0, y, V.W, 5); c.clip(); text(c, msg + msg, -((t * 22) % w), y, (Math.floor(t * (2 + E.cheer * 8)) % 2) ? V.led.a : (V.led.b || '#fff')); c.restore(); }
       V.flags.forEach(fl => { if (fl.puddle) return; const wv = Math.round(Math.sin(t * 3 + fl.x) * 1); px(fl.x, fl.y, 1, fl.h + 4, '#94a3b8'); px(fl.x + 1, fl.y + wv, fl.w, fl.h / 2, fl.a); px(fl.x + 1, fl.y + fl.h / 2 + wv, fl.w, fl.h / 2, fl.b); });
     }
     function lights() {
@@ -388,8 +448,8 @@ const Pixel = (() => {
       V.lights.forEach(L => {
         if (L.kind === 'strings') { for (let i = 0; i < 2; i++) for (let x = 0; x < V.W; x += 8) { const y = 8 + i * 14 + Math.sin(x / V.W * Math.PI) * 10; const on = (Math.floor(t * 2 + x / 8) % 5) !== 0; c.fillStyle = on ? 'rgba(253,224,71,.9)' : 'rgba(253,224,71,.3)'; c.fillRect(x, y, 2, 2); if (on) { c.fillStyle = 'rgba(253,224,71,.12)'; c.fillRect(x - 2, y - 2, 6, 6); } } return; }
         if (L.kind === 'lasers') { const cols = ['255,60,60', '60,140,255', '250,204,21', '168,85,247']; for (let i = 0; i < 4; i++) { const a = Math.sin(t * .8 + i) * .9 + (i % 2 ? .6 : -.6), x0 = i % 2 ? V.W : 0; c.strokeStyle = `rgba(${cols[i]},.35)`; c.lineWidth = 1; c.beginPath(); c.moveTo(x0, 0); c.lineTo(x0 + Math.sin(a) * 400 * (i % 2 ? -1 : 1), Math.cos(a) * 400); c.stroke(); } return; }
-        const x = L.sweep ? L.x + Math.sin(t * .5 * L.sweep) * 80 : L.x, fl = V.street ? .85 + Math.random() * .15 : 1;
-        const gr = c.createRadialGradient(x, L.y, 2, x, L.y + 60, L.r); gr.addColorStop(0, `rgba(${L.col},${.22 * fl})`); gr.addColorStop(1, `rgba(${L.col},0)`);
+        const x = L.sweep ? L.x + Math.sin(t * (.5 + E.cheer * 2) * L.sweep) * 80 : L.x, fl = V.street ? .85 + Math.random() * .15 : 1;
+        const gr = c.createRadialGradient(x, L.y, 2, x, L.y + 60, L.r); gr.addColorStop(0, `rgba(${L.col},${(.22 + E.cheer * .12) * fl})`); gr.addColorStop(1, `rgba(${L.col},0)`);
         c.fillStyle = gr; c.beginPath(); c.moveTo(x - 4, L.y); c.lineTo(x + L.r * .55, L.y + L.r * 1.4); c.lineTo(x - L.r * .55, L.y + L.r * 1.4); c.fill();
       });
       c.restore();
@@ -399,13 +459,22 @@ const Pixel = (() => {
       if (V.def.theme === 'finals' || V.def.theme === 'allstar') { if (Math.random() < .3 + E.hype * .5) E.fx.push({ x: Math.random() * V.W, y: -4, vx: rnd(-10, 10), vy: rnd(20, 40), life: 3, col: pick(['#d4a017', '#facc15', '#f8fafc', V.c0, V.c1]), conf: 1 }); }
     }
     function fx(dt) {
-      E.fx.forEach(f => { f.x += f.vx * dt; f.y += f.vy * dt; if (!f.conf) f.vy += 120 * dt; f.life -= dt; }); E.fx = E.fx.filter(f => f.life > 0 && f.y < V.H + 10);
+      E.fx.forEach(f => { f.x += f.vx * dt; f.y += f.vy * dt; if (f.conf) f.x += Math.sin(E.t * 5 + f.y * .1) * 12 * dt; else f.vy += 120 * (f.g != null ? f.g : 1) * dt; if (f.drag) { f.vx *= Math.pow(f.drag, dt); f.vy *= Math.pow(f.drag, dt); } f.life -= dt; });
+      E.fx = E.fx.filter(f => f.life > 0 && f.y < V.H + 10);
       E.glass.forEach(f => { f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 160 * dt; f.life -= dt; }); E.glass = E.glass.filter(f => f.life > 0);
-      E.fx.forEach(f => px(f.x, f.y, f.flash ? 1 : 2, f.flash ? 1 : f.conf ? 1 : 2, f.col)); E.glass.forEach(f => px(f.x, f.y, 2, 1, '#bae6fd'));
-      E.net.swish = Math.max(0, E.net.swish - dt * 2.2); E.net.sway *= Math.pow(.05, dt); E.rim *= Math.pow(.01, dt); E.hype = Math.max(.25, E.hype - dt * .06);
+      E.fx.forEach(f => { const s = f.sz || (f.flash ? 1 : 2); if (f.puff) { c.globalAlpha = Math.min(1, f.life * 3) * .8; px(f.x - s / 2, f.y - s / 2, s, s, f.col); c.globalAlpha = 1; } else px(f.x, f.y, s, f.flash || f.conf ? (f.conf ? (Math.sin(E.t * 9 + f.x) > 0 ? 2 : 1) : 1) : s, f.col); });
+      E.glass.forEach(f => px(f.x, f.y, 2, 1, '#bae6fd'));
+      E.rings.forEach(r => { r.life -= dt; r.r += dt * r.sp; c.strokeStyle = r.col; c.globalAlpha = Math.max(0, r.life / r.L); c.lineWidth = r.w || 2; c.beginPath(); c.ellipse(Math.round(r.x), Math.round(r.y), r.r, r.r * (r.flat || .45), 0, 0, 7); c.stroke(); c.globalAlpha = 1; });
+      E.rings = E.rings.filter(r => r.life > 0);
+      E.net.swish = Math.max(0, E.net.swish - dt * 2.2); E.net.sway *= Math.pow(.05, dt); E.rim *= Math.pow(.01, dt); E.hype = Math.max(.25, E.hype - dt * .06); E.cheer = Math.max(0, E.cheer - dt * .35); E.bsq = Math.max(0, E.bsq - dt * 9);
     }
     function burst(x, y, col, n = 14, sp = 60) { for (let i = 0; i < n; i++) E.fx.push({ x, y, vx: rnd(-sp, sp), vy: rnd(-sp * 1.3, sp * .2), life: rnd(.4, .8), col }); }
-    return { E, V, c, player, reflection, ball, freeBall, hoop, crowd, lights, weather, fx, burst, text: (s, x, y, col, sc, al, ol) => text(c, s, x, y, col, sc, al, ol), px, skeleton };
+    function dust(x, y, n = 4) { const col = V.street ? pick(['#cbd5e1', '#d6d3d1', '#e7e5e4']) : pick(['#fde7c7', '#f5e1c0', '#ffffff']); for (let i = 0; i < n; i++) E.fx.push({ x: x + rnd(-4, 4), y: y - rnd(0, 2), vx: rnd(-26, 26), vy: -rnd(4, 16), life: rnd(.25, .5), col, sz: Math.random() < .4 ? 3 : 2, g: -.05, drag: .02, puff: 1 }); }
+    function sweat(x, y, n = 4) { for (let i = 0; i < n; i++) E.fx.push({ x: x + rnd(-2, 2), y: y + rnd(-2, 2), vx: rnd(-40, 40), vy: -rnd(20, 60), life: rnd(.3, .6), col: pick(['#bae6fd', '#e0f2fe', '#7dd3fc']), sz: 1 }); }
+    function ring(x, y, col = '#fde68a', sp = 120, life = .35, w = 2, flat = .45) { E.rings.push({ x, y, r: 3, sp, life, L: life, col, w, flat }); }
+    function confetti(n = 120) { for (let i = 0; i < n; i++) E.fx.push({ x: rnd(0, V.W), y: rnd(-60, 0), vx: rnd(-14, 14), vy: rnd(18, 42), life: rnd(2.5, 4.5), col: pick(['#f97316', '#facc15', '#22c55e', '#3b82f6', '#ec4899', '#fff', V.c0, V.c1]), conf: 1 }); }
+    function cheer(amt = 1, wave = false) { E.cheer = Math.min(1, Math.max(E.cheer, amt)); E.hype = Math.min(1, E.hype + amt * .3); if (wave) E.waveT = E.t; }
+    return { E, V, c, player, reflection, ball, freeBall, hoop, crowd, lights, weather, fx, burst, dust, sweat, ring, confetti, cheer, text: (s, x, y, col, sc, al, ol) => text(c, s, x, y, col, sc, al, ol), px, skeleton };
   }
 
   /* sprite fields for a player from a look + team colors */

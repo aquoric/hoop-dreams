@@ -27,13 +27,13 @@ const Match = (() => {
       this.us = us; this.them = them; this.venueId = venueId || 'rec_center';
       this.players = []; this.ball = { x: 0, y: 30, z: 3, holder: null, show: true, spin: 0, dribble: true };
       this.tweens = []; this.pops = [];
-      this.shakeAmt = 0; this.timeScale = 1; this.zoom = 1; this.netWave = 0; this.rimBend = 0; this.flashA = 0;
+      this.shakeAmt = 0; this.timeScale = 1; this.zoom = 1; this.netWave = 0; this.rimBend = 0; this.flashA = 0; this.flashCol = '255,255,255'; this.stopT = 0; this.kick = 0; this.vdt = 0; this.cutAt = -99;
       this.t = 0; this.excite = 0.3; this.fire = false; this.clutch = false; this.trail = null; this.cam = 0;
       this.VW = 0; this.resize();
       this._rs = () => this.resize(); window.addEventListener('resize', this._rs);
       this.alive = true; this.last = performance.now();
       this.amb = setInterval(() => { if (this.alive) Pixel.ambient(this.V, this.excite); }, 4800);
-      const loop = now => { if (!this.alive) return; const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now; this.update(dt); this.draw(dt); requestAnimationFrame(loop); };
+      const loop = now => { if (!this.alive) return; const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now; this.update(dt); this.draw(this.vdt, dt); requestAnimationFrame(loop); };
       requestAnimationFrame(loop);
     }
     destroy() { this.alive = false; clearInterval(this.amb); window.removeEventListener('resize', this._rs); }
@@ -43,6 +43,7 @@ const Match = (() => {
       if (VW === this.VW && this.V) return;
       this.VW = VW; this.cv.width = VW; this.cv.height = PIX.H; this.ctx.imageSmoothingEnabled = false;
       this.V = Pixel.venue(this.venueId, this.us, this.them, wide ? VW : PIX.W); this.R = Pixel.renderer(this.ctx, this.V);
+      this.R.E.onLand = (p, h) => { if (h > 12) SFX.play('thud', .5); };
       this.cam = (this.V.W - VW) / 2;
     }
     setVenue(id) { if (id === this.venueId) return; this.venueId = id; this.VW = 0; this.resize(); }
@@ -59,7 +60,11 @@ const Match = (() => {
     }
     wait(sec) { return new Promise(res => this.tweens.push({ obj: {}, from: {}, to: {}, dur: sec, el: 0, ease: EASE.lin, res })); }
     update(dt) {
-      const sdt = dt * this.timeScale; this.t += sdt;
+      // hit-stop: everything (tweens, poses, particles) freezes for a few frames
+      const stopped = this.stopT > 0; if (stopped) this.stopT = Math.max(0, this.stopT - dt);
+      const sdt = stopped ? 0 : dt * this.timeScale; this.t += sdt; this.vdt = sdt;
+      this.players.forEach(p => { const a = p.anim; if (a && a.tick) { a.t += sdt; if (a.auto && a.T && a.t >= a.T) p.anim = null; } });
+      this.kick *= Math.pow(.004, dt);
       for (let i = this.tweens.length - 1; i >= 0; i--) {
         const tw = this.tweens[i]; tw.el += sdt; const k = tw.ease(clamp(tw.el / tw.dur, 0, 1));
         for (const p in tw.to) tw.obj[p] = lerp(tw.from[p], tw.to[p], k);
@@ -77,14 +82,15 @@ const Match = (() => {
       return p._s;
     }
     /* ---------- drawing ---------- */
-    draw(dt) {
+    draw(dt, rdt = dt) {
       const c = this.ctx, R = this.R, E = R.E, V = this.V, b = this.ball;
       E.t = this.t; E.hype = Math.max(E.hype, this.excite); E.net.swish = Math.max(E.net.swish, Math.min(1, this.netWave)); E.rim = Math.max(E.rim, Math.min(1, this.rimBend));
       // camera (narrow screens follow the ball)
-      if (this.VW < V.W) { const bx = b.holder ? this.X(b.holder.x) : this.X(b.x); this.cam += (clamp(bx - this.VW / 2, 0, V.W - this.VW) - this.cam) * Math.min(1, dt * 3); }
+      if (this.VW < V.W) { const bx = b.holder ? this.X(b.holder.x) : this.X(b.x); this.cam += (clamp(bx - this.VW / 2, 0, V.W - this.VW) - this.cam) * Math.min(1, rdt * 3); }
       const cam = Math.round(this.cam);
       c.setTransform(1, 0, 0, 1, 0, 0);
-      if (this.zoom > 1.001) { const z = this.zoom, fx = this.X(0) - cam, fy = 30; c.setTransform(z, 0, 0, z, fx * (1 - z), fy * (1 - z)); }
+      const zz = this.zoom + this.kick;
+      if (zz > 1.001) { const z = zz, fx = this.X(0) - cam, fy = 30; c.setTransform(z, 0, 0, z, fx * (1 - z), fy * (1 - z)); }
       if (this.shakeAmt > .3) c.translate(Math.round(rnd(-1, 1) * this.shakeAmt * .4), Math.round(rnd(-1, 1) * this.shakeAmt * .4));
       c.translate(-cam, 0);
       c.drawImage(V.bg, 0, 0);
@@ -94,7 +100,7 @@ const Match = (() => {
       const vis = this.players.filter(p => !p.hidden);
       vis.forEach(p => {
         const s = this.spr(p), nx = this.X(p.x) - V.ox, ny = this.Y(p.y);
-        if (s.px != null && dt > 0) { s.vx = (nx - s.px) / dt; s.vy = (ny - s.py) / dt; } s.px = nx; s.py = ny;
+        if (s.px != null && dt > 0) { s.vx = (nx - s.px) / dt; s.vy = (ny - s.py) / dt; } if (dt > 0) { s.px = nx; s.py = ny; }
         if (!p.moving && Math.hypot(s.vx, s.vy) < 30) { s.vx *= .5; s.vy *= .5; }
         s.x = nx; s.y = ny; s.z = p.z * 3.2;
         const sp = Math.hypot(s.vx, s.vy); s.phase += sp * dt * .21; s.dribT += dt / (sp > 12 ? .38 : .52);
@@ -105,7 +111,7 @@ const Match = (() => {
         else if (p.faceX != null) s.face = p.faceX;
         else if (s.stance && hold && hold !== p) s.face = this.X(hold.x) >= this.X(p.x) ? 1 : -1;
         else if (!s.stance) s.face = p.x < 0 ? 1 : -1;
-        s.fire = this.fire && p.isUser;
+        s.fire = this.fire && p.isUser; s.sweaty = p.isUser && this.sweaty;
       });
       c.save(); c.translate(V.ox, 0);
       if (V.def.reflect) vis.forEach(p => R.reflection(p._s));
@@ -120,13 +126,35 @@ const Match = (() => {
       R.weather(dt); R.lights();
       c.setTransform(1, 0, 0, 1, 0, 0);
       c.drawImage(V.vg, cam, 0, this.VW, PIX.H, 0, 0, this.VW, PIX.H);
-      if (this.flashA > 0.02) { c.fillStyle = `rgba(255,255,255,${this.flashA})`; c.fillRect(0, 0, this.VW, PIX.H); }
+      if (this.timeScale < .6 && this.zoom > 1.1) { c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(0, 0, this.VW, 12); c.fillRect(0, PIX.H - 12, this.VW, 12); }   // letterbox in slow motion
+      if (this.flashA > 0.02) { c.fillStyle = `rgba(${this.flashCol},${Math.min(.85, this.flashA)})`; c.fillRect(0, 0, this.VW, PIX.H); }
     }
     /* ---------- effects ---------- */
     pop(text, wx, wy, wz, color = '#facc15', size = 34) { this.pops.push({ text, x: this.X(wx), y: this.Y(wy) - wz * 3.2 - 22, c: color, sc: size >= 40 ? 3 : 2, life: 1.4 }); }
     confetti(n = 120) { const E = this.R.E; for (let i = 0; i < n; i++) E.fx.push({ x: rnd(0, this.V.W), y: rnd(-40, 0), vx: rnd(-12, 12), vy: rnd(20, 45), life: rnd(2, 4), col: pick(['#f97316', '#facc15', '#22c55e', '#3b82f6', '#ec4899', '#fff']), conf: 1 }); }
     sparks(wx, wy, wz, col = '#facc15', n = 26) { this.R.burst(this.X(wx), this.Y(wy) - wz * 3.2, col, Math.round(n * .7), 70); }
     shake(n = 10) { this.shakeAmt = n; }
+    /* impact: hit-stop freeze + shake + flash + camera punch-in */
+    impact(stop = .12, shake = 10, flash = .25, kick = .05, col = '255,255,255') { this.stopT = Math.max(this.stopT, stop); this.shakeAmt = Math.max(this.shakeAmt, shake); this.flashA = Math.max(this.flashA, flash); this.flashCol = col; this.kick = Math.max(this.kick, kick); }
+    /* quick anime close-up cut for your highlight plays (rate-limited, needs the portrait ready) */
+    highlight(kind, caption, delay = 200) {
+      const u = this.user(); if (!u || typeof Cutscene === 'undefined' || !Cutscene.highlight || !Cutscene.ready(u.look) || this.t - this.cutAt < 6) return;
+      this.cutAt = this.t;
+      setTimeout(() => { if (!this.alive) return; this.stopT = Math.max(this.stopT, 1.25); Cutscene.highlight({ kind, look: u.look, name: u.name === 'You' && Game.state ? `${Game.state.player.first} ${Game.state.player.last}` : u.name, caption, colors: this.us.colors, bench: 5 }); }, delay);
+    }
+    /* timed pose that plays out on its own (celebrations, landings) */
+    act(p, type, T, extra) { if (!p) return; const a = Object.assign({ type, t: 0, T, tick: true, auto: true }, extra || {}); p.anim = a; return a; }
+    /* celebrations + reactions after a make: scorer flexes / points, teammates jump, the other team hangs its heads */
+    celebrate(scorer, kind) {
+      if (!scorer) return;
+      const big = kind === 'dunk' || kind === 'three' || this.fire, mine = scorer.team, vis = this.players.filter(p => !p.hidden);
+      const go = (p, type, T, d) => setTimeout(() => { if (this.alive && (!p.anim || p.anim.auto)) this.act(p, type, T, { hop: true }); }, d);
+      go(scorer, kind === 'dunk' ? pick(['flex', 'thump']) : kind === 'three' ? 'point' : pick(['celebrate', 'clap', 'point']), 1.0, 380);
+      vis.filter(p => p.team === mine && p !== scorer).forEach((p, i) => go(p, big ? 'joy' : 'clap', .9, 300 + i * 90));
+      vis.filter(p => p.team !== mine).forEach((p, i) => go(p, 'hang', 1.1, 420 + i * 60));
+      this.R.cheer(mine === 'us' ? (big ? 1 : .6) : .3, big && mine === 'us');
+      if (big && mine === 'us') SFX.play('roar');
+    }
 
     /* ---------- formation ---------- */
     setPlayers(list) { this.players = list.map((p, i) => Object.assign({ x: 0, y: 30, z: 0, ph: i, pose: '', moving: false }, p)); }
@@ -149,13 +177,14 @@ const Match = (() => {
        outcome: 'swish' | 'rimin' | 'miss' | 'airball'. opts.layup = layup animation */
     async shoot(p, outcome, opts = {}) {
       p.faceX = p.x < 0 ? 1 : -1;
-      p.anim = opts.layup ? { type: 'layup', t: .1, T: .7, released: false } : { type: 'shoot', t: 0, air: false, released: false };
-      await this.wait(opts.layup ? .08 : .14);
-      if (p.anim) { p.anim.air = true; p.anim.t = .3; }
+      const A = p.anim = opts.layup ? { type: 'layup', t: 0, T: .7, released: false } : { type: 'shoot', t: 0, air: false, released: false };
+      await this.tween(A, { t: opts.layup ? .17 : .2 }, opts.layup ? .1 : .17, 'out');        // anticipation: gather + crouch
+      if (p.anim === A) { A.air = true; A.t = .3; }
       const jh = opts.jump || (opts.layup ? 3 : 2.2);
       await this.tween(p, { z: jh }, .26, 'out');
-      const b = this.ball, s = this.ballPos(); b.holder = null; Object.assign(b, s); if (p.anim) p.anim.released = true;
-      this.tween(p, { z: 0 }, .3, 'in').then(() => { p.anim = null; p.faceX = null; });
+      const b = this.ball, s = this.ballPos(); b.holder = null; Object.assign(b, s); if (p.anim === A) A.released = true;
+      SFX.play('whoosh');
+      this.wait(.12).then(() => this.tween(p, { z: 0 }, .26, 'in')).then(() => { if (p.anim === A) this.act(p, 'land', .17); p.faceX = null; });   // follow-through hangs, then lands
       const d = Math.hypot(HOOP.x - s.x, HOOP.y - s.y), arc = opts.arc || clamp(d * .45 + 4, 5, 14), dur = (opts.dur || clamp(.6 + d / 40, .65, 1.35));
       const sx = s.x, sy = s.y, sz = s.z;
       const tx = outcome === 'miss' ? rnd(-.9, .9) : outcome === 'airball' ? rnd(-3, 3) : 0, ty = outcome === 'airball' ? 7.5 : HOOP.y + (outcome === 'miss' ? rnd(-.6, .6) : 0);
@@ -165,13 +194,14 @@ const Match = (() => {
       if (opts.slowmo) { this.timeScale = 1; this.tween(this, { zoom: 1 }, .6, 'io'); }
       if (outcome === 'swish' || outcome === 'rimin') {
         if (outcome === 'rimin') { SFX.play('rim'); this.rimBend = .4; await this.tween(b, { z: HOOP.z + 1.2, x: rnd(-.4, .4) }, .15, 'out'); await this.tween(b, { z: HOOP.z, x: 0 }, .15, 'in'); }
-        SFX.play('swish'); this.netWave = 1;
+        SFX.play('swish'); SFX.play('net'); this.netWave = 1;
+        if (opts.big) { this.impact(.09, 4, .12, .04); this.R.ring(this.X(0) - this.V.ox, this.Y(HOOP.y) - HOOP.z * 3.2 + 3, '#e0f2fe', 90, .3, 1); }
         await this.tween(b, { z: HOOP.z - 2.5 }, .22, 'in');
         await this.tween(b, { z: 0, y: HOOP.y + 1.5 }, .35, 'in'); SFX.play('bounce');
         return true;
       }
       if (outcome === 'airball') { await this.tween(b, { z: 0, y: 2 }, .3, 'in'); SFX.play('bounce'); return false; }
-      SFX.play('rim'); this.rimBend = .8; this.R.E.net.sway = 1;
+      SFX.play('rim'); this.rimBend = .8; this.R.E.net.sway = 1; this.sparks(b.x, b.y, b.z, '#fde68a', 6);
       const ox = rnd(-8, 8), oy = rnd(10, 16);
       await this.tween(b, { x: ox * .3, y: HOOP.y + 2, z: HOOP.z + 3 }, .25, 'out');
       await this.tween(b, { x: ox, y: oy, z: 0 }, .5, 'in'); SFX.play('bounce');
@@ -185,10 +215,11 @@ const Match = (() => {
     async dunk(p, made, poster) {
       await this.drive(p, rnd(-1.5, 1.5), 7.5, .55);
       const b = this.ball; b.dribble = false; p.faceX = p.x < 0 ? 1 : -1;
-      p.anim = { type: 'dunk', t: 0, T: 1.05 };
-      await this.wait(.12); p.anim.t = .22;
+      const A = p.anim = { type: 'dunk', t: 0, T: 1.05 };
+      await this.tween(A, { t: .21 }, .17, 'out');                       // anticipation: deep crouch, ball loaded
+      SFX.play('whoosh');
       if (poster) { this.timeScale = .4; this.tween(this, { zoom: 1.35 }, .4); }
-      await this.tween(p, { z: 6.2, y: HOOP.y + 1.2, x: 0 }, .45, 'out', k => { if (p.anim) p.anim.t = .22 + k * .41; });
+      await this.tween(p, { z: 6.2, y: HOOP.y + 1.2, x: 0 }, .45, 'out', k => { if (p.anim) p.anim.t = .22 + k * .41; });   // rise, wind-up behind the head, hammer
       if (poster) { this.timeScale = 1; this.tween(this, { zoom: 1 }, .7); }
       p.anim.t = .66; p.anim.made = made;
       if (!made) {
@@ -197,15 +228,17 @@ const Match = (() => {
         await this.tween(b, { x: rnd(-6, 6), y: rnd(12, 16), z: 0 }, .6, 'in'); return false;
       }
       b.holder = null; Object.assign(b, { x: 0, y: HOOP.y, z: HOOP.z + .6 });
-      SFX.play('dunk'); this.shake(poster ? 22 : 13); this.rimBend = 1.2; this.netWave = 1.5; this.flashA = poster ? .5 : .25;
-      this.sparks(0, HOOP.y, HOOP.z, '#facc15', poster ? 50 : 24);
+      SFX.play('dunk'); this.impact(poster ? .2 : .14, poster ? 22 : 13, poster ? .5 : .28, poster ? .1 : .06); this.rimBend = 1.2; this.netWave = 1.5;
+      this.sparks(0, HOOP.y, HOOP.z, '#facc15', poster ? 50 : 24); this.R.ring(this.X(0) - this.V.ox, this.Y(HOOP.y) - HOOP.z * 3.2 + 2, '#fde68a', 170, .4);
+      this.R.sweat(this.X(p.x) - this.V.ox, this.Y(p.y) - p.z * 3.2 - 26, 6);
+      if (p.isUser) this.highlight('dunk', poster ? 'POSTERIZED!' : pick(['SLAM!', 'WITH AUTHORITY!', 'HELLO, RIM!']), 230);
       await this.tween(b, { z: 0 }, .35, 'in', k => { if (p.anim) p.anim.t = .66 + k * .24; }); SFX.play('bounce');
-      p.anim = { type: 'jump', t: 0 }; await this.tween(p, { z: 0, y: 7 }, .3, 'in'); p.anim = null; p.faceX = null;
+      p.anim = { type: 'jump', t: 0 }; await this.tween(p, { z: 0, y: 7 }, .3, 'in'); this.act(p, 'land', .2); p.faceX = null;
       return true;
     }
     async steal(user, from) {
       SFX.play('squeak'); user.pose = 'def'; user.anim = { type: 'reach', t: .1, T: .32 }; await this.moveTo(user, from.x + .8, from.y + .5, .25);
-      this.ball.holder = user; this.sparks(user.x, user.y, 3, '#38bdf8', 18); SFX.play('whoosh'); user.pose = ''; user.anim = null;
+      this.ball.holder = user; this.sparks(user.x, user.y, 3, '#38bdf8', 18); SFX.play('whoosh'); SFX.play('slap'); this.kick = .04; user.pose = ''; user.anim = null;
       from.anim = { type: 'stumble', t: 0, T: .5 }; setTimeout(() => { if (from.anim && from.anim.type === 'stumble') from.anim = null; }, 500);
     }
     async block(user, shooter, success) {
@@ -215,7 +248,9 @@ const Match = (() => {
       const j = this.tween(user, { z: 4 }, .3, 'out').then(() => this.tween(user, { z: 0 }, .3, 'in')); await this.tween(shooter, { z: 2 }, .25, 'out'); await this.tween(shooter, { z: 0 }, .25, 'in');
       shooter.anim = null;
       if (success) {
-        SFX.play('dunk'); this.shake(10); this.sparks(b.x, b.y, 10, '#38bdf8', 30);
+        SFX.play('dunk'); SFX.play('crowd', 1.5); this.impact(.13, 10, .22, .06, '186,230,253'); this.sparks(b.x, b.y, 10, '#38bdf8', 30); this.R.ring(this.X(b.x) - this.V.ox, this.Y(b.y) - b.z * 3.2, '#bae6fd', 130, .3); this.R.cheer(.8);
+        user.anim = { type: 'block', t: .3 };
+        if (user.isUser) this.highlight('block', pick(['REJECTED!', 'NOT IN MY HOUSE!', 'SWAT CITY!']), 150);
         await this.tween(b, { x: b.x + rnd(-14, 14), y: b.y + 14, z: 0 }, .55, 'in'); await j; user.anim = null; return true;
       }
       await j; user.anim = null;
@@ -651,6 +686,7 @@ const Match = (() => {
     const themP = [0, 1, 2, 3, 4].map(i => mk('them', themNames[i] || 'Defender ' + i, i));
     const starIdx = Math.max(0, themNames.indexOf(star.name)); themP[starIdx].tag = star.name.split(' ').slice(-1)[0];
     court.setPlayers([...usP, ...themP]);
+    if (typeof Cutscene !== 'undefined' && Cutscene.prep) Cutscene.prep(lk);   // portrait for highlight close-ups
     const U = court.players[myIdx], STAR = court.players.slice(5)[starIdx];
     let US = court.players.slice(0, 5), TH = court.players.slice(5);
     if (size < 5) {   // small-sided pickup: you + teammates vs their star + crew
@@ -711,7 +747,7 @@ const Match = (() => {
       court.excite = Math.min(1, court.excite + (big ? .5 : .25)); updBug();
     }
     function fail() { st.att++; st.streak = 0; if (st.fire) { st.fire = false; court.fire = false; pbp('The fire cools off.', 'cold'); } court.excite = Math.max(.2, court.excite - .1); updBug(); }
-    const tire = () => { st.fatigue = Math.min(100, st.fatigue + (100 - Engine.attr(s, 'stam')) / 14 + 1.5); };
+    const tire = () => { st.fatigue = Math.min(100, st.fatigue + (100 - Engine.attr(s, 'stam')) / 14 + 1.5); court.sweaty = st.fatigue > 50; };
     const roll = p => Math.random() * 100 < p;
 
     /* ---------- the % for an action (see js/balance.js) ---------- */
@@ -775,8 +811,8 @@ const Match = (() => {
         st.box.fgm++; st.box.pts += pts; if (kind === 'three') { st.box.tpm++; cnt('threes'); } else if (kind === 'mid' || kind === 'fade') cnt('mids'); else if (kind === 'dunk') { cnt('dunks'); if (o.poster) { cnt('posterizers'); st.posterizers++; } } else cnt('layups');
         if (kind === 'hook' || kind === 'fade') cnt('posts');
         addPts('us', pts); court.pop(kind === 'dunk' ? (o.poster ? 'POSTERIZED!' : 'SLAM!') : '+' + pts, U.x, U.y, 9, kind === 'three' ? '#38bdf8' : '#facc15', o.poster ? 46 : 36);
-        SFX.play('crowd', 1 + (st.clutch ? .8 : 0));
-        if (st.clutch) { cnt('clutchMakes'); st.clutchW++; }
+        SFX.play('crowd', 1 + (st.clutch ? .8 : 0)); court.celebrate(U, kind === 'three' ? 'three' : kind === 'dunk' ? 'dunk' : 'two');
+        if (st.clutch) { cnt('clutchMakes'); st.clutchW++; if (st.last && kind !== 'dunk') court.highlight('winner', 'CLUTCH!', 350); }
       } else SFX.play('groan');
       return made;
     }
@@ -785,7 +821,7 @@ const Match = (() => {
       court.ball.holder = by;
       if (action === 'layup' || action === 'dunk') { await court.drive(by, rnd(-2, 2), 8, .4); }
       await court.shoot(by, made ? 'swish' : 'miss', { arc: action === 'layup' ? 3 : undefined });
-      if (made) { addPts('them', pts); court.pop('+' + pts, by.x, by.y, 9, '#f87171', 30); }
+      if (made) { addPts('them', pts); court.pop('+' + pts, by.x, by.y, 9, '#f87171', 30); court.celebrate(by, pts === 3 ? 'three' : action === 'dunk' ? 'dunk' : 'two'); }
       return made;
     }
     async function boardAfterMiss(offensive) { // quick rebound roll (no minigame) — or a live put-back scramble
@@ -905,7 +941,7 @@ const Match = (() => {
       const mate = pick(mates); await court.pass(U, mate);
       const made = roll(Balance.apply('catchMid', o.matePct, .5 + r.quality * .2));
       await court.shoot(mate, made ? 'swish' : 'miss');
-      if (made) { st.box.ast++; cnt('assists'); addPts('us', mate.x * mate.x > 300 ? 3 : 2); court.pop('+AST', U.x, U.y, 9, '#a78bfa'); pbp(say('assist', { mate: mate.name }), 'good'); success(); }
+      if (made) { court.celebrate(mate, 'two'); st.box.ast++; cnt('assists'); addPts('us', mate.x * mate.x > 300 ? 3 : 2); court.pop('+AST', U.x, U.y, 9, '#a78bfa'); pbp(say('assist', { mate: mate.name }), 'good'); success(); }
       else { pbp(say('mate_miss', { mate: mate.name })); st.att++; await boardAfterMiss(true); }
       return made;
     }

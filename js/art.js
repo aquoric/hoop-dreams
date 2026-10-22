@@ -128,24 +128,42 @@ const Art = (() => {
       if (L.beard === 'goatee') out.push(`<path d="M92 82 Q100 79 108 82 L106 94 Q100 97 94 94 Z" fill="${hc}"/>`);
       if (L.beard === 'mustache' || L.beard === 'goatee' || L.beard === 'full') out.push(`<path d="M89 77 Q100 72 111 77 Q100 76 89 77 Z" fill="${hc}" stroke="${hc}" stroke-width="3" stroke-linejoin="round"/>`);
     }
-    // eyes / brows by expression
-    const ex = L.expr;
-    const browY = ex === 'fierce' ? 54 : ex === 'sad' ? 52 : 52;
-    const bl = ex === 'fierce' ? `M84 ${browY - 3} L96 ${browY + 2}` : ex === 'sad' ? `M84 ${browY + 2} L96 ${browY - 2}` : `M84 ${browY} Q90 ${browY - 3} 96 ${browY}`;
-    const br = ex === 'fierce' ? `M116 ${browY - 3} L104 ${browY + 2}` : ex === 'sad' ? `M116 ${browY + 2} L104 ${browY - 2}` : `M116 ${browY} Q110 ${browY - 3} 104 ${browY}`;
-    out.push(`<path d="${bl} M${br.slice(1)}" stroke="${shade(hc, 0.05)}" stroke-width="3.2" stroke-linecap="round" fill="none"/>`);
-    out.push(`<ellipse cx="90" cy="62" rx="5" ry="${ex === 'smile' ? 3.2 : 3.8}" fill="#fff"/><ellipse cx="110" cy="62" rx="5" ry="${ex === 'smile' ? 3.2 : 3.8}" fill="#fff"/>`);
-    out.push(`<circle cx="91" cy="62" r="2.6" fill="#1c1917"/><circle cx="111" cy="62" r="2.6" fill="#1c1917"/>`);
-    if (L.femme) out.push(`<path d="M84 59 L86 57 M116 59 L114 57" stroke="#1c1917" stroke-width="1.6"/>`);
+    // eyes / brows / mouth by expression: neutral · smile · fierce · determined · angry · sad · crying · shocked
+    // opts.blink = eyes closed, opts.talk = mouth open (cutscene facial animation frames)
+    const ex = L.expr, blink = !!opts.blink, talk = !!opts.talk;
+    const hard = ex === 'fierce' || ex === 'determined' || ex === 'angry', soft = ex === 'sad' || ex === 'crying';
+    const browC = shade(hc, 0.05), bw2 = ex === 'angry' ? 3.8 : 3.2;
+    const brows = ex === 'angry' ? 'M83 48 L97 56 M117 48 L103 56' : hard ? 'M84 51 L96 55 M116 51 L104 55' : soft ? 'M84 54 L96 49 M116 54 L104 49'
+      : ex === 'shocked' ? 'M83 47 Q90 41 97 46 M117 47 Q110 41 103 46' : ex === 'smile' ? 'M84 51 Q90 47 96 51 M116 51 Q110 47 104 51' : 'M84 52 Q90 49 96 52 M116 52 Q110 49 104 52';
+    out.push(`<path d="${brows}" stroke="${browC}" stroke-width="${bw2}" stroke-linecap="round" fill="none"/>`);
+    if (blink || ex === 'crying') {
+      const lid = ex === 'crying' ? 'M85 63 Q90 59 95 63 M105 63 Q110 59 115 63' : 'M85 62 Q90 65 95 62 M105 62 Q110 65 115 62';
+      out.push(`<path d="${lid}" stroke="#1c1917" stroke-width="2.4" stroke-linecap="round" fill="none"/>`);
+    } else {
+      const ry = ex === 'shocked' ? 5.2 : ex === 'smile' ? 3.2 : ex === 'angry' ? 2.6 : ex === 'determined' ? 3 : 3.8, rx = ex === 'shocked' ? 5.6 : 5, pr = ex === 'shocked' ? 1.7 : 2.6;
+      out.push(`<ellipse cx="90" cy="62" rx="${rx}" ry="${ry}" fill="#fff"/><ellipse cx="110" cy="62" rx="${rx}" ry="${ry}" fill="#fff"/>`);
+      out.push(`<circle cx="91" cy="62" r="${pr}" fill="#1c1917"/><circle cx="111" cy="62" r="${pr}" fill="#1c1917"/>`);
+      if (hard) out.push(`<path d="M84 ${62 - ry} L96 ${63 - ry} M116 ${62 - ry} L104 ${63 - ry}" stroke="${skinD}" stroke-width="2"/>`);   // narrowed lids
+      if (ex === 'sad') out.push(`<path d="M85 ${66} Q90 67 95 66 M105 66 Q110 67 115 66" stroke="${skinD}" stroke-width="1.4" fill="none"/>`);
+    }
+    if (L.femme && !blink && ex !== 'crying') out.push(`<path d="M84 59 L86 57 M116 59 L114 57" stroke="#1c1917" stroke-width="1.6"/>`);
     // nose
     out.push(`<path d="M100 64 Q97 74 95 76 Q100 79 105 76" fill="none" stroke="${skinD}" stroke-width="2.2" stroke-linecap="round"/>`);
-    // mouth
-    const mouth = ex === 'smile' ? `<path d="M90 83 Q100 91 110 83 Q100 87 90 83 Z" fill="#7f1d1d" stroke="#7f1d1d" stroke-width="1.5" stroke-linejoin="round"/>`
-      : ex === 'fierce' ? `<path d="M91 85 Q100 82 109 85" stroke="#5b1a1a" stroke-width="2.6" fill="none" stroke-linecap="round"/>`
-      : ex === 'sad' ? `<path d="M92 87 Q100 82 108 87" stroke="#5b1a1a" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
-      : `<path d="M92 85 Q100 88 108 85" stroke="#5b1a1a" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+    // mouth (closed / talking)
+    const M = '#5b1a1a', MI = '#3f0f12';
+    let mouth;
+    if (ex === 'smile') mouth = talk ? `<path d="M89 81 Q100 96 111 81 Z" fill="${MI}"/><path d="M90 81.5 L110 81.5 L109 84 L91 84 Z" fill="#f8fafc"/>` : `<path d="M90 83 Q100 91 110 83 Q100 87 90 83 Z" fill="#7f1d1d" stroke="#7f1d1d" stroke-width="1.5" stroke-linejoin="round"/>`;
+    else if (ex === 'shocked') mouth = `<ellipse cx="100" cy="86" rx="${talk ? 5.5 : 4.4}" ry="${talk ? 7 : 5.4}" fill="${MI}"/>`;
+    else if (ex === 'angry') mouth = talk ? `<path d="M89 81 Q100 78 111 81 L109 92 Q100 95 91 92 Z" fill="${MI}"/><rect x="91" y="81" width="18" height="3" fill="#f8fafc"/>`
+      : `<rect x="90" y="82" width="20" height="6" rx="2" fill="#f8fafc" stroke="${M}" stroke-width="1.6"/><path d="M95 82 V88 M100 82 V88 M105 82 V88 M90 85 H110" stroke="#94a3b8" stroke-width=".9"/>`;
+    else if (ex === 'crying') mouth = `<path d="M89 ${talk ? 90 : 88} Q100 ${talk ? 77 : 81} 111 ${talk ? 90 : 88} Q100 ${talk ? 86 : 85} 89 ${talk ? 90 : 88} Z" fill="${MI}" stroke="${M}" stroke-width="1.4" stroke-linejoin="round"/>`;
+    else if (ex === 'sad') mouth = talk ? `<ellipse cx="100" cy="86" rx="5" ry="3.4" fill="${MI}"/>` : `<path d="M92 87 Q100 82 108 87" stroke="${M}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+    else if (hard) mouth = talk ? `<path d="M91 83 Q100 81 109 83 Q108 91 100 91 Q92 91 91 83 Z" fill="${MI}"/>` : `<path d="M91 85 Q100 82.5 109 85" stroke="${M}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+    else mouth = talk ? `<ellipse cx="100" cy="86" rx="6" ry="3.6" fill="${MI}"/>` : `<path d="M92 85 Q100 88 108 85" stroke="${M}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
     out.push(mouth);
-    if (L.femme) out.push(`<path d="M93 85 Q100 89 107 85" stroke="#b4535a" stroke-width="2.5" fill="none" opacity=".6"/>`);
+    if (ex === 'crying') out.push(`<path d="M88 66 Q86 76 89 86 M112 66 Q114 76 111 86" stroke="#7dd3fc" stroke-width="2.6" fill="none" stroke-linecap="round" opacity=".9"/>`);
+    if (ex === 'shocked') out.push(`<path d="M124 44 Q129 52 124 55 Q119 52 124 44 Z" fill="#bae6fd" stroke="#0ea5e9" stroke-width="1"/>`);
+    if (L.femme && !talk && !['shocked', 'crying', 'angry', 'smile'].includes(ex)) out.push(`<path d="M93 85 Q100 89 107 85" stroke="#b4535a" stroke-width="2.5" fill="none" opacity=".6"/>`);
 
     // ---------- FRONT HAIR ----------
     const cap = (top, side) => `<path d="M75 ${side} Q74 ${top} 100 ${top} Q126 ${top} 125 ${side} Q120 ${top + 16} 100 ${top + 14} Q80 ${top + 16} 75 ${side} Z" fill="${hc}"/>`;
