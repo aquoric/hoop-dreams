@@ -671,7 +671,7 @@ const Match = (() => {
     const L = cfg.target ? Object.assign({}, LEVELS[cfg.level] || LEVELS.street, { pts: cfg.target * 1.7, bg: 0 }) : (LEVELS[cfg.level] || LEVELS.street);
     const size = Math.max(1, Math.min(5, cfg.size || 5));
     const n = cfg.moments || 9, oppR = cfg.oppRating || 45, diffShift = BALANCE.defense[s.difficulty] || 0;
-    const myOvr = Engine.ovr(s), usR = cfg.usRating || Math.round(myOvr * .45 + (cfg.mateRating || 42) * .55);
+    const myOvr = Engine.ovr(s), usR = cfg.usRating || (size === 1 ? myOvr : Math.round(myOvr * .45 + (cfg.mateRating || 42) * .55));
     const star = (cfg.them && cfg.them.star) || { name: (cfg.them.roster || ['Their best'])[0], perD: oppR, intD: oppR };
     const C = STORY.commentary, ME = Balance.userStats(s), myName = properName(s.player.last);
     const DEF = Balance.profile(oppR, { perD: star.perD || oppR, intD: star.intD || oppR });   // your defender
@@ -790,12 +790,12 @@ const Match = (() => {
       const tbl = (nm, list, sc) => `<div class="bl-team"><b>${escH(nm)} · ${sc}</b><table><tr><th></th><th>PTS</th><th>REB</th><th>AST</th><th>FG</th></tr>${list.map(row).join('')}</table></div>`;
       $('boxLive').innerHTML = tbl(cfg.us.abbr, US, st.us) + tbl(cfg.them.abbr, TH, st.them) + '<small class="muted">Visible plays only — the rest fills in at the final buzzer.</small>';
     }
-    /* pickups ("first to N"): nobody reaches the target before the final whistle */
-    const capTarget = () => { if (cfg.target) { st.us = Math.min(st.us, cfg.target - 1); st.them = Math.min(st.them, cfg.target - 1); } };
+    /* pickups ("first to N"): every real basket counts — the first team to reach the target wins on the spot */
+    const PICK = !!cfg.target;
     function addPts(side, p) {
-      if (!p) return;
+      if (!p || st.done) return;
       if (side === 'us') st.us += p; else st.them += p;
-      capTarget();
+      if (PICK && st[side] >= cfg.target) { st.done = side; if (side === 'us' && st.them >= cfg.target - 4) { st.gameWinner = true; cnt('gameWinners'); st.highlights.push('Hit the game-winner'); } }
       updBug(); const el = $(side === 'us' ? 'sbUs' : 'sbThem'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
     }
     function success(big) {
@@ -886,6 +886,7 @@ const Match = (() => {
       return made;
     }
     async function boardAfterMiss(offensive) { // quick rebound roll (no minigame) — or a live put-back scramble
+      if (st.done) return false;
       if (offensive && natOk() && Math.random() < SGC.chance.putback / (1 + (st.segKinds.putback || 0)) * (st.seg >= segTarget ? .3 : 1)) { await arcadeSegment('putback', { sub: 'BATTLE FOR THE BOARD' }); return false; }
       const p = calc('rebound', { def: Balance.profile(oppR) }).pct * (offensive ? .45 : 1.15);
       if (roll(p)) { st.box.reb++; cnt('rebounds'); court.ball.holder = U; pbp(say(offensive ? 'oreb' : 'dreb')); updBug(); if (!offensive) await maybeFastBreak('dreb', 'me'); return true; }
@@ -1424,6 +1425,7 @@ const Match = (() => {
         fail(); return false;
       },
       async free_throws(ctx) {
+        if (st.done) return 0;
         ftLineup();
         const shots = (ctx && ctx.shots) || 2, pressure = st.clutch;
         const c = Balance.pct('ft', ME, { fatigue: st.fatigue, bonus: (pressure ? [{ label: 'Pressure', v: -6 }] : []).concat(bonuses('ft').filter(b => b.label !== 'Wingspan')) });
@@ -1526,7 +1528,7 @@ const Match = (() => {
       fastbreak: { title: 'FAST BREAK!', label: 'Fast break' }, loose: { title: 'LOOSE BALL!', label: 'Loose ball' }, putback: { title: 'SCRAMBLE!', label: 'Scramble' },
       broken: { title: 'BROKEN PLAY!', label: 'Broken play' }, buzzer: { title: 'BEAT THE BUZZER!', label: 'Buzzer' }, final: { title: 'FINAL POSSESSION!', label: 'Final possession' },
     };
-    const canSeg = () => typeof Arcade !== 'undefined' && st.seg < SGC.max && !st.inSeg;
+    const canSeg = () => typeof Arcade !== 'undefined' && st.seg < SGC.max && !st.inSeg && !st.done;
     /* natural triggers stay on an even spread: never more than one segment ahead of schedule, never back-to-back */
     const natOk = () => canSeg() && st.seg <= segDue(st.i) && st.segAt < st.i - 1;
     async function arcadeSegment(kind, o = {}) {
@@ -1620,10 +1622,15 @@ const Match = (() => {
     /* simulate scoring between moments */
     function simSegment(frac) {
       const oR = oppR + diffShift * .5;
+      if (PICK) {   // pickups: off-screen buckets only keep the pace — they never reach the target, the deciding basket is always played
+        const edge = clamp((usR - oR) * .012, -.22, .22), goal = cfg.target * .8 * (st.i + 1) / n;
+        st.simCap = st.simCap || { us: cfg.target - 2 - Math.floor(rnd(0, 4)), them: cfg.target - 2 - Math.floor(rnd(0, 4)) };   // how far off-screen buckets can carry each team (varies per game)
+        ['us', 'them'].forEach(side => { const want = goal * (1 + (side === 'us' ? edge : -edge)); if (st[side] < want) st[side] = Math.max(st[side], Math.min(st.simCap[side], st[side] + Math.max(0, Math.round((want - st[side]) * rnd(.45, .9))))); });
+        return;
+      }
       const myShare = L.pts * frac * (1 + (usR - oR) * .013) - .9 * frac * n;
       const thShare = L.pts * frac * (1 - (usR - oR) * .013) - .7 * frac * n;
       st.us += Math.max(0, Math.round(myShare * rnd(.65, 1.35))); st.them += Math.max(0, Math.round(thShare * rnd(.65, 1.35)));
-      capTarget();
     }
     /* Perfect Copy: defensive stops stack an offense bonus */
     async function withMirror(fn) { const ok = await fn(); if (ok && Engine.hasSpecial(s, 'mirror') && st.mirror < 12) { st.mirror += 3; pbp(`🪞 <b>Perfect Copy</b>: you copied their move. Offense +${st.mirror}%`, 'hot'); } return ok; }
@@ -1633,13 +1640,12 @@ const Match = (() => {
     await banner(`<div class="tip">${logoUs}<span>VS</span>${logoThem}</div><small>${escH(cfg.us.name)} vs ${escH(cfg.them.name)}</small>TIP-OFF`, 'tip', 1800);
     SFX.play('whistle'); pbp(`<b>Tip-off!</b> ${escH(cfg.us.name)} vs ${escH(cfg.them.name)}.`, 'sys');
     let prevPer = 1;
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < n && !st.done; i++) {
       st.i = i; $('momCount').textContent = `Moment ${i + 1}/${n}`;
       st.oppSig += .5;   // their star's weapon charges as the game goes (and faster with every bucket)
       const last = i === n - 1;
       simSegment(1 / (n + 1));
-      if (last && Math.abs(st.us - st.them) <= 10 && Math.random() < .7) { const target = Math.floor(rnd(-3, 3)); const d = st.us - st.them - target; if (d > 0) st.them += d; else st.us -= d; }
-      capTarget();
+      if (!PICK && last && Math.abs(st.us - st.them) <= 10 && Math.random() < .7) { const target = Math.floor(rnd(-3, 3)); const d = st.us - st.them - target; if (d > 0) st.them += d; else st.us -= d; }
       clk = clockFor(i); if (last) clk.rem = Math.min(clk.rem, rnd(4, 18));
       updBug();
       if (clk.per !== prevPer) { SFX.play('buzzer'); await banner(`END OF ${L.label === 'H' ? '1ST HALF' : 'Q' + prevPer}`, '', 1000); prevPer = clk.per; pbp(`— ${L.label}${clk.per} —`, 'sys'); }
@@ -1675,26 +1681,33 @@ const Match = (() => {
       if (clk.per === L.periods && last) clk.rem = 0;
       updBug(); await sleep(500);
     }
+    /* pickups: nobody at the target yet → keep playing until somebody gets there ("next bucket wins" at the end) */
+    for (let sd = 1; PICK && !st.done && sd <= 16; sd++) {
+      st.i = n - 1 + sd; simSegment(); clk.rem = 0; updBug(); $('momCount').textContent = 'Win by reaching ' + cfg.target;
+      const near = st.us >= cfg.target - 3 && st.them >= cfg.target - 3;
+      if (sd === 1 || near) { await banner(`<small>${st.us} – ${st.them} · FIRST TO ${cfg.target}</small>${near ? 'NEXT BUCKET WINS' : 'KEEP PLAYING'}`, 'clutch', 1100); pbp(near ? `${st.us}-${st.them}. Next bucket wins.` : `${st.us}-${st.them}. First to ${cfg.target} — keep playing.`, 'hot'); }
+      st.clutch = near; st.last = near; $('vig').classList.toggle('on', near);
+      const type = pickMoment(); if (type === 'def_poss' || type === 'quick_def') await withMirror(RUN[type]); else await RUN[type]();
+      st.lastType = type; idle(); updBug(); await sleep(400);
+    }
+    if (PICK && !st.done) { const side = st.us === st.them ? (Math.random() < .5 ? 'us' : 'them') : st.us > st.them ? 'us' : 'them'; const add = cfg.target - st[side]; st.done = side; st[side] = cfg.target; pbp(`${side === 'us' ? escH(cfg.us.name) : escH(cfg.them.name)} close it out (+${add}).`, side === 'us' ? 'good' : 'bad'); }
+    if (PICK && st.done) pbp(`🏁 <b>GAME!</b> ${escH(st.done === 'us' ? cfg.us.name : cfg.them.name)} reach ${cfg.target}.`, st.done === 'us' ? 'good hot' : 'bad');
     let ot = 0;
-    while (st.us === st.them && ot < 2) {
+    while (!PICK && st.us === st.them && ot < 2) {
       ot++; SFX.play('buzzer'); await banner('OVERTIME', 'clutch', 1200); clk = { per: L.periods + ot, rem: 20 }; st.clutch = true; $('vig').classList.add('on');
-      st.us += Math.floor(rnd(2, 7)); st.them += Math.floor(rnd(2, 7)); const d = st.us - st.them; if (d > 0) st.them += d; else st.us -= d; capTarget();
+      st.us += Math.floor(rnd(2, 7)); st.them += Math.floor(rnd(2, 7)); const d = st.us - st.them; if (d > 0) st.them += d; else st.us -= d;
       updBug(); const before = st.us;
       if (canSeg() && (st.segKinds.final || 0) < 2) { pbp(`Overtime. Tied ${st.us}-${st.them}. Final possession — make a play.`, 'hot'); await arcadeSegment('final', { offense: 0, clock: 10, sub: 'OVERTIME · LAST SHOT' }); }
       else await offPossession({ text: `Overtime. Tied ${st.us}-${st.them}. Final possession — make a play.` });
       if (st.us > before) { st.gameWinner = true; cnt('gameWinners'); st.highlights.push('Won it in overtime'); }
     }
-    if (st.us === st.them) st.them += 1;
-    if (cfg.target) {   // pickup: winner lands on exactly the target
-      const won = st.us > st.them, k = cfg.target / Math.max(st.us, st.them), lo = Math.min(cfg.target - 2, Math.round(Math.min(st.us, st.them) * k));
-      if (won) { st.us = cfg.target; st.them = lo; } else { st.them = cfg.target; st.us = Math.min(cfg.target - 1, Math.max(lo, st.box.pts)); }
-    }
+    if (!PICK && st.us === st.them) st.them += 1;
     if (size === 1) {   // 1v1: every one of your team's points is yours
       const add = st.us - st.box.pts; if (add > 0) { const fg = Math.round(add / 2); st.box.fgm += fg; st.box.fga += fg + Math.round(fg * rnd(.6, 1.1)); }
       st.box.pts = st.us;
     }
     clk.rem = 0; updBug(); SFX.play('buzzer');
-    const win = st.us > st.them;
+    const win = PICK ? st.done === 'us' : st.us > st.them;
     $('vig').classList.remove('on', 'zone');
     if (win) { court.confetti(160); SFX.play('roar'); SFX.music('victory'); } else { SFX.play('groan'); SFX.music('sad'); }
     await banner(win ? `<small>FINAL</small>${st.us} – ${st.them}<em>VICTORY</em>` : `<small>FINAL</small>${st.us} – ${st.them}<em class="l">DEFEAT</em>`, win ? 'win' : 'loss', 2200);

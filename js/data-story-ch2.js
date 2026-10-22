@@ -409,7 +409,8 @@ STORY.chapters.highschool = {
         { t: 'Accept. One-on-one with Kai, right now.', hint: '1v1 · first to 11', next: 'c2_kai_1v1' },
         { t: '"Not tonight, Kai."', fx: { rel: { kai: -3 }, fatigue: -10 }, next: 'c2_lou_aau' },
       ] },
-    c2_kai_1v1: { type: 'match', us: 'halsey', them: 'kai_solo', rating: 60, mateRating: 50, level: 'street', pickup: { size: 1, target: 11 }, venue: 'rooftop',
+    c2_kai_1v1: { type: 'match', us: 'halsey', them: 'kai_solo', rating: 67, mateRating: 50,   // rating 67: Kai 1-on-1 is meant to be lost most of the time (but winnable)
+      level: 'street', pickup: { size: 1, target: 11 }, venue: 'rooftop',
       title: 'One-on-One', sub: 'vs Kai Sterling · first to 11', win: 'c2_kai_1v1_win', lose: 'c2_kai_1v1_loss' },
     c2_kai_1v1_win: { scene: 'arena', fx: { rep: 4, rel: { kai: 8 }, flag: 'beat_kai_1v1', recruit: true, post: { by: 'fan', text: 'somebody filmed {first} {last} beating KAI STERLING 1-on-1 in an empty camp gym at midnight. the internet is not okay.' } },
       lines: [['kai', '…Run it back. No. Don\'t. I need to sit down.', 'sad'], ['kai', 'You\'re the only person my age who scares me. Don\'t tell anybody that either.']], next: 'c2_lou_aau' },
