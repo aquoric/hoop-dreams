@@ -1223,6 +1223,7 @@ const Match = (() => {
       const last = i === n - 1;
       simSegment(1 / (n + 1));
       if (last && Math.abs(st.us - st.them) <= 10 && Math.random() < .7) { const target = Math.floor(rnd(-3, 3)); const d = st.us - st.them - target; if (d > 0) st.them += d; else st.us -= d; }
+      capTarget();
       clk = clockFor(i); if (last) clk.rem = Math.min(clk.rem, rnd(4, 18));
       updBug();
       if (clk.per !== prevPer) { SFX.play('buzzer'); await banner(`END OF ${L.label === 'H' ? '1ST HALF' : 'Q' + prevPer}`, '', 1000); prevPer = clk.per; pbp(`— ${L.label}${clk.per} —`, 'sys'); }
@@ -1260,7 +1261,7 @@ const Match = (() => {
     let ot = 0;
     while (st.us === st.them && ot < 2) {
       ot++; SFX.play('buzzer'); await banner('OVERTIME', 'clutch', 1200); clk = { per: L.periods + ot, rem: 20 }; st.clutch = true; $('vig').classList.add('on');
-      st.us += Math.floor(rnd(2, 7)); st.them += Math.floor(rnd(2, 7)); const d = st.us - st.them; if (d > 0) st.them += d; else st.us -= d;
+      st.us += Math.floor(rnd(2, 7)); st.them += Math.floor(rnd(2, 7)); const d = st.us - st.them; if (d > 0) st.them += d; else st.us -= d; capTarget();
       updBug(); const before = st.us;
       if (canSeg() && (st.segKinds.final || 0) < 2) { pbp(`Overtime. Tied ${st.us}-${st.them}. Final possession — make a play.`, 'hot'); await arcadeSegment('final', { offense: 0, clock: 10, sub: 'OVERTIME · LAST SHOT' }); }
       else await offPossession({ text: `Overtime. Tied ${st.us}-${st.them}. Final possession — make a play.` });
