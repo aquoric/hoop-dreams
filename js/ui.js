@@ -15,7 +15,7 @@ const UI = (() => {
   function showScreen(html, cls = '') {
     const sc = $('#screen'); sc.className = 'screen scr-' + cls; sc.innerHTML = html; sc.scrollTop = 0;
     sc.classList.add('enter'); requestAnimationFrame(() => requestAnimationFrame(() => sc.classList.remove('enter')));
-    document.body.dataset.screen = cls;
+    document.body.dataset.screen = cls; if (cls !== 'match' && typeof SFX !== 'undefined' && SFX.crowd) SFX.crowd.stop();   // leaving the game: the crowd fades out
     return sc;
   }
   function setBg(scene, seed) {

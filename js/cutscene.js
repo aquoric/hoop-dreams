@@ -610,7 +610,7 @@ const Cutscene = (() => {
   async function play(id, ctx = {}) {
     const C = CUTSCENES[id]; if (!C || playing) return; playing = true;
     const s = Game.state;
-    const W = viewW(), M = mount('cs', W), root = M.root, c = M.c, $ = q => root.querySelector(q);
+    const W = viewW(), M = mount('cs', W), root = M.root, c = M.c, $ = q => root.querySelector(q); SFX.crowd && SFX.crowd.duck(true);
     const block = e => { e.preventDefault(); e.stopPropagation(); }; addEventListener('keydown', block, true);   // unskippable: swallow keys while it plays
     requestAnimationFrame(() => root.classList.add('in'));
     await Promise.all(needs(C, ctx, W).map(n => portrait(...n))).catch(() => { });
@@ -660,7 +660,7 @@ const Cutscene = (() => {
         });
       }
     } finally {
-      M.off(); removeEventListener('keydown', block, true);
+      M.off(); removeEventListener('keydown', block, true); SFX.crowd && SFX.crowd.duck(false);
       root.classList.remove('in'); await sleep(450); root.remove(); playing = false;
     }
   }

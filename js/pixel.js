@@ -487,7 +487,7 @@ const Pixel = (() => {
   /* readable ink color on a background */
   const ink = bg => lum(bg) > .6 ? '#111827' : '#ffffff';
   /* ambient sound for a venue (called every few seconds) */
-  function ambient(V, hype = .3) { const a = V && V.def.ambient; if (typeof SFX === 'undefined') return; if (a && SFX.has && SFX.has('amb_' + a)) SFX.play('amb_' + a, hype); else SFX.play('crowd', .4 + hype * .5); }
+  function ambient(V, hype = .3) { if (typeof SFX === 'undefined' || !SFX.crowd || !V) return; const st = V.def.style; SFX.crowd.ambience(st === 'arena' ? 'arena' : st === 'street' ? 'street' : 'gym', hype); }
   /* a still frame of a venue (cutscenes, thumbnails) */
   function snapshot(id, home, away) {
     const V = venue(id, home, away, 384), cv = document.createElement('canvas'); cv.width = 384; cv.height = 216; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;

@@ -32,11 +32,11 @@ const Match = (() => {
       this.VW = 0; this.resize();
       this._rs = () => this.resize(); window.addEventListener('resize', this._rs);
       this.alive = true; this.last = performance.now();
-      this.amb = setInterval(() => { if (this.alive) Pixel.ambient(this.V, this.excite); }, 4800);
+      Pixel.ambient(this.V, this.excite); this.lvlT = 0;   // one venue ambience loop (js/audio.js Crowd); its level follows the excitement
       const loop = now => { if (!this.alive) return; const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now; this.update(dt); this.draw(this.vdt, dt); requestAnimationFrame(loop); };
       requestAnimationFrame(loop);
     }
-    destroy() { this.alive = false; clearInterval(this.amb); window.removeEventListener('resize', this._rs); }
+    destroy() { this.alive = false; window.removeEventListener('resize', this._rs); if (typeof SFX !== 'undefined' && SFX.crowd) SFX.crowd.stop(); }
     resize() {
       const r = this.cv.parentElement.getBoundingClientRect(), asp = (r.width || 640) / Math.max(1, r.height || 360);
       const wide = asp >= PIX.W / PIX.H, VW = wide ? clamp(Math.round(PIX.H * asp / 2) * 2, PIX.W, 560) : clamp(Math.round(PIX.H * asp / 2) * 2, 256, PIX.W);
@@ -46,7 +46,7 @@ const Match = (() => {
       this.R.E.onLand = (p, h) => { if (h > 12) SFX.play('thud', .5); };
       this.cam = (this.V.W - VW) / 2;
     }
-    setVenue(id) { if (id === this.venueId) return; this.venueId = id; this.VW = 0; this.resize(); }
+    setVenue(id) { if (id === this.venueId) return; this.venueId = id; this.VW = 0; this.resize(); Pixel.ambient(this.V, this.excite); }
     /* world (feet) -> pixels */
     X(x) { return this.V.ox + PIX.hoop.x + x * 6.96; }
     Y(y) { return 41 + y * 3.6; }
@@ -84,7 +84,7 @@ const Match = (() => {
     /* ---------- drawing ---------- */
     draw(dt, rdt = dt) {
       const c = this.ctx, R = this.R, E = R.E, V = this.V, b = this.ball;
-      E.t = this.t; E.hype = Math.max(E.hype, this.excite); E.net.swish = Math.max(E.net.swish, Math.min(1, this.netWave)); E.rim = Math.max(E.rim, Math.min(1, this.rimBend));
+      E.t = this.t; E.hype = Math.max(E.hype, this.excite); if ((this.lvlT -= rdt) <= 0) { this.lvlT = .8; SFX.crowd && SFX.crowd.level(Math.max(this.excite, E.hype * .8)); } E.net.swish = Math.max(E.net.swish, Math.min(1, this.netWave)); E.rim = Math.max(E.rim, Math.min(1, this.rimBend));
       // camera (narrow screens follow the ball)
       if (this.VW < V.W) { const bx = b.holder ? this.X(b.holder.x) : this.X(b.x); this.cam += (clamp(bx - this.VW / 2, 0, V.W - this.VW) - this.cam) * Math.min(1, rdt * 3); }
       const cam = Math.round(this.cam);
@@ -935,7 +935,7 @@ const Match = (() => {
         st.box.fgm++; st.box.pts += pts; if (kind === 'three') { st.box.tpm++; cnt('threes'); } else if (kind === 'mid' || kind === 'fade') cnt('mids'); else if (kind === 'dunk') { cnt('dunks'); if (o.poster) { cnt('posterizers'); st.posterizers++; } } else cnt('layups');
         if (kind === 'hook' || kind === 'fade') cnt('posts');
         addPts('us', pts); court.pop(kind === 'dunk' ? (o.poster ? 'POSTERIZED!' : 'SLAM!') : '+' + pts, U.x, U.y, 9, kind === 'three' ? '#38bdf8' : '#facc15', o.poster ? 46 : 36);
-        SFX.play('crowd', 1 + (st.clutch ? .8 : 0)); court.celebrate(U, kind === 'three' ? 'three' : kind === 'dunk' ? 'dunk' : 'two');
+        if (cfg.venue === 'away' && (kind === 'dunk' || kind === 'three')) SFX.play('boo', .65); else SFX.play('crowd', 1 + (st.clutch ? .8 : 0)); court.celebrate(U, kind === 'three' ? 'three' : kind === 'dunk' ? 'dunk' : 'two');
         if (st.clutch) { cnt('clutchMakes'); st.clutchW++; if (st.last && kind !== 'dunk') court.highlight('winner', 'CLUTCH!', 350); }
         else if (kind === 'three' && (o.deep || Math.random() < .3)) await court.mini('three', o.deep ? 'FROM THE LOGO!' : 'FROM DOWNTOWN!');
       } else SFX.play('groan');
@@ -949,7 +949,7 @@ const Match = (() => {
       if (action === 'dunk') await court.dunk(by, made, o.poster);
       else { if (action === 'layup' || action === 'hook') await court.drive(by, rnd(-2, 2), 8, .4); await court.shoot(by, made ? 'swish' : 'miss', { arc: action === 'layup' ? 3 : undefined, slowmo: o.slowmo }); }
       shotBox(by, made, three);
-      if (made) { addPts('them', pts); st.oppSig++; court.pop('+' + pts, by.x, by.y, 9, '#f87171', 30); court.celebrate(by, three ? 'three' : action === 'dunk' ? 'dunk' : 'two'); }
+      if (made) { if (cfg.venue === 'away') SFX.play('crowd', 1.2); addPts('them', pts); st.oppSig++; court.pop('+' + pts, by.x, by.y, 9, '#f87171', 30); court.celebrate(by, three ? 'three' : action === 'dunk' ? 'dunk' : 'two'); }
       if (by === STAR) heatCheck(made);
       return made;
     }
@@ -1308,7 +1308,7 @@ const Match = (() => {
       const look = talkLook(id), name = talkName(id), first = properName(s.player.first), fillT = t => t.replace(/\{first\}/g, first).replace(/\{last\}/g, myName).replace(/\{num\}/g, s.player.num);
       const face = async expr => { const svg = Art.avatar(Object.assign({}, look, { expr }), { mode: 'portrait' }); const cv = await Pixel.pixelate(svg, 68, 84); const box = document.querySelector('.tk-face'); if (box) { const c2 = document.createElement('canvas'); c2.width = 68; c2.height = 84; c2.getContext('2d').drawImage(cv, 0, 0); box.innerHTML = ''; box.appendChild(c2); } };
       const head = () => `<div class="tk-head"><div class="tk-face"></div><div class="tk-who"><b>${escH(name)}</b><small>${escH(P.trait)}</small><div class="tk-gauge ${ego ? 'ego' : ''}"><span>${ego ? 'EGO' : 'PATIENCE'}</span><div class="tk-bar"><i style="width:${g}%"></i></div><em class="tk-delta"></em></div></div></div>`;
-      const p = $('panel');
+      const p = $('panel'); SFX.crowd.duck(true);
       for (let k = 0; k < nEx && !ended; k++) {
         const ex = script[k], opts = ex.opts.slice().sort(() => Math.random() - .5);
         p.innerHTML = `<div class="talk">${head()}<div class="tk-line">“${escH(fillT(ex.say))}”</div><div class="mp-opts">${opts.map((o, i) => `<button class="opt talk-opt" data-i="${i}"><kbd>${i + 1}</kbd><span class="opt-l">${escH(fillT(o[1]))}</span></button>`).join('')}</div></div>`;
@@ -1325,6 +1325,7 @@ const Match = (() => {
       }
       idle();
       /* ---------- outcomes ---------- */
+      SFX.crowd.duck(false);
       if (type === 'coach') {
         const win = !ended && g >= 60;
         if (win && topic === 'play') { st.playCalled = true; st.nextBonus = { label: 'Play called for you', v: 8 }; pbp(`📣 ${escH(name)} calls your number. Next trip runs through you (+8%).`, 'good hot'); }
@@ -1333,7 +1334,7 @@ const Match = (() => {
         else if (g <= 0 && !PICK) { st.bench = 1; cnt('benched'); s.meta.morale = Math.max(0, s.meta.morale - 4); pbp(`🪑 ${escH(name)} has heard enough. You're on the bench for a stretch.`, 'bad'); }
         else pbp(`${escH(name)} waves you off. "Just play."`);
       } else if (type === 'ref') {
-        if (g <= 0) { cnt('technicals'); SFX.play('whistle'); await banner('<small>REFEREE</small>TECHNICAL FOUL', 'loss', 1100); const ft = roll(Balance.pct('ft', STAR.stats).pct); if (ft) { STAR.box.ftm++; STAR.box.pts++; STAR.box.fta++; addPts('them', 1); } else STAR.box.fta++; pbp(`T'd up! ${escH(STAR.short)} ${ft ? 'hits' : 'misses'} the technical free throw.`, 'bad'); s.meta.morale = Math.max(0, s.meta.morale - 3); }
+        if (g <= 0) { cnt('technicals'); SFX.play('whistle'); SFX.play('boo'); await banner('<small>REFEREE</small>TECHNICAL FOUL', 'loss', 1100); const ft = roll(Balance.pct('ft', STAR.stats).pct); if (ft) { STAR.box.ftm++; STAR.box.pts++; STAR.box.fta++; addPts('them', 1); } else STAR.box.fta++; pbp(`T'd up! ${escH(STAR.short)} ${ft ? 'hits' : 'misses'} the technical free throw.`, 'bad'); s.meta.morale = Math.max(0, s.meta.morale - 3); }
         else if (!ended && g >= 60) { st.refFavor = true; pbp(`🦓 ${escH(name)} heard you. The next close call might go your way.`, 'good'); }
         else pbp(`🦓 ${escH(name)} walks away. Call stands.`);
       } else {
@@ -1421,7 +1422,7 @@ const Match = (() => {
     }
     async function closeCall(kind) {
       st.closeN++; st.closeKinds[kind] = (st.closeKinds[kind] || 0) + 1; cnt('closeCalls');
-      court.excite = 1; SFX.play('heartbeat'); let b = 0; const build = setInterval(() => SFX.play('crowd', .4 + (++b) * .22), 520);
+      court.excite = 1; SFX.play('heartbeat'); let b = 0; const build = setInterval(() => SFX.crowd.level(Math.min(1, .55 + (++b) * .08)), 520);   // the crowd builds (one loop getting louder, not stacked cheers)
       const slow = on => { court.timeScale = on ? .4 : 1; court.tween(court, { zoom: on ? 1.35 : 1 }, .35); };
       const endBuild = good => { clearInterval(build); slow(false); SFX.play(good ? 'roar' : 'groan'); };
       const diffTxt = () => { const d = st.us - st.them; return d === 0 ? `Tied ${st.us}-${st.them}.` : d > 0 ? `Up ${d}.` : `Down ${-d}.`; };
@@ -1468,7 +1469,7 @@ const Match = (() => {
           const ok = r.success && roll(Balance.apply('charge', c.pct, r.quality)); slow(true);
           await court.collide(att, U, ok); U.pose = '';
           if (ok) { await banner('<small>THE CALL…</small>OFFENSIVE FOUL!', 'win', 1100); cnt('charges'); cnt('stops'); pbp(`${myName} takes the charge on ${escH(att.short)}! Our ball.`, 'good hot'); st.highlights.push(`Took a charge on ${att.short}`); success(true); }
-          else { await banner('<small>THE CALL…</small>BLOCKING FOUL', 'loss', 1100); queueTalk('ref', .8); court.ball.holder = att; await court.shoot(att, 'swish', { arc: 3 }); shotBox(att, true, false); addPts('them', 2); const ft = roll(Balance.pct('ft', att.stats).pct); att.box.fta++; if (ft) { att.box.ftm++; att.box.pts++; addPts('them', 1); } pbp(`Blocking foul on ${myName} — ${escH(att.short)} scores${ft ? ' and hits the free throw' : ''}.`, 'bad'); fail(); }
+          else { await banner('<small>THE CALL…</small>BLOCKING FOUL', 'loss', 1100); SFX.play('boo', .7); queueTalk('ref', .8); court.ball.holder = att; await court.shoot(att, 'swish', { arc: 3 }); shotBox(att, true, false); addPts('them', 2); const ft = roll(Balance.pct('ft', att.stats).pct); att.box.fta++; if (ft) { att.box.ftm++; att.box.pts++; addPts('them', 1); } pbp(`Blocking foul on ${myName} — ${escH(att.short)} scores${ft ? ' and hits the free throw' : ''}.`, 'bad'); fail(); }
           endBuild(ok); return ok;
         }
         if (kind === 'save') {

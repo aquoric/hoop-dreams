@@ -979,9 +979,10 @@ const Arcade = (() => {
         G.shake *= Math.pow(.02, rdt); G.flash *= Math.pow(.02, rdt); G.kick *= Math.pow(.004, rdt);
         if (!stopped) acc += rdt * PACE.game * (G.slowT > 0 ? PACE.slowmo : 1);
         let n = 0; while (acc >= 1 / 60 && n < 8) { update(1 / 60); acc -= 1 / 60; n++; }
+        if ((lvlT -= rdt) <= 0) { lvlT = .8; SFX.crowd && SFX.crowd.level(E.hype); }
         render(rdt, vdt); raf = requestAnimationFrame(loop);
       };
-      const amb = setInterval(() => { if (!G.paused && !G.over) Pixel.ambient ? Pixel.ambient(VEN, E.hype) : SFX.play('crowd', .4 + E.hype * .5); }, 4200);
+      Pixel.ambient(VEN, E.hype); let lvlT = 0;   // the venue ambience loop (same one the match court uses — never a second layer)
 
       async function begin() {
         G.started = true;
@@ -1001,7 +1002,7 @@ const Arcade = (() => {
       }
       function finish(extra = {}) {
         if (G.over) return; G.over = true;
-        clearInterval(amb); removeEventListener('keydown', kd); removeEventListener('keyup', ku);
+        removeEventListener('keydown', kd); removeEventListener('keyup', ku);
         let res, banner, sub = '';
         if (SEGM) {
           const scorer = extra.scorer || null;

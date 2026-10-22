@@ -88,7 +88,7 @@ const SONGS = [
 ];
 
 const SFX = (() => {
-  let ctx = null, master, comp, musicBus, sfxBus, noiseBuf, band = null;
+  let ctx = null, master, comp, musicBus, sfxBus, noiseBuf, band = null, crowdBus = null, duckGain = null;
   const vol = { master: 0.8, music: 0.4, sfx: 0.8, muted: false };
   try { Object.assign(vol, JSON.parse(localStorage.getItem('hoopdreams_audio') || '{}')); } catch (e) { }
 
@@ -106,13 +106,15 @@ const SFX = (() => {
     musicBus = ctx.createGain(); musicBus.connect(master);
     sfxBus = ctx.createGain(); sfxBus.connect(master);
     noiseBuf = makeNoise(ctx);
+    duckGain = ctx.createGain(); duckGain.connect(sfxBus); crowdBus = ctx.createGain(); crowdBus.gain.value = .9; crowdBus.connect(duckGain);
+    loadCrowd();
     band = createBand(ctx, musicBus, noiseBuf, onSong);
     applyVol();
     if (pendingMood) music(pendingMood);
   }
   function applyVol() {
     if (!ctx) return;
-    master.gain.value = vol.muted ? 0 : vol.master;
+    master.gain.value = vol.muted ? 0 : vol.master; Crowd.vol();
     musicBus.gain.value = vol.music; sfxBus.gain.value = vol.sfx;
     try { localStorage.setItem('hoopdreams_audio', JSON.stringify(vol)); } catch (e) { }
   }
@@ -142,11 +144,13 @@ const SFX = (() => {
     bounce: (v = 1) => { tone(110, 0.14, 'sine', 0.45 * v, 0, sfxBus, 45); noise(0.03, 'bandpass', 900, 0.06 * v, 0, 500, 1); },
     squeak: (v = 1) => { const f = 2100 + Math.random() * 500; tone(f, 0.09, 'sine', 0.07 * v, 0, sfxBus, f * 1.4); tone(f * 1.25, 0.06, 'sine', 0.05 * v, 0.07, sfxBus, f * .9); },
     whistle: () => { tone(2900, 0.45, 'sine', 0.15); tone(2960, 0.45, 'sine', 0.08); },
-    buzzer: () => { tone(220, 1.1, 'sawtooth', 0.14); tone(233, 1.1, 'square', 0.07); },
-    crowd: (intensity = 1) => { noise(1.8 * intensity, 'bandpass', 900, 0.25 * intensity, 0, 1400, 0.6, sfxBus, 0.25); noise(1.4 * intensity, 'bandpass', 2200, 0.08 * intensity, 0.1, 1800, 0.8, sfxBus, 0.3); },
-    roar: () => { LIB.crowd(1.8); noise(2.4, 'lowpass', 600, 0.25, 0, 300, 0.5, sfxBus, 0.15); },
+    buzzer: () => { if (!Crowd.oneShot('buzzer', .9)) { tone(220, 1.1, 'sawtooth', 0.14); tone(233, 1.1, 'square', 0.07); } },
+    /* crowd reactions come from real recordings (Crowd.react caps how many play at once) */
+    crowd: (intensity = 1) => Crowd.react(intensity >= 1.5 ? 'roar' : 'cheer', Math.min(1, .45 + intensity * .35)),
+    roar: (v = 1) => Crowd.react('roar', v),
+    boo: (v = 1) => Crowd.react('boo', v),
     groan: () => noise(1.2, 'lowpass', 500, 0.2, 0, 200, 0.6, sfxBus, 0.2),
-    dunk: () => { tone(70, 0.4, 'sine', 0.6, 0, sfxBus, 35); LIB.rim(); noise(0.2, 'lowpass', 400, 0.4); setTimeout(() => LIB.roar(), 120); },
+    dunk: () => { tone(70, 0.4, 'sine', 0.6, 0, sfxBus, 35); LIB.rim(); noise(0.2, 'lowpass', 400, 0.4); Crowd.react('roar', 1); },
     whoosh: () => noise(0.35, 'bandpass', 400, 0.25, 0, 3000, 2),
     pass: () => { noise(0.12, 'bandpass', 1200, 0.15, 0, 2400, 2); tone(160, 0.08, 'sine', 0.25, 0.1, sfxBus, 90); },
     good: () => { tone(660, 0.12, 'triangle', 0.18); tone(990, 0.18, 'triangle', 0.15, 0.09); },
@@ -161,7 +165,7 @@ const SFX = (() => {
     /* animation + cutscene sounds */
     thud: (v = 1) => { tone(90, 0.12, 'sine', 0.3 * v, 0, sfxBus, 48); noise(0.06, 'lowpass', 700, 0.08 * v); },
     slap: () => { noise(0.07, 'bandpass', 1600, 0.35, 0, 900, 1.4); tone(220, 0.08, 'triangle', 0.15, 0, sfxBus, 120); },
-    ooh: () => { noise(1.1, 'bandpass', 520, 0.22, 0, 820, 3, sfxBus, 0.18); noise(1.1, 'bandpass', 1050, 0.08, 0, 1500, 3, sfxBus, 0.2); },
+    ooh: () => { if (Crowd.react('ooh', 1)) return; noise(1.1, 'bandpass', 520, 0.22, 0, 820, 3, sfxBus, 0.18); noise(1.1, 'bandpass', 1050, 0.08, 0, 1500, 3, sfxBus, 0.2); },
     net: () => { noise(0.22, 'highpass', 4200, 0.12, 0, 7000, 0.8); noise(0.16, 'bandpass', 2000, 0.08, 0.04, 3200, 1); },
     shutter: (v = 1) => { noise(0.02, 'highpass', 5000, 0.12 * v); noise(0.03, 'bandpass', 2400, 0.08 * v, 0.05); },
     riser: (dur = 2) => { noise(dur, 'bandpass', 250, 0.16, 0, 6000, 2.5, sfxBus, dur * .9); tone(110, dur, 'sawtooth', 0.04, 0, sfxBus, 880); },
@@ -177,17 +181,83 @@ const SFX = (() => {
     green: () => { tone(1568, 0.5, 'triangle', 0.16, 0, sfxBus); tone(2093, 0.6, 'triangle', 0.13, 0.07, sfxBus); tone(3136, 0.35, 'sine', 0.05, 0.12, sfxBus); tone(784, 0.18, 'square', 0.05, 0, sfxBus, 1568); noise(0.4, 'highpass', 7000, 0.07, 0.05, 11000, 0.6); tone(70, 0.18, 'sine', 0.25, 0, sfxBus, 45); },
     /* dialogue voice blip — v: { f: pitch, w: wave } per character */
     blip: (v = {}) => tone((v.f || 300) * (0.94 + Math.random() * 0.12), 0.05, v.w || 'square', v.g || 0.035),
-    /* venue ambience (called every few seconds by the court; h = crowd hype 0..1) */
-    amb_city: (h = .3) => { noise(3.5, 'lowpass', 260, 0.12, 0, 180, 0.5, sfxBus, 0.8); if (Math.random() < .35) tone(392, 0.25, 'square', 0.025, Math.random() * 2, sfxBus, 370); LIB.crowd(.25 + h * .4); },
-    amb_park: (h = .3) => { for (let i = 0; i < 3; i++) { const t = Math.random() * 2.5, f = 2600 + Math.random() * 1400; tone(f, 0.07, 'sine', 0.035, t, sfxBus, f * 1.25); tone(f * 1.1, 0.06, 'sine', 0.03, t + .1, sfxBus, f); } LIB.crowd(.2 + h * .4); },
-    amb_wind: (h = .3) => { noise(3.8, 'bandpass', 500, 0.1, 0, 900, 0.7, sfxBus, 1.2); LIB.crowd(.15 + h * .3); },
-    amb_waves: (h = .3) => { noise(3.6, 'lowpass', 700, 0.16, 0, 250, 0.4, sfxBus, 1.4); noise(1.6, 'highpass', 3000, 0.04, 1.4, 5000, 0.5, sfxBus, 0.4); LIB.crowd(.2 + h * .4); },
-    amb_rain: (h = .3) => { noise(4.2, 'highpass', 2500, 0.07, 0, 4000, 0.4, sfxBus, 0.6); noise(4.2, 'lowpass', 400, 0.05, 0, 300, 0.4, sfxBus, 0.6); },
-    amb_gym: (h = .3) => { LIB.crowd(.35 + h * .6); if (Math.random() < .5) LIB.squeak(); },
-    amb_arena: (h = .3) => { LIB.crowd(.6 + h * .8); noise(3.5, 'lowpass', 300, 0.07 + h * .05, 0, 250, 0.4, sfxBus, 1); },
-    amb_chant: (h = .3) => { LIB.crowd(.6 + h * .6); for (let i = 0; i < 4; i++) { noise(0.08, 'bandpass', 1800, 0.18, i * 0.42); tone(220 + (i % 2) * 55, 0.3, 'sawtooth', 0.025, i * 0.42, sfxBus, 210 + (i % 2) * 55); } },
-    amb_practice: () => { for (let i = 0; i < 3; i++) tone(110, 0.14, 'sine', 0.18, Math.random() * 3, sfxBus, 45); if (Math.random() < .4) LIB.whistle(); },
+    /* venue ambience: one recorded loop at a time (Crowd.ambience); h = crowd excitement 0..1 */
+    amb_city: h => Crowd.ambience('street', h), amb_park: h => Crowd.ambience('street', h), amb_wind: h => Crowd.ambience('street', h), amb_waves: h => Crowd.ambience('street', h), amb_rain: h => Crowd.ambience('street', h),
+    amb_gym: h => Crowd.ambience('gym', h), amb_practice: h => Crowd.ambience('gym', Math.min(h, .2)), amb_arena: h => Crowd.ambience('arena', h), amb_chant: h => Crowd.ambience('arena', h),
   };
+
+  /* =================================================================
+     CROWD — real CC0 recordings in assets/audio (credits in README).
+     One ambience loop at a time (seamless: each pass crossfades into the next; venues crossfade too),
+     reactions (cheer / roar / ooh / boo) on top — never more than MAX at once, repeats debounced.
+     Everything fades out with stopAll(); duck() lowers the crowd under dialogue and cutscenes.
+     Opened from disk (file://), where fetch is blocked, it falls back to <audio> elements.
+     ================================================================= */
+  const Crowd = (() => {
+    const FILES = { arena: 'crowd-arena', gym: 'crowd-gym', street: 'street-ambience', cheer: 'cheer', cheerGym: 'cheer-gym', roar: 'roar', ooh: 'ooh', boo: 'boo', buzzer: 'buzzer' };
+    const LEN = { cheer: 3.4, cheerGym: 3.2, roar: 4.2, ooh: 2.4, boo: 3.2, buzzer: 1.9 };       // seconds of each clip we play
+    const GAIN = { arena: .55, gym: .6, street: .5, cheer: .8, cheerGym: .8, roar: .75, ooh: .8, boo: .7, buzzer: .55 };
+    const MAX = 2, XF = 1.6, FADE = 1.2;
+    const buf = {}, files = location.protocol === 'file:';
+    let amb = null, ambKind = null, level = .4, lastLevel = 0, react = [], last = {}, ducks = 0, el = {};
+    const vol1 = () => vol.muted ? 0 : vol.master * vol.sfx;
+    function load() {
+      if (files) { for (const k in FILES) el[k] = 'assets/audio/' + FILES[k] + '.mp3'; return; }
+      for (const k in FILES) fetch('assets/audio/' + FILES[k] + '.mp3').then(r => r.ok ? r.arrayBuffer() : Promise.reject()).then(b => ctx.decodeAudioData(b)).then(d => { buf[k] = d; if (k === ambKind && !amb) ambience(k, level); }).catch(() => { });
+    }
+    const lvlGain = k => GAIN[k] * (.55 + level * .7);
+    /* a seamless loop: overlapping passes with equal-power crossfades */
+    function loop(k) {
+      const b = buf[k], out = ctx.createGain(), skip = .06, len = b.duration - skip * 2, xf = Math.min(XF, len / 4);
+      const up = new Float32Array(32).map((_, i) => Math.sin(i / 31 * Math.PI / 2)), down = up.slice().reverse();
+      out.gain.setValueAtTime(0, ctx.currentTime); out.gain.linearRampToValueAtTime(lvlGain(k), ctx.currentTime + FADE); out.connect(crowdBus);
+      let next = ctx.currentTime + .02, alive = true; const srcs = new Set();
+      const sched = () => { while (alive && next < ctx.currentTime + 3) { const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = b; s.connect(g); g.connect(out);
+        g.gain.setValueCurveAtTime(up, next, xf); g.gain.setValueCurveAtTime(down, next + len - xf, xf);
+        s.start(next, skip, len); srcs.add(s); s.onended = () => srcs.delete(s); next += len - xf; } };
+      sched(); const iv = setInterval(sched, 700);
+      return { k, out, stop(f = FADE) { alive = false; clearInterval(iv); const t = ctx.currentTime; out.gain.cancelScheduledValues(t); out.gain.setValueAtTime(out.gain.value, t); out.gain.linearRampToValueAtTime(0, t + f); srcs.forEach(s => { try { s.stop(t + f + .05); } catch (e) { } }); setTimeout(() => { try { out.disconnect(); } catch (e) { } }, (f + .3) * 1000); } };
+    }
+    /* <audio> fallback (file://): one looping element, faded with a timer */
+    function elLoop(k) { const a = new Audio(el[k]); a.loop = true; a.volume = 0; a.play().catch(() => { }); const o = { k, a, v: 0, t: 1 }; o.iv = setInterval(() => { o.v += (o.t * GAIN[k] * (.55 + level * .7) * vol1() - o.v) * .15; a.volume = Math.max(0, Math.min(1, o.v * (ducks ? .35 : 1))); if (o.t === 0 && o.v < .01) { clearInterval(o.iv); a.pause(); } }, 60); o.stop = () => { o.t = 0; }; return o; }
+    function ambience(k, h) {
+      if (h != null) setLevel(h);
+      if (k === ambKind && (amb || (!files && !buf[k]))) return;
+      if (amb) { amb.stop(); amb = null; }
+      ambKind = k; if (!k || !ctx) return;
+      if (files) { if (el[k]) amb = elLoop(k); return; }
+      if (buf[k]) amb = loop(k);   // not loaded yet → starts when it is
+    }
+    function setLevel(h) { level = Math.max(0, Math.min(1, h)); if (!ctx || !amb || Math.abs(level - lastLevel) < .05) return; lastLevel = level; if (amb.out) { const t = ctx.currentTime; amb.out.gain.cancelScheduledValues(t); amb.out.gain.setTargetAtTime(lvlGain(amb.k), t, .6); } }
+    /* reaction one-shot (cheer / roar / ooh / boo) — returns false if it can't play a recording */
+    function reactTo(kind, v = 1) {
+      if (!ctx) return false;
+      if (kind === 'cheer' && ambKind === 'gym' && (buf.cheerGym || el.cheerGym)) kind = 'cheerGym';
+      const now = ctx.currentTime; if (last[kind] && now - last[kind] < .6) return true; last[kind] = now;    // debounce repeats
+      react = react.filter(r => r.end > now);
+      while (react.length >= MAX) { const o = react.shift(); o.fade(); }                                  // cap: fade the oldest
+      return oneShot(kind, v, true);
+    }
+    function oneShot(kind, v = 1, isReact) {
+      if (!ctx) return false;
+      const len = LEN[kind] || 3, g0 = GAIN[kind] * v;
+      if (files) { if (!el[kind]) return false; const a = new Audio(el[kind]); a.volume = Math.min(1, g0 * vol1() * (ducks && kind !== 'buzzer' ? .4 : 1)); a.play().catch(() => { }); const t = setTimeout(() => a.pause(), len * 1000); if (isReact) react.push({ end: ctx.currentTime + len, fade: () => { clearTimeout(t); a.pause(); } }); return true; }
+      const b = buf[kind]; if (!b) return false;
+      const s = ctx.createBufferSource(), g = ctx.createGain(), t = ctx.currentTime, start = kind === 'buzzer' ? 0 : Math.min(.4, Math.max(0, b.duration - len) * Math.random() * .2);
+      s.buffer = b; s.connect(g); g.connect(kind === 'buzzer' ? sfxBus : crowdBus);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(g0, t + .06); g.gain.setValueAtTime(g0, t + len * .55); g.gain.linearRampToValueAtTime(0, t + len);
+      s.start(t, start, len + .05);
+      if (isReact) react.push({ end: t + len, fade: () => { const n = ctx.currentTime; g.gain.cancelScheduledValues(n); g.gain.setValueAtTime(g.gain.value, n); g.gain.linearRampToValueAtTime(0, n + .25); try { s.stop(n + .3); } catch (e) { } } });
+      return true;
+    }
+    /* stop everything crowd-related (scene / game / cutscene over) */
+    function stopAll() { ambience(null); react.forEach(r => r.fade()); react = []; }
+    /* duck the crowd under dialogue / cutscenes (counted, so nested calls are safe) */
+    function duck(on) { ducks = Math.max(0, ducks + (on ? 1 : -1)); if (!ctx || !duckGain) return; const t = ctx.currentTime; duckGain.gain.cancelScheduledValues(t); duckGain.gain.setTargetAtTime(ducks ? .3 : 1, t, .25); }
+    const info = () => ({ amb: ambKind, playing: !!amb, level: +level.toFixed(2), reacts: ctx ? react.filter(r => r.end > ctx.currentTime).length : 0, ducks, loaded: Object.keys(files ? el : buf).length });
+    return { load, ambience, level: setLevel, react: reactTo, oneShot, stopAll, duck, info, vol() { }, get kind() { return ambKind; } };
+  })();
+  function loadCrowd() { Crowd.load(); }
   function play(name, arg) { if (!ctx || vol.muted) return; try { LIB[name] && LIB[name](arg); } catch (e) { } }
   const has = name => !!LIB[name];
 
@@ -384,5 +454,7 @@ const SFX = (() => {
   function music(mood) { pendingMood = mood; if (!band) return; band.setMood(mood); }
   function stopMusic() { music(null); }
   function skip() { if (band) band.skip(); }
-  return { init, play, has, music, stopMusic, skip, setVol, toggleMute, vol, get mood() { return band ? band.mood : pendingMood; }, get song() { return band && band.song; } };
+  /* crowd API: venue ambience ('arena' | 'gym' | 'street' | null), excitement level, reactions, ducking, stop */
+  const crowd = { ambience: (k, h) => { if (ctx) Crowd.ambience(k, h); }, level: h => Crowd.level(h), react: (k, v) => !vol.muted && Crowd.react(k, v), duck: on => Crowd.duck(on), info: () => Crowd.info(), stop: () => { if (ctx) Crowd.stopAll(); } };
+  return { init, play, has, music, stopMusic, skip, setVol, toggleMute, vol, crowd, get mood() { return band ? band.mood : pendingMood; }, get song() { return band && band.song; } };
 })();

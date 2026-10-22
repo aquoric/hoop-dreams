@@ -181,6 +181,19 @@ LOCAL_TEAMS.eastside = { name: 'Eastside Kings', abbr: 'EKG', colors: ['#7c3aed'
 
 ## Credits
 
-- Code, art, story and audio: original, generated procedurally for this project. No photos and no external images are used.
+- Code, art, story, music and sound effects: original, generated procedurally for this project. No photos and no external images are used.
+- Crowd recordings in `assets/audio/` (all [CC0 / public domain](https://creativecommons.org/publicdomain/zero/1.0/), from [Freesound](https://freesound.org), small mp3 previews). One venue loop plays at a time and reactions are capped at two (see `Crowd` in `js/audio.js`):
+
+  | File | Sound | Author |
+  |---|---|---|
+  | `crowd-arena.mp3` | [Fans at Basketball Game (Crowd) Sound Clip 2](https://freesound.org/s/412161/) | phillyfan972 |
+  | `crowd-gym.mp3` | [High school gym crowd](https://freesound.org/s/450500/) | kyles |
+  | `street-ambience.mp3` | [city park Tel Aviv Israel](https://freesound.org/s/268903/) | yonts |
+  | `cheer.mp3` | [Scored Basket at a Basketball Game](https://freesound.org/s/412162/) | phillyfan972 |
+  | `cheer-gym.mp3` | [cheering and clapping crowd 1](https://freesound.org/s/221568/) | AlaskaRobotics |
+  | `roar.mp3` | [RoaringCrowd.wav](https://freesound.org/s/130568/) | benfree |
+  | `boo.mp3` | [crowd booing](https://freesound.org/s/264378/) | HowardV |
+  | `ooh.mp3` | [Crowd Ooohs and Ahhhs in Excitement](https://freesound.org/s/264499/) | noah0189 |
+  | `buzzer.mp3` | [buzzer.wav](https://freesound.org/s/54047/) | guitarguy1985 |
 - Fonts: [Bebas Neue](https://fonts.google.com/specimen/Bebas+Neue), [Oswald](https://fonts.google.com/specimen/Oswald), [Inter](https://fonts.google.com/specimen/Inter), [Silkscreen](https://fonts.google.com/specimen/Silkscreen) and [VT323](https://fonts.google.com/specimen/VT323) via Google Fonts (SIL Open Font License), with offline fallbacks.
 - All teams, players and leagues are fictional or parody names. No real logos or likenesses.
