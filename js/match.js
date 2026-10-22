@@ -169,10 +169,16 @@ const Match = (() => {
     /* impact: hit-stop freeze + shake + flash + camera punch-in */
     impact(stop = .12, shake = 10, flash = .25, kick = .05, col = '255,255,255') { this.stopT = Math.max(this.stopT, stop); this.shakeAmt = Math.max(this.shakeAmt, shake); this.flashA = Math.max(this.flashA, flash); this.flashCol = col; this.kick = Math.max(this.kick, kick); }
     /* quick anime close-up cut for your highlight plays (rate-limited, needs the portrait ready) */
-    highlight(kind, caption, delay = 200) {
-      const u = this.user(); if (!u || typeof Cutscene === 'undefined' || !Cutscene.highlight || !Cutscene.ready(u.look) || this.t - this.cutAt < 6) return;
-      this.cutAt = this.t;
-      setTimeout(() => { if (!this.alive) return; this.stopT = Math.max(this.stopT, 1.25); Cutscene.highlight({ kind, look: u.look, name: u.name === 'You' && Game.state ? `${Game.state.player.first} ${Game.state.player.last}` : u.name, caption, colors: this.us.colors, bench: 5 }); }, delay);
+    highlight(kind, caption, delay = 200, o = {}) { setTimeout(() => this.mini(kind, caption, o), delay); }
+    /* mini cutscene (2–3s, tap to skip): the court freezes underneath, then play picks up right where it was.
+       A few per game: at least 6s apart, max 6 per game (o.force skips the spacing for huddles / face-offs). */
+    async mini(kind, caption, o = {}) {
+      const u = this.user(); if (!u || typeof Cutscene === 'undefined' || !Cutscene.highlight || !this.alive) return false;
+      const look = o.look || u.look; if (!Cutscene.ready(look) || (o.look2 && !Cutscene.ready(o.look2))) return false;
+      if (!o.force && (this.t - this.cutAt < 6 || this.cuts >= 6)) return false;
+      this.cutAt = this.t; this.cuts = (this.cuts || 0) + 1; this.stopT = 99;
+      const ok = await Cutscene.highlight(Object.assign({ kind, look, name: o.name || (Game.state ? `${Game.state.player.first} ${Game.state.player.last}` : u.name), caption, colors: o.colors || this.us.colors }, o));
+      this.stopT = 0; return ok;
     }
     /* timed pose that plays out on its own (celebrations, landings) */
     act(p, type, T, extra) { if (!p) return; const a = Object.assign({ type, t: 0, T, tick: true, auto: true }, extra || {}); p.anim = a; return a; }
@@ -227,7 +233,7 @@ const Match = (() => {
       if (opts.slowmo) { this.timeScale = 1; this.tween(this, { zoom: 1 }, .6, 'io'); }
       if (outcome === 'swish' || outcome === 'rimin') {
         if (outcome === 'rimin') { SFX.play('rim'); this.rimBend = .4; await this.tween(b, { z: HOOP.z + 1.2, x: rnd(-.4, .4) }, .15, 'out'); await this.tween(b, { z: HOOP.z, x: 0 }, .15, 'in'); }
-        SFX.play('swish'); SFX.play('net'); this.netWave = 1;
+        SFX.play('swish'); SFX.play('net'); this.netWave = 1; if (opts.green) green();
         if (opts.big) { this.impact(.09, 4, .12, .04); this.R.ring(this.X(0) - this.V.ox, this.Y(HOOP.y) - HOOP.z * 3.2 + 3, '#e0f2fe', 90, .3, 1); }
         await this.tween(b, { z: HOOP.z - 2.5 }, .22, 'in');
         await this.tween(b, { z: 0, y: HOOP.y + 1.5 }, .35, 'in'); SFX.play('bounce');
@@ -241,9 +247,9 @@ const Match = (() => {
       return false;
     }
     async drive(p, toX = rnd(-2.5, 2.5), toY = 7.5, dur = .7) { SFX.play('squeak'); this.ball.dribble = true; await this.moveTo(p, toX, toY, dur); }
-    async layup(p, made) {
+    async layup(p, made, g) {
       await this.drive(p, rnd(-2, 2), 6.5, .55);
-      return this.shoot(p, made ? (Math.random() < .5 ? 'swish' : 'rimin') : 'miss', { arc: 2.5, dur: .45, layup: true });
+      return this.shoot(p, made ? (Math.random() < .5 ? 'swish' : 'rimin') : 'miss', { arc: 2.5, dur: .45, layup: true, green: g && made });
     }
     async dunk(p, made, poster) {
       await this.drive(p, rnd(-1.5, 1.5), 7.5, .55);
@@ -261,7 +267,7 @@ const Match = (() => {
         await this.tween(b, { x: rnd(-6, 6), y: rnd(12, 16), z: 0 }, .6, 'in'); return false;
       }
       b.holder = null; Object.assign(b, { x: 0, y: HOOP.y, z: HOOP.z + .6 });
-      SFX.play('dunk'); this.impact(poster ? .2 : .14, poster ? 22 : 13, poster ? .5 : .28, poster ? .1 : .06); this.rimBend = 1.2; this.netWave = 1.5;
+      SFX.play('dunk'); this.impact(poster ? .2 : .14, poster ? 22 : 13, poster ? .5 : .28, poster ? .1 : .06); this.rimBend = 1.2; this.netWave = 1.5; if (this.greenNext) { this.greenNext = false; green(); }
       this.sparks(0, HOOP.y, HOOP.z, '#facc15', poster ? 50 : 24); this.R.ring(this.X(0) - this.V.ox, this.Y(HOOP.y) - HOOP.z * 3.2 + 2, '#fde68a', 170, .4);
       this.R.sweat(this.X(p.x) - this.V.ox, this.Y(p.y) - p.z * 3.2 - 26, 6);
       if (p.isUser) this.highlight('dunk', poster ? 'POSTERIZED!' : pick(['SLAM!', 'WITH AUTHORITY!', 'HELLO, RIM!']), 230);
@@ -320,6 +326,13 @@ const Match = (() => {
     window.addEventListener('keydown', kd); return () => window.removeEventListener('keydown', kd);
   }
   const ARROW = { L: '◀', R: '▶', U: '▲', D: '▼' };
+  /* GREEN: perfect timing in any minigame (and arcade releases) — its own sound + a quick "GREEN!" flash */
+  let greenAt = 0;
+  function green(label = 'GREEN!') {
+    const now = performance.now(); if (now - greenAt < 250) return; greenAt = now;
+    SFX.play('green'); const el = document.createElement('div'); el.className = 'green-pop'; el.innerHTML = `<b>${label}</b>`; document.body.appendChild(el);
+    setTimeout(() => el.remove(), 900);
+  }
 
   const MG = {
     /* 1. SHOOTING METER — stop the rising bar in the green zone */
@@ -335,7 +348,7 @@ const Match = (() => {
           const dist = Math.abs(v - center) / (green / 2);
           let r; if (dist <= .28) r = 'perfect'; else if (dist <= 1) r = 'good'; else r = v < center ? 'early' : 'late';
           const q = clamp(1 - Math.max(0, dist - 1) / 2.5, 0, 1);
-          SFX.play(r === 'perfect' ? 'perfect' : r === 'good' ? 'good' : 'bad');
+          SFX.play(r === 'bad' || r === 'early' || r === 'late' ? 'bad' : 'good');
           await sh.close(r === 'perfect' ? 'PERFECT RELEASE' : r === 'good' ? 'GOOD RELEASE' : (r === 'early' ? 'TOO EARLY' : 'TOO LATE'), r === 'perfect' || r === 'good');
           res({ result: r, quality: dist <= 1 ? 1 - dist * .3 : q * .6, perfect: r === 'perfect', good: r === 'good' || r === 'perfect' });
         };
@@ -451,7 +464,7 @@ const Match = (() => {
           const kind = ok ? (q > .8 ? 'swish' : 'rimin') : (d > g.zone * 2.6 ? 'airball' : 'rimout');
           ball = { t: performance.now(), dur: 1050, kind, tx: kind === 'airball' ? ret.x : kind === 'swish' ? g.RX : g.RX + (ret.x >= g.RX ? 1 : -1) * g.rr * .8, ty: kind === 'airball' ? g.RY + g.rr * 1.4 : g.RY };
           await sleep(650);
-          if (kind === 'swish' || kind === 'rimin') { net = 1; SFX.play(kind === 'swish' ? 'swish' : 'rim'); if (kind === 'rimin') setTimeout(() => SFX.play('swish'), 180); } else if (kind === 'rimout') SFX.play('rim');
+          if (kind === 'swish' || kind === 'rimin') { net = 1; SFX.play(kind === 'swish' ? 'swish' : 'rim'); if (kind === 'rimin') setTimeout(() => SFX.play('swish'), 180); if (q > .9) setTimeout(() => green(), kind === 'rimin' ? 180 : 0); } else if (kind === 'rimout') SFX.play('rim');   // green only when a perfect release drops
           await sleep(420);
           if (ok) { made++; if (q > .9) perfect++; }
           dots[k].className = ok ? 'make' : 'miss';
@@ -512,7 +525,7 @@ const Match = (() => {
         const tap = () => {
           if (done) return; const e = Math.abs(r - TR), ok = e <= tol; flash = ok ? 1 : -1;
           dots[k].className = ok ? 'make' : 'miss'; if (ok) { hits++; acc += 1 - e / tol * .6; } SFX.play(ok ? 'good' : 'bad'); k++; r = 105; sp *= 1.2;
-          if (k >= rings) { done = true; off(); const q = acc / rings; sh.close(hits === rings ? (rings > 1 ? 'POSTERIZED!' : 'PERFECT TOUCH') : hits ? 'GOT IT UP' : 'STUFFED', hits >= Math.ceil(rings * .6)).then(() => res({ hits, total: rings, quality: q })); }
+          if (k >= rings) { done = true; off(); const q = acc / rings; sh.close(hits === rings ? (rings > 1 ? 'POSTERIZED!' : 'PERFECT TOUCH') : hits ? 'GOT IT UP' : 'STUFFED', hits >= Math.ceil(rings * .6)).then(() => res({ hits, total: rings, quality: q, perfect: hits === rings && q > .9 })); }
         };
         const off = onTap(sh.el, tap);
         const step = now => {
@@ -528,6 +541,51 @@ const Match = (() => {
           requestAnimationFrame(step);
         };
         requestAnimationFrame(step);
+      });
+    },
+
+    /* 4b. LAYUP — the 1-2 step: two footprints light up on the beat, then RELEASE on the gather.
+           A ring shrinks around the ball and meets the target circle at the rim on the release beat.
+           o.win = perfect window half-size in seconds (Finishing, contests make it smaller), o.beat = seconds per step. */
+    layupStep(layer, o = {}) {
+      const beat = o.beat || .34, win = clamp(o.win || .06, .025, .14), T = beat * 2 + .05;
+      const sh = mgShell(layer, o.title || 'LAYUP · 1-2 STEP', 'Tap / click / SPACE on the gather — when the ring meets the circle', 'mg-lay');
+      sh.body.innerHTML = `<canvas class="pxc" width="160" height="80" style="width:320px;max-width:100%;aspect-ratio:2/1"></canvas><div class="mg-sub">${o.sub || ''}</div>`;
+      const cv = sh.body.querySelector('canvas'), c = cv.getContext('2d'); c.imageSmoothingEnabled = false;
+      const P = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), w, h); };
+      const foot = (x, y, on, flip) => { const col = on ? '#facc15' : '#334155'; P(x, y, 6, 9, col); P(x + (flip ? 4 : -1), y - 3, 3, 3, col); P(x + (flip ? -1 : 4), y - 3, 3, 3, col); if (on) { c.fillStyle = 'rgba(250,204,21,.25)'; c.fillRect(x - 3, y - 6, 12, 18); } };
+      return new Promise(res => {
+        let t0 = performance.now() + 450, done = false, step = 0;
+        const fin = async (tapAt) => {
+          if (done) return; done = true; off();
+          const e = tapAt == null ? 1 : Math.abs(tapAt - beat * 2), perfect = e <= win * .5, good = e <= win;
+          const q = good ? 1 - e / win * .35 : clamp(.55 - (e - win) / (win * 3), 0, .5);
+          SFX.play(good ? 'good' : 'bad');
+          await sh.close(tapAt == null ? 'TOO LATE' : perfect ? 'PERFECT GATHER' : good ? 'GOOD TOUCH' : tapAt < beat * 2 ? 'TOO EARLY' : 'TOO LATE', good);
+          res({ quality: q, perfect, good, success: good });
+        };
+        const off = onTap(sh.el, () => { const t = (performance.now() - t0) / 1000; if (t > -.1) fin(t); });
+        const draw = now => {
+          if (done) return; const t = (now - t0) / 1000;
+          if (t > T + win + .25) return fin(null);
+          c.fillStyle = '#c88e52'; c.fillRect(0, 0, 160, 80); for (let y = 0; y < 80; y += 4) P(0, y, 160, 1, '#b97f45'); P(0, 62, 160, 1, '#fef3c7');
+          // hoop on the right
+          P(140, 8, 3, 38, '#475569'); P(124, 10, 18, 14, '#e2e8f0'); P(126, 12, 14, 10, '#93c5fd'); P(118, 26, 14, 2, '#ea580c');
+          // footprints: 1, 2 → gather
+          const s1 = t >= 0, s2 = t >= beat; foot(30, 60, s1, false); foot(62, 52, s2, true);
+          Pixel.text(c, '1', 33, 70, s1 ? '#111827' : '#64748b'); Pixel.text(c, '2', 65, 62, s2 ? '#111827' : '#64748b');
+          if (s1 && step === 0) { step = 1; SFX.play('squeak'); } if (s2 && step === 1) { step = 2; SFX.play('squeak'); }
+          // the ball rides up toward the rim; a ring shrinks around it and meets the target circle on the release beat
+          const k = clamp(t / (beat * 2), 0, 1.2), bx = 22 + k * 98, by = 50 - Math.sin(Math.min(1, k) * Math.PI / 2) * 28, tx = 120, ty = 22;
+          c.strokeStyle = '#4ade80'; c.lineWidth = 2; c.beginPath(); c.arc(tx, ty, 6, 0, 7); c.stroke();
+          c.strokeStyle = 'rgba(74,222,128,.35)'; c.lineWidth = 1; c.beginPath(); c.arc(tx, ty, 6 + win * 60, 0, 7); c.stroke();
+          const rr = 6 + Math.max(0, beat * 2 - t) * 60; c.strokeStyle = '#ffffff'; c.lineWidth = 1; c.beginPath(); c.arc(bx, by, Math.max(3, rr), 0, 7); c.stroke();
+          P(bx - 2, by - 2, 5, 5, '#0a0a12'); P(bx - 1, by - 2, 3, 5, '#e8651b'); P(bx - 2, by - 1, 5, 3, '#e8651b');
+          if (t < 0) Pixel.text(c, 'READY', 80, 6, '#111827', 1, 'center');
+          if (t >= beat * 2 - win && t <= beat * 2 + win) Pixel.text(c, 'NOW!', 80, 6, '#14532d', 1, 'center');
+          requestAnimationFrame(draw);
+        };
+        requestAnimationFrame(draw);
       });
     },
 
@@ -547,7 +605,7 @@ const Match = (() => {
           if (done) return;
           if (!shown) return finish(false, 0, 'BIT ON THE FAKE');
           const rt = performance.now() - shown;
-          if (d === move) finish(true, clamp(1 - rt / win, .2, 1), rt < win * .4 ? 'LOCKED UP!' : 'STAYED IN FRONT');
+          if (d === move) { finish(true, clamp(1 - rt / win, .2, 1), rt < win * .4 ? 'LOCKED UP!' : 'STAYED IN FRONT'); }
           else finish(false, 0, 'WRONG WAY');
         };
         const offK = dirInput(input);
@@ -681,7 +739,7 @@ const Match = (() => {
       us: 0, them: 0, i: 0, box: { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, to: 0 },
       succ: 0, att: 0, streak: 0, fire: false, sig: 0, sigUsed: false, sigUses: 0, mirror: 0, zone: false, postponed: false, fatigue: s.meta.fatigue * .4, clutchN: 0, clutchW: 0, perfects: 0, highlights: [],
       counters: {}, gameWinner: false, lastType: '', posterizers: 0, clutch: false, last: false, fb: 0,
-      wUses: {}, oppSig: 0, starRun: 0, takeover: 0, closeN: 0, closeKinds: {}, mateMakes: 0,
+      wUses: {}, oppSig: 0, starRun: 0, takeover: 0, closeN: 0, closeKinds: {}, mateMakes: 0, wMini: {}, run: { side: null, pts: 0 }, talkN: 0, talkAt: -9, talkQ: null, failRun: 0, bench: 0, nextBonus: null, rattled: 0, shaken: 0, refFavor: false, minutes: false,
     };
     const cnt = (k, v = 1) => st.counters[k] = (st.counters[k] || 0) + v;
 
@@ -723,7 +781,7 @@ const Match = (() => {
     const themP = [0, 1, 2, 3, 4].map(i => mk('them', themNames[i] || 'Defender ' + i, i));
     const starIdx = Math.max(0, themNames.indexOf(star.name)); themP[starIdx].tag = star.name.split(' ').slice(-1)[0];
     court.setPlayers([...usP, ...themP]);
-    if (typeof Cutscene !== 'undefined' && Cutscene.prep) Cutscene.prep(lk);   // portrait for highlight close-ups
+    if (typeof Cutscene !== 'undefined' && Cutscene.prep) Cutscene.prep(lk);   // portraits for mini cutscenes
     const U = court.players[myIdx], STAR = court.players.slice(5)[starIdx];
     let US = court.players.slice(0, 5), TH = court.players.slice(5);
     if (size < 5) {   // small-sided pickup: you + teammates vs their star + crew
@@ -739,6 +797,7 @@ const Match = (() => {
       const named = p.name && !/^(Teammate|Defender) \d/.test(p.name), N = Weapons.npc(named ? p.name : (p.team === 'us' ? cfg.us.abbr : cfg.them.abbr) + p.name, p.team === 'us' ? (cfg.mateRating || 45) : oppR, p === STAR);
       p.stats = N.stats; p.weapons = N.weapons; p.role = N.role; p.box = nbox(); p.full = named ? p.name : (p.team === 'us' ? cfg.us.abbr : cfg.them.abbr) + ' ' + p.name.split(' ').pop(); p.short = named ? shortOf(p.name) : p.full;
     });
+    if (typeof Cutscene !== 'undefined' && Cutscene.prep) [STAR, ...US.filter(p => !p.isUser)].forEach(p => Cutscene.prep(p.look));
     STAR.stats.perD = Math.max(STAR.stats.perD, DEF.perD); STAR.stats.intD = Math.max(STAR.stats.intD, DEF.intD);
     const rest = arr => arr.filter(p => p !== U && p !== STAR);
     /* who guards whom: you and their star, everyone else in order */
@@ -795,15 +854,20 @@ const Match = (() => {
     function addPts(side, p) {
       if (!p || st.done) return;
       if (side === 'us') st.us += p; else st.them += p;
+      // momentum runs (visible baskets in a row for one side)
+      if (st.run.side === side) st.run.pts += p; else st.run = { side, pts: p, shown: false };
+      if (st.run.pts >= 8 && !st.run.shown && !st.done) { st.run.shown = true; const ours = side === 'us', sl = STAR.look;
+        court.highlight('run', ours ? `${st.run.pts}-0 RUN!` : `${cfg.them.abbr} ${st.run.pts}-0 RUN`, 450, ours ? { sub: `${st.run.pts}-0` } : { look: sl, name: STAR.full, colors: cfg.them.colors, sub: `${st.run.pts}-0` });
+        if (!ours) queueTalk('coach', 1, 'play'); }
       if (PICK && st[side] >= cfg.target) { st.done = side; if (side === 'us' && st.them >= cfg.target - 4) { st.gameWinner = true; cnt('gameWinners'); st.highlights.push('Hit the game-winner'); } }
       updBug(); const el = $(side === 'us' ? 'sbUs' : 'sbThem'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
     }
     function success(big) {
-      st.succ++; st.att++; st.streak++; if (!st.sigUsed) st.sig++;
+      st.failRun = 0; st.succ++; st.att++; st.streak++; if (!st.sigUsed) st.sig++;
       if (st.streak >= 3 && !st.fire) { st.fire = true; court.fire = true; pbp(`🔥 <b>${myName} is ON FIRE!</b>`, 'hot'); banner('🔥 ON FIRE', 'fire'); SFX.play('roar'); }
       court.excite = Math.min(1, court.excite + (big ? .5 : .25)); updBug();
     }
-    function fail() { st.att++; st.streak = 0; if (st.fire) { st.fire = false; court.fire = false; pbp('The fire cools off.', 'cold'); } court.excite = Math.max(.2, court.excite - .1); updBug(); }
+    function fail() { st.failRun++; if (st.failRun >= 3) { st.failRun = 0; queueTalk('coach', .8, 'argue'); } st.att++; st.streak = 0; if (st.fire) { st.fire = false; court.fire = false; pbp('The fire cools off.', 'cold'); } court.excite = Math.max(.2, court.excite - .1); updBug(); }
     const tire = () => { st.fatigue = Math.min(100, st.fatigue + (100 - Engine.attr(s, 'stam')) / 14 + 1.5); court.sweaty = st.fatigue > 50; };
     const roll = p => Math.random() * 100 < p;
 
@@ -821,6 +885,8 @@ const Match = (() => {
       if (Engine.hasSpecial(s, 'misdirection') && st.i < 3 && action !== 'ft') out.push({ label: 'Misdirection', v: 12 });
       if (Engine.hasSpecial(s, 'mirror') && st.mirror && ['three', 'mid', 'finish', 'dunk', 'str', 'pass'].includes(key)) out.push({ label: 'Perfect Copy', v: st.mirror });
       if (st.zone) out.push({ label: 'The Zone', v: 12 });
+      if (st.nextBonus && action !== 'ft') out.push(st.nextBonus);
+      if (st.shaken > 0) out.push({ label: 'Shaken', v: -4 });
       const wsv = ({ intD: .6, steal: .4, perD: .4, str: .3, dunk: .3, reb: .4 }[key] || 0) * APE; if (Math.abs(wsv) >= .5) out.push({ label: 'Wingspan', v: Math.round(wsv) });
       return out;
     }
@@ -861,15 +927,17 @@ const Match = (() => {
     async function myShot(kind, made, o = {}) {
       const pts = kind === 'three' ? 3 : 2;
       st.box.fga++; if (kind === 'three') st.box.tpa++;
-      if (kind === 'dunk') made = await court.dunk(U, made, o.poster);
-      else if (kind === 'layup' || kind === 'drive' || kind === 'hook') made = await court.layup(U, made);
-      else made = await court.shoot(U, made ? (o.perfect || Math.random() < .55 ? 'swish' : 'rimin') : (Math.random() < .08 ? 'airball' : 'miss'), { slowmo: o.slowmo });
+      if (kind === 'dunk') { court.greenNext = !!(o.perfect && made); made = await court.dunk(U, made, o.poster); court.greenNext = false; }
+      else if (kind === 'layup' || kind === 'drive' || kind === 'hook') made = await court.layup(U, made, o.perfect);
+      else made = await court.shoot(U, made ? (o.perfect || Math.random() < .55 ? 'swish' : 'rimin') : (Math.random() < .08 ? 'airball' : 'miss'), { slowmo: o.slowmo, green: o.perfect && made });
+      if (o.perfect && !made) pbp('<i class="pct-note">Perfect release — still no good.</i>');
       if (made) {
         st.box.fgm++; st.box.pts += pts; if (kind === 'three') { st.box.tpm++; cnt('threes'); } else if (kind === 'mid' || kind === 'fade') cnt('mids'); else if (kind === 'dunk') { cnt('dunks'); if (o.poster) { cnt('posterizers'); st.posterizers++; } } else cnt('layups');
         if (kind === 'hook' || kind === 'fade') cnt('posts');
         addPts('us', pts); court.pop(kind === 'dunk' ? (o.poster ? 'POSTERIZED!' : 'SLAM!') : '+' + pts, U.x, U.y, 9, kind === 'three' ? '#38bdf8' : '#facc15', o.poster ? 46 : 36);
         SFX.play('crowd', 1 + (st.clutch ? .8 : 0)); court.celebrate(U, kind === 'three' ? 'three' : kind === 'dunk' ? 'dunk' : 'two');
         if (st.clutch) { cnt('clutchMakes'); st.clutchW++; if (st.last && kind !== 'dunk') court.highlight('winner', 'CLUTCH!', 350); }
+        else if (kind === 'three' && (o.deep || Math.random() < .3)) await court.mini('three', o.deep ? 'FROM THE LOGO!' : 'FROM DOWNTOWN!');
       } else SFX.play('groan');
       return made;
     }
@@ -956,7 +1024,7 @@ const Match = (() => {
       } else if (o.k === 'pull') {
         busy(setup, `🎮 Dribble move`);
         const r1 = await MG.dribbleCombo($('mg'), { title: 'CREATE SPACE', len: 3, time: (.7 + ME.handle / 99 * .6) * WIN() * MGX('comboTime') });
-        if (r1.quality >= (Engine.hasSpecial(s, 'ankles') ? .6 : 1)) { cnt('crosses'); court.pop('ANKLES!', STAR.x, STAR.y, 7, '#f472b6', 30); pbp(say('ankles'), 'good'); }
+        if (r1.quality >= (Engine.hasSpecial(s, 'ankles') ? .6 : 1)) { cnt('crosses'); court.pop('ANKLES!', STAR.x, STAR.y, 7, '#f472b6', 30); pbp(say('ankles'), 'good'); await court.mini('ankles', 'ANKLES!', { name2: star.name, colors2: cfg.them.colors }); queueTalk('rival', .35); }
         busy(setup, `🎮 Rise up`);
         const stat = o.action === 'pull3' ? ME.three : ME.mid;
         const r2 = await MG.shotMeter($('mg'), { title: o.label.toUpperCase(), green: green(stat) * MGX('green'), dur: .95, sub: `${o.action === 'pull3' ? 'Three-Point' : 'Mid-Range'} ${stat} · Handles ${ME.handle}` });
@@ -964,11 +1032,12 @@ const Match = (() => {
       } else if (o.k === 'layup' || o.k === 'dunk') {
         busy(setup, `🎮 Beat your man`);
         const r1 = await MG.dribbleCombo($('mg'), { title: 'BEAT YOUR MAN', len: 4, time: (.7 + ME.handle / 99 * .6) * WIN() * MGX('comboTime') });
-        if (r1.quality >= (Engine.hasSpecial(s, 'ankles') ? .6 : 1)) { cnt('crosses'); pbp(say('ankles'), 'good'); }
+        if (r1.quality >= (Engine.hasSpecial(s, 'ankles') ? .6 : 1)) { cnt('crosses'); pbp(say('ankles'), 'good'); await court.mini('ankles', 'ANKLES!', { name2: star.name, colors2: cfg.them.colors }); queueTalk('rival', .35); }
         busy(setup, o.k === 'dunk' ? '🎮 Throw it down' : '🎮 Finish');
         let r2q;
-        if (o.k === 'dunk') { const r2 = await MG.dunkChain($('mg'), { title: 'DUNK TIMING', tol: (6 + ME.dunk / 99 * 9 + ME.vert / 99 * 4) * WIN() * MGX('dunkTol'), speed: 90 + (st.clutch ? 20 : 0) }); r2q = r2.quality; poster = r2.hits === r2.total && roll(30 + ME.dunk * .4); }
-        else { const r2 = await MG.dunkChain($('mg'), { title: 'LAYUP', rings: 1, labels: ['RELEASE'], tol: (7 + ME.finish / 99 * 9) * WIN(), speed: 85 }); r2q = r2.quality; }
+        const ck = { open: 1.2, normal: 1, contested: .8, heavy: .65 }[(o.extra && o.extra.contest) || 'normal'];   // defenders shrink the window
+        if (o.k === 'dunk') { const r2 = await MG.dunkChain($('mg'), { title: 'DUNK TIMING', tol: (6 + ME.dunk / 99 * 9 + ME.vert / 99 * 4) * WIN() * MGX('dunkTol') * ck, speed: 90 + (st.clutch ? 20 : 0) }); r2q = r2.quality; perfect = !!r2.perfect; poster = r2.hits === r2.total && roll(30 + ME.dunk * .4); }
+        else { const r2 = await MG.layupStep($('mg'), { win: (.035 + Balance.eff(ME.finish) / 99 * .06) * WIN() * ck, beat: .36 - Balance.eff(ME.speed) / 99 * .06, sub: `Finishing ${ME.finish}${ck < 1 ? ' · contested' : ck > 1 ? ' · open lane' : ''}` }); r2q = r2.quality; perfect = !!r2.perfect; }
         q = r1.quality * .5 + r2q * .5; kind = o.k;
         cnt('fastbreaks', sit === 'break' ? 1 : 0);
       } else if (o.k === 'hook' || o.k === 'fade') {
@@ -988,8 +1057,8 @@ const Match = (() => {
       pbp(say(key === 'dunk' ? (made ? (poster ? 'poster' : 'dunk') : 'dunk_miss') : key + (made ? '_make' : '_miss')) + ` <i class="pct-note">${fin}%</i>`, made ? 'good' : '');
       if (poster && made) st.highlights.push(`Posterized ${star.name}`);
       if (made) success(kind === 'dunk' || perfect); else fail();
-      if (!made && (kind === 'layup' || kind === 'dunk') && roll(30)) { SFX.play('whistle'); pbp(say('fouled')); await T.free_throws({ shots: 2 }); return made; }
-      if (made && (kind === 'layup' || kind === 'hook') && roll(10 + ME.str * .12)) { SFX.play('whistle'); pbp(say('and1'), 'good'); await T.free_throws({ shots: 1 }); }
+      if (!made && (kind === 'layup' || kind === 'dunk') && roll(30 + (st.refFavor ? 15 : 0))) { st.refFavor = false; SFX.play('whistle'); pbp(say('fouled')); await T.free_throws({ shots: 2 }); return made; }
+      if (made && !st.done && (kind === 'layup' || kind === 'hook' || kind === 'dunk') && roll(10 + ME.str * .12 + (st.refFavor ? 12 : 0))) { st.refFavor = false; SFX.play('whistle'); pbp(say('and1'), 'good'); await court.mini('andone', 'AND ONE!'); await T.free_throws({ shots: 1 }); }
       if (!made) await boardAfterMiss(true);
       return made;
     }
@@ -1089,8 +1158,9 @@ const Match = (() => {
     async function weaponFlash(p, id, side) {
       const w = WEAPONS[id]; st.wUses[p.name + id] = (st.wUses[p.name + id] || 0) + 1; cnt(side === 'us' && p.isUser ? 'weaponUses' : 'npcWeapons');
       court.aura(p, side === 'us' ? '#facc15' : '#ef4444', 2.4); court.impact(.28, 6, .4, .06, side === 'us' ? '250,204,21' : '239,68,68'); SFX.play('sig');
-      const ts = court.timeScale; court.timeScale = .35;
-      await banner(`<small>⚔ ${escH(p.full || p.name)}</small>${escH(w.name)}`, 'sig wpn-' + side, 1150); court.timeScale = ts;
+      const first = !st.wMini[p.name]; st.wMini[p.name] = 1;
+      const shown = first && (p.isUser || p === STAR || Math.random() < .5) && await court.mini('weapon', '⚔ ' + w.name.toUpperCase(), { look: p.look, name: p.full || p.name, colors: side === 'us' ? cfg.us.colors : cfg.them.colors, mine: side === 'us' });
+      if (!shown) { const ts = court.timeScale; court.timeScale = .35; await banner(`<small>⚔ ${escH(p.full || p.name)}</small>${escH(w.name)}`, 'sig wpn-' + side, 1150); court.timeScale = ts; }
       pbp(`⚔ <b>${escH(p.short)}</b> uses <b>${escH(w.name)}</b>!`, side === 'us' ? 'hot' : 'bad');
     }
     /* animate any player's shot (not yours) — returns made */
@@ -1105,9 +1175,9 @@ const Match = (() => {
     function heatCheck(made) {
       if (!made) { st.starRun = 0; return; }
       st.starRun++;
-      if (st.starRun >= OB.star.heatAt && !(st.takeover > 0)) { st.takeover = OB.star.takeover; court.aura(STAR, '#ef4444', 3); pbp(`🔥 <b>${escH(STAR.short)} is taking over!</b> ${st.starRun} straight bucket${st.starRun > 1 ? 's' : ''}.`, 'bad'); banner(`<small>${escH(STAR.full)}</small>IS TAKING OVER`, 'fire', 1300); SFX.play('roar'); }
+      if (st.starRun >= OB.star.heatAt && !(st.takeover > 0)) { st.takeover = OB.star.takeover; queueTalk('rival', .7); court.aura(STAR, '#ef4444', 3); pbp(`🔥 <b>${escH(STAR.short)} is taking over!</b> ${st.starRun} straight bucket${st.starRun > 1 ? 's' : ''}.`, 'bad'); banner(`<small>${escH(STAR.full)}</small>IS TAKING OVER`, 'fire', 1300); SFX.play('roar'); }
     }
-    const heatBonus = by => by === STAR && st.takeover > 0 ? [{ label: 'Taking over', v: OB.star.bonus }] : [];
+    const heatBonus = by => by !== STAR ? [] : [].concat(st.takeover > 0 ? [{ label: 'Taking over', v: OB.star.bonus }] : [], st.rattled > 0 ? [{ label: 'Rattled', v: -8 }] : []);
     const diffBonus = () => diffShift ? [{ label: 'Difficulty', v: Math.round(diffShift * .6) }] : [];
     /* a teammate's own possession — you choose how to help, then he plays it with his stats (and maybe a weapon) */
     async function matePlay() {
@@ -1215,6 +1285,62 @@ const Match = (() => {
       if (ch.k === 'me') { cnt('starAssign'); pbp(`${myName} takes the ${escH(STAR.short)} assignment.`, 'hot'); const id = starWeapon(); if (id) return weaponCounter(STAR, id, 'He wants to cook you.'); return defPossession({ text: `${STAR.short} isolates on you. Everybody clears out.` }); }
       const made = await theyShoot(pick(['pullMid', 'pull3', 'layup']), 'normal', STAR, { def: g });
       pbp(made ? `${escH(STAR.short)} scores over ${escH(g.short)} again.` : `${escH(g.short)} gets a stop on ${escH(STAR.short)}!`, made ? 'bad' : 'good'); if (!made) await boardAfterMiss(false); return !made;
+    }
+
+
+    /* =================================================================
+       TALK — quick conversations with a gauge (coach / ref PATIENCE, rival EGO). Data: js/data-talk.js
+       ================================================================= */
+    const TK = typeof TALK !== 'undefined' ? TALK : null;
+    const coachId = cfg.level === 'street' ? (PICK ? null : 'lou') : s.career.hs === 'lincoln' ? 'brennan' : s.career.hs === 'westbrook' ? 'graves' : 'coach';
+    const refId = cfg.level === 'street' ? null : pick(['ref_dawkins', 'ref_vance', 'ref_ortiz']);
+    const rivalId = star.name === 'Kai Sterling' ? 'kai' : pick(['hothead', 'iceman', 'showman']);
+    const talkLook = id => { const P = TK && TK.personalities[id]; if (!P) return null; if (P.kind === 'rival') return STAR.look; if (P.char && STORY.characters[P.char]) return UI.charLook(P.char); return Art.lookFromSeed(P.name || id, P.look || {}); };
+    const talkName = id => { const P = TK.personalities[id]; return P.kind === 'rival' ? STAR.full : P.char && STORY.characters[P.char] ? STORY.characters[P.char].name : P.name || 'Coach'; };
+    /* ask for a conversation at the next dead ball (with probability p) */
+    function queueTalk(type, p = 1, topic) { if (!TK || st.talkQ || st.done || st.talkN >= (PICK ? 2 : 3) || Math.random() > p) return; if (type === 'coach' && !coachId) return; if (type === 'ref' && !refId) return; st.talkQ = { type, topic }; if (type === 'coach' && typeof Cutscene !== 'undefined') Cutscene.prep(talkLook(coachId)); }
+    async function talk(type, topic) {
+      const id = type === 'coach' ? coachId : type === 'ref' ? refId : rivalId, P = TK.personalities[id]; if (!P) return;
+      st.talkN++; st.talkAt = st.i; cnt('talks');
+      const script = TK.scripts[type === 'coach' ? 'coach_' + (topic || pick(['play', 'minutes'])) : type === 'ref' ? 'ref_call' : pick(['rival_trash', 'rival_trash2'])];
+      const nEx = clamp(script.length - (Math.random() < .35 ? 1 : 0), 2, 4), ego = P.kind === 'rival';
+      let g = ego ? 100 : P.start, backfires = 0, ended = false;
+      const look = talkLook(id), name = talkName(id), first = properName(s.player.first), fillT = t => t.replace(/\{first\}/g, first).replace(/\{last\}/g, myName).replace(/\{num\}/g, s.player.num);
+      const face = async expr => { const svg = Art.avatar(Object.assign({}, look, { expr }), { mode: 'portrait' }); const cv = await Pixel.pixelate(svg, 68, 84); const box = document.querySelector('.tk-face'); if (box) { const c2 = document.createElement('canvas'); c2.width = 68; c2.height = 84; c2.getContext('2d').drawImage(cv, 0, 0); box.innerHTML = ''; box.appendChild(c2); } };
+      const head = () => `<div class="tk-head"><div class="tk-face"></div><div class="tk-who"><b>${escH(name)}</b><small>${escH(P.trait)}</small><div class="tk-gauge ${ego ? 'ego' : ''}"><span>${ego ? 'EGO' : 'PATIENCE'}</span><div class="tk-bar"><i style="width:${g}%"></i></div><em class="tk-delta"></em></div></div></div>`;
+      const p = $('panel');
+      for (let k = 0; k < nEx && !ended; k++) {
+        const ex = script[k], opts = ex.opts.slice().sort(() => Math.random() - .5);
+        p.innerHTML = `<div class="talk">${head()}<div class="tk-line">“${escH(fillT(ex.say))}”</div><div class="mp-opts">${opts.map((o, i) => `<button class="opt talk-opt" data-i="${i}"><kbd>${i + 1}</kbd><span class="opt-l">${escH(fillT(o[1]))}</span></button>`).join('')}</div></div>`;
+        p.classList.add('show'); p.classList.remove('busy'); face(k === 0 && type !== 'rival' ? 'neutral' : type === 'rival' ? 'smile' : 'neutral'); SFX.play('blip', { f: type === 'ref' ? 160 : type === 'rival' ? 330 : 140, w: 'square', g: .04 });
+        const pickI = await new Promise(res => { const kd = e => { const n = parseInt(e.key, 10); if (n >= 1 && n <= opts.length) { removeEventListener('keydown', kd); res(n - 1); } }; addEventListener('keydown', kd); p.querySelectorAll('.talk-opt').forEach(b => b.onclick = () => { removeEventListener('keydown', kd); res(+b.dataset.i); }); });
+        const style = opts[pickI][0], v = Math.round((P.styles[style] || 0) + rnd(-3, 3)), good = v > 0;
+        if (ego) g = clamp(g - v, 0, 130); else g = clamp(g + v, 0, 100); if (!good) backfires++;
+        const bar = p.querySelector('.tk-bar i'), dl = p.querySelector('.tk-delta'); if (bar) bar.style.width = Math.min(100, g) + '%'; if (dl) { dl.textContent = (ego ? (good ? '−' : '+') : (good ? '+' : '−')) + Math.abs(v); dl.className = 'tk-delta ' + (good ? 'good' : 'bad'); }
+        const line = p.querySelector('.tk-line'); if (line) { line.textContent = '“' + pick(good ? P.good : P.bad) + '”'; line.classList.add(good ? 'good' : 'bad'); }
+        p.querySelectorAll('.talk-opt').forEach((b, i) => { b.disabled = true; if (i === pickI) b.classList.add(good ? 'right' : 'wrong'); });
+        SFX.play(good ? 'good' : 'bad'); await face(ego ? (good ? 'angry' : 'smile') : (good ? 'smile' : 'angry'));
+        await sleep(1100);
+        if (v <= TK.endAt || (!ego && g <= 0)) ended = true;   // the wrong thing ends it early
+      }
+      idle();
+      /* ---------- outcomes ---------- */
+      if (type === 'coach') {
+        const win = !ended && g >= 60;
+        if (win && topic === 'play') { st.playCalled = true; st.nextBonus = { label: 'Play called for you', v: 8 }; pbp(`📣 ${escH(name)} calls your number. Next trip runs through you (+8%).`, 'good hot'); }
+        else if (win && topic === 'minutes') { st.minutes = true; st.nextBonus = { label: 'Coach\'s trust', v: 4 }; pbp(`📣 ${escH(name)}: "You're playing the rest of the way." More minutes, more numbers.`, 'good hot'); cnt('trustWins'); }
+        else if (win) { st.nextBonus = { label: 'Fired up', v: 5 }; pbp(`📣 ${escH(name)} keeps you in. Don't waste it.`, 'good'); }
+        else if (g <= 0 && !PICK) { st.bench = 1; cnt('benched'); s.meta.morale = Math.max(0, s.meta.morale - 4); pbp(`🪑 ${escH(name)} has heard enough. You're on the bench for a stretch.`, 'bad'); }
+        else pbp(`${escH(name)} waves you off. "Just play."`);
+      } else if (type === 'ref') {
+        if (g <= 0) { cnt('technicals'); SFX.play('whistle'); await banner('<small>REFEREE</small>TECHNICAL FOUL', 'loss', 1100); const ft = roll(Balance.pct('ft', STAR.stats).pct); if (ft) { STAR.box.ftm++; STAR.box.pts++; STAR.box.fta++; addPts('them', 1); } else STAR.box.fta++; pbp(`T'd up! ${escH(STAR.short)} ${ft ? 'hits' : 'misses'} the technical free throw.`, 'bad'); s.meta.morale = Math.max(0, s.meta.morale - 3); }
+        else if (!ended && g >= 60) { st.refFavor = true; pbp(`🦓 ${escH(name)} heard you. The next close call might go your way.`, 'good'); }
+        else pbp(`🦓 ${escH(name)} walks away. Call stands.`);
+      } else {
+        if (g <= 35) { st.rattled = 3; pbp(`😤 ${escH(STAR.short)} is rattled. His shots and weapons are off for a stretch.`, 'good hot'); st.highlights.push(`Got in ${STAR.short}'s head`); court.aura(STAR, '#64748b', 2); }
+        else if (backfires >= 2 || g >= 100) { st.shaken = 2; s.meta.morale = Math.max(0, s.meta.morale - 4); pbp(`${escH(STAR.short)} won that exchange. Your confidence takes a hit.`, 'bad'); }
+        else pbp(`${escH(STAR.short)} shrugs it off. Back to basketball.`);
+      }
     }
 
     /* =================================================================
@@ -1342,7 +1468,7 @@ const Match = (() => {
           const ok = r.success && roll(Balance.apply('charge', c.pct, r.quality)); slow(true);
           await court.collide(att, U, ok); U.pose = '';
           if (ok) { await banner('<small>THE CALL…</small>OFFENSIVE FOUL!', 'win', 1100); cnt('charges'); cnt('stops'); pbp(`${myName} takes the charge on ${escH(att.short)}! Our ball.`, 'good hot'); st.highlights.push(`Took a charge on ${att.short}`); success(true); }
-          else { await banner('<small>THE CALL…</small>BLOCKING FOUL', 'loss', 1100); court.ball.holder = att; await court.shoot(att, 'swish', { arc: 3 }); shotBox(att, true, false); addPts('them', 2); const ft = roll(Balance.pct('ft', att.stats).pct); att.box.fta++; if (ft) { att.box.ftm++; att.box.pts++; addPts('them', 1); } pbp(`Blocking foul on ${myName} — ${escH(att.short)} scores${ft ? ' and hits the free throw' : ''}.`, 'bad'); fail(); }
+          else { await banner('<small>THE CALL…</small>BLOCKING FOUL', 'loss', 1100); queueTalk('ref', .8); court.ball.holder = att; await court.shoot(att, 'swish', { arc: 3 }); shotBox(att, true, false); addPts('them', 2); const ft = roll(Balance.pct('ft', att.stats).pct); att.box.fta++; if (ft) { att.box.ftm++; att.box.pts++; addPts('them', 1); } pbp(`Blocking foul on ${myName} — ${escH(att.short)} scores${ft ? ' and hits the free throw' : ''}.`, 'bad'); fail(); }
           endBuild(ok); return ok;
         }
         if (kind === 'save') {
@@ -1367,7 +1493,7 @@ const Match = (() => {
           formation('us', SPOTS.top); court.ball.holder = U; U.y = 33; court.timeScale = .3; court.tween(court, { zoom: 1.5 }, .5);
           await court.shoot(U, inBasket ? 'swish' : 'miss', { arc: 12 }); court.timeScale = 1; court.tween(court, { zoom: 1 }, .5);
           const counts = inBasket && !late;
-          if (counts) { st.box.fgm++; st.box.tpm++; st.box.pts += 3; cnt('threes'); addPts('us', 3); await banner('<small>THE CALL STANDS</small>GOOD! IT COUNTS!', 'win', 1300); court.celebrate(U, 'three'); court.confetti(60); pbp(`${myName} BEATS THE HORN from deep! <i class="pct-note">${fin}%</i>`, 'good hot'); st.highlights.push('Beat the buzzer from deep'); success(true); }
+          if (counts) { st.box.fgm++; st.box.tpm++; st.box.pts += 3; cnt('threes'); addPts('us', 3); await court.mini('buzzer', 'AT THE BUZZER!', { force: true }); await banner('<small>THE CALL STANDS</small>GOOD! IT COUNTS!', 'win', 1300); court.celebrate(U, 'three'); court.confetti(60); pbp(`${myName} BEATS THE HORN from deep! <i class="pct-note">${fin}%</i>`, 'good hot'); st.highlights.push('Beat the buzzer from deep'); success(true); }
           else if (inBasket) { await banner('<small>AFTER REVIEW</small>TOO LATE — NO GOOD', 'loss', 1400); pbp(`It goes in — but the replay shows it was a hair too late. Waved off!`, 'bad'); fail(); }
           else { pbp(`${myName}'s heave at the horn is no good. <i class="pct-note">${fin}%</i>`); fail(); }
           endBuild(counts); return counts;
@@ -1648,7 +1774,15 @@ const Match = (() => {
       if (!PICK && last && Math.abs(st.us - st.them) <= 10 && Math.random() < .7) { const target = Math.floor(rnd(-3, 3)); const d = st.us - st.them - target; if (d > 0) st.them += d; else st.us -= d; }
       clk = clockFor(i); if (last) clk.rem = Math.min(clk.rem, rnd(4, 18));
       updBug();
-      if (clk.per !== prevPer) { SFX.play('buzzer'); await banner(`END OF ${L.label === 'H' ? '1ST HALF' : 'Q' + prevPer}`, '', 1000); prevPer = clk.per; pbp(`— ${L.label}${clk.per} —`, 'sys'); }
+      if (clk.per !== prevPer) { SFX.play('buzzer'); await banner(`END OF ${L.label === 'H' ? '1ST HALF' : 'Q' + prevPer}`, '', 1000); prevPer = clk.per; pbp(`— ${L.label}${clk.per} —`, 'sys'); queueTalk('coach', .55); }
+      if (st.talkQ && st.talkAt < i) {   // dead ball: a quick conversation (huddle or face-off first)
+        const q = st.talkQ; st.talkQ = null; formation('us');
+        if (q.type === 'coach') { const cl = talkLook(coachId); await court.mini('huddle', 'TIMEOUT', { look: cl, name: talkName(coachId), force: true }); }
+        if (q.type === 'rival') await court.mini('faceoff', 'FACE-OFF', { look2: STAR.look, name2: STAR.full, colors2: cfg.them.colors, force: true });
+        await talk(q.type, q.topic || (q.type === 'coach' ? pick(['play', 'minutes']) : null)); updBug();
+        if (st.done) break;
+      }
+      if (st.bench > 0) { st.bench--; pbp(`🪑 You watch from the bench as ${escH(cfg.us.name)} play on.`, 'bad'); simSegment(1 / (n + 1)); updBug(); st.lastType = 'bench'; await sleep(600); continue; }
       const diff = st.us - st.them;
       st.clutch = clk.per === L.periods && (i >= n - 2) && Math.abs(diff) <= 6; st.last = last;
       $('vig').classList.toggle('on', st.clutch); court.clutch = st.clutch;
@@ -1674,10 +1808,10 @@ const Match = (() => {
       } else if (st.seg < segDue(i) && canSeg()) { await createdSegment(); type = 'segment'; }
       else if (st.closeN < CL.max && st.lastType !== 'close' && Math.random() < (Math.abs(diff) <= CL.margin && clk.per > L.periods / 2 ? CL.late : CL.early)) { await closeCall(closeKind(periodEnds, last)); type = 'close'; }
       else {
-        type = st.takeover > 0 && Math.random() < OB.star.askGuard ? 'guard_star' : pickMoment();
+        type = st.playCalled ? 'off_poss' : st.takeover > 0 && Math.random() < OB.star.askGuard ? 'guard_star' : pickMoment();
         if (type === 'def_poss' || type === 'quick_def' || type === 'guard_star') await withMirror(RUN[type]); else await RUN[type]();
       }
-      st.lastType = type; idle();
+      st.lastType = type; idle(); st.nextBonus = st.playCalled ? st.nextBonus : null; st.playCalled = false; if (st.rattled > 0) st.rattled--; if (st.shaken > 0) st.shaken--;
       if (clk.per === L.periods && last) clk.rem = 0;
       updBug(); await sleep(500);
     }
@@ -1713,7 +1847,7 @@ const Match = (() => {
     await banner(win ? `<small>FINAL</small>${st.us} – ${st.them}<em>VICTORY</em>` : `<small>FINAL</small>${st.us} – ${st.them}<em class="l">DEFEAT</em>`, win ? 'win' : 'loss', 2200);
 
     /* ---------- background production (stats from off-screen possessions) ---------- */
-    const bg = L.bg, o = myOvr;
+    const bg = L.bg * (st.minutes ? 1.4 : 1), o = myOvr;
     const made2 = Math.round(rnd(.2, .65) * (o / 10) * bg * 2);
     const extra = { pts: made2 * 2, reb: Math.round(rnd(.3, 1.2) * (ME.reb / 18) * bg), ast: Math.round(rnd(.3, 1.2) * (ME.pass / 20) * bg) };
     st.box.pts += extra.pts; st.box.reb += extra.reb; st.box.ast += extra.ast; st.box.fgm += made2; st.box.fga += made2 + Math.round(made2 * rnd(.4, 1.1));
@@ -1750,5 +1884,5 @@ const Match = (() => {
     };
   }
 
-  return { play, MG, Court, LEVELS };
+  return { play, MG, Court, LEVELS, green };
 })();

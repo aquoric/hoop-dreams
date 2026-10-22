@@ -45,6 +45,7 @@ const BALANCE = {
     contest:  { name: 'Contest',          off: { perD: .7, vert: .3 },           def: { mid: .5, three: .5 },       base: 50, k: .8, skill: 30 },
     charge:   { name: 'Take the charge',  off: { iq: .6, str: .4 },              def: { str: .5, speed: .5 },       base: 38, k: .7, skill: 20 },
     rebound:  { name: 'Rebound',          off: { reb: .5, str: .25, vert: .25 }, def: { reb: .5, str: .25, vert: .25 }, base: 53, k: .8, skill: 30 },
+    scramble: { name: 'Loose-ball scramble', off: { speed: .4, vert: .3, str: .3 }, def: { speed: .4, vert: .3, str: .3 }, base: 50, k: .8, skill: 20 },   // arcade: who comes up with a 50/50 ball
     save:     { name: 'Save the ball',    off: { speed: .5, iq: .3, vert: .2 }, def: null,                base: 6,  k: .62, skill: 40, abs: true },   // close call: dive before it goes out
     touch:    { name: 'Shooter\'s touch', off: { finish: .4, mid: .4, clutch: .2 }, def: null,              base: 12, k: .6,  skill: 40, abs: true },   // close call: ball rolling around the rim
     move:     { name: 'Dribble move',     off: { handle: .8, speed: .2 },        def: { perD: .8, speed: .2 },      base: 38, k: .8, skill: 0 },   // arcade: beat your defender
@@ -167,6 +168,10 @@ const BALANCE = {
       clocks: { fastbreak: 8, loose: 8, broken: [5, 7], putback: 5, buzzer: [4, 8], final: [6, 12] },
     },
     foul: 12,                                // % a contested layup / dunk draws a foul
+    /* LOOSE BALLS + SCRAMBLES: AI players react after `react` seconds (like a person), predict the landing spot with `aim` px of error,
+       and dive when within `aiDive` px. Your dive (J / SPACE / GRAB): `dive` s burst at × `diveSpeed`, grab reach `reach` (normal `grab`).
+       Who comes up with it: BALANCE.actions.scramble (Speed + Vertical + Strength), × diveBonus while diving, closer = better. */
+    scramble: { react: [.38, .62], aim: 14, aiDive: 24, dive: .32, diveSpeed: 2.3, reach: 20, grab: 13, diveBonus: 1.25, cooldown: .9 },
   },
 };
 /* Difficulty values feed the rest of the game */

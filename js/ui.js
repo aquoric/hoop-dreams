@@ -455,7 +455,7 @@ const UI = (() => {
     setBg('rec', 'hub'); SFX.music('hub');
     showScreen(`<div class="hub">
       <header class="hub-top glass" id="hubTop"></header>
-      <nav class="hub-tabs" id="hubTabs">${[['home', 'Home'], (s.season || (s.career.seasons || []).length) && ['season', 'Season'], s.recruit && ['recruit', 'Recruiting'], ['train', 'Train'], ['upgrade', 'Upgrade'], ['badges', 'Badges'], ['shop', 'Shop'], ['social', 'Social'], ['career', 'Career'], ['trophies', 'Achievements'], ['courts', 'Courts'], ['cutscenes', 'Cutscenes']].filter(Boolean).map(([k, n]) => `<button data-tab="${k}">${n}${k === 'upgrade' ? '<i class="dot" id="spDot"></i>' : ''}</button>`).join('')}</nav>
+      <nav class="hub-tabs" id="hubTabs">${[['home', 'Home'], (s.season || (s.career.seasons || []).length) && ['season', 'Season'], s.recruit && ['recruit', 'Recruiting'], ['train', 'Train'], ['upgrade', 'Upgrade'], ['badges', 'Badges'], ['shop', 'Shop'], ['social', 'Social'], ['career', 'Career'], ['trophies', 'Achievements'], ['courts', 'Courts']].filter(Boolean).map(([k, n]) => `<button data-tab="${k}">${n}${k === 'upgrade' ? '<i class="dot" id="spDot"></i>' : ''}</button>`).join('')}</nav>
       <section class="hub-body" id="hubBody"></section>
       <footer class="hub-cta"><div class="hub-cta-info"><b>${esc(ctx.title || 'Free Time')}</b><span id="apInfo"></span></div><div class="cta-btns">${ctx.cta2 ? `<button class="btn big ghost" id="cta2Btn">${ctx.cta2.label}</button>` : ''}<button class="btn big glow" id="ctaBtn" ${ctx.cta.disabled ? 'disabled' : ''}>${ctx.cta.label}</button></div></footer>
     </div>`, 'hubscreen');
@@ -588,7 +588,6 @@ const UI = (() => {
           ${Object.entries(G).map(([g, ids]) => `<h4 class="courts-h">${esc(g)}</h4><div class="courts">${ids.map(id => { const v = VENUES[id], ok = un.includes(id);
             return `<div class="court-card glass ${ok ? '' : 'locked'} ${id === cur ? 'sel' : ''}"><canvas class="ccv" data-venue="${ok ? id : ''}" width="192" height="108"></canvas><div><b>${ok ? esc(v.name) : '???'}</b><small>${ok ? esc(v.desc || '') : 'Play here to unlock'}</small>${ok ? `<button class="btn sm ${id === cur ? 'ghost' : ''}" data-court="${id}" ${id === cur ? 'disabled' : ''}>${id === cur ? '✓ Pickup court' : 'Use for pickup'}</button>` : ''}</div></div>`; }).join('')}</div>`).join('')}`;
       },
-      cutscenes: () => `<p class="muted glass panel">Rewatch the cutscenes you've unlocked. New ones unlock as your story unfolds.</p><div class="cs-gallery">${Cutscene.list(s).map(c => `<div class="csg glass ${c.unlocked ? '' : 'locked'}"><div class="csg-thumb"><img alt="" data-thumb="${c.id}"><span>${c.unlocked ? '' : '🔒'}</span></div><div class="csg-info"><div><b>${c.unlocked ? esc(c.name) : '???'}</b><small>${esc(c.chapter)}</small></div>${c.unlocked ? `<button class="btn sm" data-cs="${c.id}">▶ Watch</button>` : ''}</div></div>`).join('')}</div>`,
       trophies: () => `<div class="ach-grid">${ACHIEVEMENTS.map(a => `<div class="ach glass ${s.achievements[a.id] ? 'got' : ''}"><div class="ach-ico">${s.achievements[a.id] ? '🏆' : '🔒'}</div><div><b>${a.name}</b><span>${a.desc}</span></div></div>`).join('')}</div>`,
     };
     body.innerHTML = T[hubTab]();
@@ -599,8 +598,6 @@ const UI = (() => {
     $$('[data-court]', body).forEach(b => b.onclick = () => { s.pickupCourt = b.dataset.court; SFX.play('click'); Game.save(); renderHub(ctx); });
     $$('canvas[data-venue]', body).forEach(cv => { const id = cv.dataset.venue, g = cv.getContext('2d'); g.imageSmoothingEnabled = false; if (!id) { g.fillStyle = '#0b0f1c'; g.fillRect(0, 0, 192, 108); Pixel.text(g, 'LOCKED', 96, 50, '#475569', 2, 'center'); return; }
       const home = LOCAL_TEAMS[s.career.hs] || LOCAL_TEAMS.halsey, V = Pixel.venue(id, home, LOCAL_TEAMS.pickup_crew, 384); g.drawImage(V.bg, 0, 0, 384, 216, 0, 0, 192, 108); const R = Pixel.renderer(g, V); g.save(); g.scale(.5, .5); R.crowd(); R.hoop(false); R.hoop(true); R.lights(); g.restore(); g.drawImage(V.vg, 0, 0, 192, 108); });
-    $$('[data-cs]', body).forEach(b => b.onclick = () => { const it = Cutscene.list(s).find(x => x.id === b.dataset.cs); Cutscene.play(b.dataset.cs, (it && it.ctx) || {}); });
-    $$('[data-thumb]', body).forEach(im => { const it = Cutscene.list(s).find(x => x.id === im.dataset.thumb); Cutscene.thumb(im.dataset.thumb, (it && it.ctx) || {}).then(u => { if (u) im.src = u; }); });
     $$('[data-buy]', body).forEach(b => b.onclick = () => Game.buy(b.dataset.buy));
     $$('[data-eq]', body).forEach(b => b.onclick = () => Game.equip(b.dataset.eq));
     $$('[data-up]', body).forEach(b => b.onclick = () => { pendingUp[b.dataset.up] = (pendingUp[b.dataset.up] || 0) + 1; SFX.play('tick'); renderHub(ctx); });

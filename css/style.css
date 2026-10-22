@@ -701,13 +701,6 @@ body[data-screen=hubscreen] #nowplaying { bottom: 92px; }
 .cs-score { position: absolute; z-index: 4; top: calc(var(--ct, 0px) + var(--lb, 18px) + 8px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 4px 12px; background: #0a0f1a; border: 2px solid #ffffff44; font-family: var(--px); font-size: clamp(.8rem, 2.4vw, 1.2rem); color: #fff; opacity: 0; transition: opacity .3s; }
 .cs-score.on { opacity: 1; } .cs-score b { color: #facc15; } .cs-score i { font-style: normal; color: #f87171; min-width: 0; } .cs-score i:empty { display: none; }
 /* gallery */
-.cs-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
-.csg { overflow: hidden; display: flex; flex-direction: column; }
-.csg-thumb { height: 120px; position: relative; overflow: hidden; background: #05070d; } .csg-thumb svg, .csg-thumb img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; image-rendering: crisp-edges; display: block; } .csg-thumb img:not([src]) { visibility: hidden; }
-.csg-thumb span { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 2rem; color: #fff; text-shadow: 0 3px 0 #000; background: linear-gradient(transparent, rgba(0, 0, 0, .6)); }
-.csg.locked .csg-thumb { filter: grayscale(1) brightness(.35); }
-.csg-info { padding: 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.csg-info b { font-family: var(--cond); } .csg-info small { display: block; color: var(--muted); font-size: .72rem; }
 
 /* =====================================================================
    ARCADE (16-bit look) — fast breaks + pickup games
@@ -916,3 +909,26 @@ body[data-screen=postgame] .pg-score, body[data-screen=postgame] .pg-result { fo
 .arc-pad { position: relative; }
 .arc-pad button.wpn { position: absolute; right: 0; top: -66px; width: 56px; height: 56px; background: #78350f; border-color: #000; opacity: .55; }
 .arc-pad button.wpn.ready { opacity: 1; background: #b45309; box-shadow: 0 0 14px #f59e0b; } .arc-pad button.wpn.on { opacity: 1; background: #facc15; color: #111; }
+
+/* GREEN release flash */
+.green-pop { position: fixed; inset: 0; z-index: 170; pointer-events: none; display: grid; place-items: center; box-shadow: inset 0 0 0 0 rgba(34, 197, 94, 0); animation: greenEdge .8s ease-out forwards; }
+.green-pop b { font-family: var(--px); font-size: clamp(2.4rem, 11vw, 6rem); color: #4ade80; text-shadow: 4px 4px 0 #052e16, 0 0 30px #22c55e, 0 0 60px #16a34a; letter-spacing: .06em; animation: greenPop .8s cubic-bezier(.2, 1.6, .4, 1) forwards; }
+@keyframes greenPop { 0% { transform: scale(2.4); opacity: 0; } 25% { transform: scale(.95); opacity: 1; } 70% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.1) translateY(-20px); opacity: 0; } }
+@keyframes greenEdge { 0% { box-shadow: inset 0 0 0 0 rgba(34, 197, 94, .0); } 20% { box-shadow: inset 0 0 90px 18px rgba(34, 197, 94, .55); } 100% { box-shadow: inset 0 0 0 0 rgba(34, 197, 94, 0); } }
+.cs-hl { cursor: pointer; }
+.cs-tap { position: absolute; right: 12px; bottom: calc(var(--cb, 0px) + 10px); z-index: 6; font-family: var(--px); font-size: .62rem; letter-spacing: .14em; color: #ffffffaa; text-shadow: 1px 1px 0 #000; }
+.cs-title.hl.mid { left: 0; right: 0; max-width: none; text-align: center; top: 30%; transform: translateY(-50%) rotate(-3deg); }
+
+/* in-game talk (coach / ref patience, rival ego) */
+.talk { display: flex; flex-direction: column; gap: 8px; }
+.tk-head { display: flex; gap: 10px; align-items: center; }
+.tk-face { width: 68px; height: 84px; flex: none; background: #0b0f1c; border: 2px solid #000; box-shadow: 3px 3px 0 #000; }
+.tk-face canvas { width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+.tk-who { flex: 1; min-width: 0; } .tk-who b { font-family: var(--px); font-size: .9rem; } .tk-who small { display: block; color: var(--muted); font-size: .72rem; }
+.tk-gauge { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-family: var(--px); font-size: .6rem; letter-spacing: .1em; color: #94a3b8; }
+.tk-bar { flex: 1; height: 10px; background: #1e293b; border: 2px solid #000; position: relative; } .tk-bar i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #ef4444, #facc15 45%, #22c55e); transition: width .5s cubic-bezier(.2, 1.3, .4, 1); }
+.tk-gauge.ego .tk-bar i { background: linear-gradient(90deg, #22c55e, #a855f7 55%, #ef4444); }
+.tk-delta { font-style: normal; min-width: 34px; font-size: .8rem; } .tk-delta.good { color: #4ade80; } .tk-delta.bad { color: #f87171; }
+.tk-line { font-family: var(--pxb); font-size: 1.35rem; line-height: 1.1; padding: 8px 12px; background: #0b0f1c; border: 2px solid #334155; } .tk-line.good { border-color: #22c55e; } .tk-line.bad { border-color: #ef4444; }
+.talk-opt.right { border-color: #22c55e; background: rgba(34, 197, 94, .18); } .talk-opt.wrong { border-color: #ef4444; background: rgba(239, 68, 68, .18); }
+.arc-pad button[data-b=shoot].grab { background: #ca8a04; }

@@ -173,6 +173,8 @@ const SFX = (() => {
     engine: () => { tone(48, 2.2, 'sawtooth', 0.06, 0, sfxBus, 40); noise(2.2, 'lowpass', 220, 0.12, 0, 160, 0.6, sfxBus, 0.4); },
     beep: () => tone(1046, 0.09, 'sine', 0.06),
     write: () => { for (let i = 0; i < 4; i++) noise(0.05, 'bandpass', 3500 + Math.random() * 1500, 0.05, i * 0.07); },
+    /* GREEN: a perfect release — bright two-bell chime, sparkle, soft thump (clearly not a normal make) */
+    green: () => { tone(1568, 0.5, 'triangle', 0.16, 0, sfxBus); tone(2093, 0.6, 'triangle', 0.13, 0.07, sfxBus); tone(3136, 0.35, 'sine', 0.05, 0.12, sfxBus); tone(784, 0.18, 'square', 0.05, 0, sfxBus, 1568); noise(0.4, 'highpass', 7000, 0.07, 0.05, 11000, 0.6); tone(70, 0.18, 'sine', 0.25, 0, sfxBus, 45); },
     /* dialogue voice blip — v: { f: pitch, w: wave } per character */
     blip: (v = {}) => tone((v.f || 300) * (0.94 + Math.random() * 0.12), 0.05, v.w || 'square', v.g || 0.035),
     /* venue ambience (called every few seconds by the court; h = crowd hype 0..1) */

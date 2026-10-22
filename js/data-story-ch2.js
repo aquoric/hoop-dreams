@@ -40,9 +40,9 @@ STORY.accounts.silk = { name: 'Silk Sterling', handle: '@SilkSterling', verified
 /* ---------- early endings for this chapter ---------- */
 Object.assign(STORY.endings, {
   locked: { title: 'Wrong Truck', tag: 'EARLY ENDING', scene: 'street_night',
-    text: 'The second run wasn\'t a run. It was a setup. You spent your senior year in a juvenile facility, and by the time you got out, the recruiters had stopped calling. Lou still sends you a letter every month. Every single one ends the same way: "It\'s not too late to be somebody."' },
+    text: 'The second run was a setup: senior year in juvenile, and the recruiters stopped calling. Lou still writes monthly, always ending: "It\'s not too late to be somebody."' },
   broken: { title: 'Played Through It', tag: 'EARLY ENDING', scene: 'hospital',
-    text: 'The pills hid the pain for one half. On the first drive of the third quarter, the bone in your foot gave way completely. Three surgeries later, you can walk without a limp — but you never got your burst back. The scholarship offers quietly disappeared.' },
+    text: 'The pills hid the pain for a half, then your foot gave way on the first drive of the third. Three surgeries later you walk fine, but your burst and your offers are gone.' },
 });
 
 /* ---------- season definitions (shared bits) ---------- */
@@ -62,10 +62,10 @@ STORY.chapters.highschool = {
        ================================================================ */
     L_day1: { scene: 'gym', fx: { hs: 'lincoln' },
       lines: [
-        ['narrator', 'Lincoln High School. The gym was built in 1962 and the roof still leaks over the left corner three. They put a bucket there during games.'],
-        ['tariq', 'Home sweet home, bro. Varsity tryouts are Monday. Coach Brennan cut eleven guys last year. ELEVEN.', 'smile'],
+        ['narrator', 'Lincoln High: gym built in 1962, roof still leaking over the left corner three. During games, they put a bucket there.'],
+        ['tariq', 'Home sweet home, bro — tryouts are Monday. Brennan cut ELEVEN guys last year.', 'smile'],
         ['brennan', 'You\'re {first} {last}. The Summer Jam kid.'],
-        ['brennan', 'Let me tell you what I think of playground kids. Playground kids think defense is optional and passing is for cowards. I\'ve buried a dozen of you.', 'fierce'],
+        ['brennan', 'Playground kids think defense is optional and passing is for cowards. I\'ve buried a dozen of you.', 'fierce'],
       ],
       choices: [
         { t: '"Yes sir. I\'ll earn it."', fx: { trust: 6, rel: { brennan: 5 } }, next: 'L_tryout_pre' },
@@ -74,36 +74,36 @@ STORY.chapters.highschool = {
       ] },
     L_brennan_tape: { scene: 'gym',
       lines: [
-        ['brennan', 'I watched it. Twice. You took nineteen shots. Your four teammates took eleven combined.'],
+        ['brennan', 'I watched it twice. You took nineteen shots — your four teammates took eleven combined.'],
         ['brennan', 'That\'s not basketball, son. That\'s a solo album.', 'fierce'],
         ['tariq', '(whispering) …He\'s not wrong though.'],
       ], next: 'L_tryout_pre' },
     L_brennan_need: { scene: 'gym', fx: { trust: 8, attrs: { iq: 1 } },
       lines: [
         ['brennan', '…Huh. Nobody asks me that.'],
-        ['brennan', 'Defense. Talk on defense. Box out every possession. Do those three things and I don\'t care how pretty your jumper is — I\'ll find you minutes.'],
+        ['brennan', 'Defend, talk on defense, box out every possession. Do those three and I\'ll find you minutes, pretty jumper or not.'],
       ], next: 'L_tryout_pre' },
     L_brennan_need_fail: { scene: 'gym', fx: { trust: -2, fatigue: 10 },
-      lines: [['brennan', 'What I need is for you to stop talking and start running. Baseline. Go.', 'fierce'], ['narrator', 'You run until you see spots.']], next: 'L_tryout_pre' },
+      lines: [['brennan', 'What I need is for you to stop talking and start running. Baseline — go.', 'fierce'], ['narrator', 'You run until you see spots.']], next: 'L_tryout_pre' },
     L_tryout_pre: { scene: 'gym',
       lines: [
-        ['narrator', 'Tryouts. Fifty-one kids for four open spots. Brennan splits the gym: the hopefuls against the varsity returners.'],
-        ['brick', 'Darnell Hollis. Senior. Captain. They call me Brick because that\'s what you\'re gonna hit all day.', 'fierce'],
+        ['narrator', 'Tryouts: fifty-one kids, four open spots. Brennan splits the gym — hopefuls against varsity returners.'],
+        ['brick', 'Darnell Hollis, senior captain. They call me Brick — that\'s what you\'ll be hitting all day.', 'fierce'],
         ['tariq', 'Let\'s show these dudes what Halsey Street looks like.'],
       ], next: 'L_tryout' },
     L_tryout: { type: 'match', us: 'lincoln_hopefuls', them: 'lincoln_varsity', rating: 49, mateRating: 43, moments: 8, level: 'hs',
       title: 'Varsity Tryouts', sub: 'Hopefuls vs Returners', win: 'L_starter', lose: 'L_bench' },
     L_starter: { scene: 'gym', cutscene: 'varsity', fx: { flag: 'starter', trust: 10, rep: 3, post: { by: 'fan', text: 'heard {first} {last} made Lincoln varsity AS A STARTER over two seniors 👀' } },
       lines: [
-        ['brennan', 'Starting five. Hollis. Cole. Pike. Miles.'],
+        ['brennan', 'Starting five: Hollis, Cole, Pike, Miles.'],
         ['brennan', '…And {last}.'],
         ['narrator', 'Brick Hollis stares at you like you just stole his car. Tariq is trying very hard not to scream.'],
       ], next: 'L_season1' },
     L_bench: { scene: 'gym', fx: { trust: -4, morale: -3 },
       lines: [
-        ['brennan', 'You made varsity. Barely. You\'ll come off the bench.'],
+        ['brennan', 'You made varsity — barely. You\'ll come off the bench.'],
         ['brennan', 'Miles — you start.'],
-        ['narrator', 'Tariq freezes. Then he looks at you. Your best friend just took the spot you were supposed to have.'],
+        ['narrator', 'Tariq freezes, then looks at you. Your best friend just took the spot that was supposed to be yours.'],
       ],
       choices: [
         { t: '"Happy for you, T. For real."', fx: { rel: { tariq: 8 }, chem: 6 }, next: 'L_season1' },
@@ -128,28 +128,28 @@ STORY.chapters.highschool = {
     L_opener_pre: { scene: 'gym',
       lines: [
         ['narrator', 'Your first varsity game. The bleachers are full — Lincoln hasn\'t had a winning season in six years, but word got around about the Summer Jam kid.'],
-        ['nia', '(from the third row, holding a poster with your face on it) THAT\'S MY BROTHER! NUMBER {num}! HE\'S SINGLE!', 'smile', { rel: { nia: 40 } }],
+        ['nia', '(third row, waving a poster of your face) THAT\'S MY BROTHER, NUMBER {num}! HE\'S SINGLE!', 'smile', { rel: { nia: 40 } }],
         ['mom', '(waving, still in her scrubs) Go get \'em, baby!', 'smile', { rel: { mom: 40 } }],
         ['narrator', 'Mom\'s seat is empty. She picked up a shift.', null, { maxRel: { mom: 39 } }],
       ],
       choices: [
         { t: 'Point at Mom and Nia before tip-off.', fx: { rel: { mom: 4, nia: 4 }, morale: 4 }, next: '@season' },
-        { t: 'Headphones on. Lock in. No distractions.', fx: { attrs: { clutch: 1 }, morale: 2 }, next: '@season' },
+        { t: 'Headphones on. Lock in, no distractions.', fx: { attrs: { clutch: 1 }, morale: 2 }, next: '@season' },
       ] },
     L_brick: { scene: 'locker',
       lines: [
         ['narrator', 'Locker room after practice. Brick Hollis is waiting by your locker.'],
-        ['brick', 'Two years I waited for this team to be MINE. Senior year. Scouts coming. And you show up and take every shot like you\'re auditioning.', 'fierce'],
+        ['brick', 'Two years I waited for this team to be MINE — senior year, scouts coming. Then you show up shooting like it\'s your audition.', 'fierce'],
         ['brick', 'Some of us need this too, playground.'],
       ],
       choices: [
-        { t: '"You\'re right. I\'ll find you more. We win together."', fx: { chem: 10, trust: 5, rep: -1, rel: { brick: 12 }, flag: 'brick_ally' }, next: '@season' },
+        { t: '"You\'re right — I\'ll find you more. We win together."', fx: { chem: 10, trust: 5, rep: -1, rel: { brick: 12 }, flag: 'brick_ally' }, next: '@season' },
         { t: '"Then stop missing and I\'ll pass it to you."', fx: { rep: 3, chem: -8, rel: { brick: -12 } }, next: 'L_brick_fight' },
         { t: 'Sit down next to him. "Tell me what the scouts want to see from you."', check: { a: 'iq', dc: 48 }, next: 'L_brick_ok', fail: 'L_brick_fight' },
       ] },
     L_brick_ok: { scene: 'locker', fx: { chem: 12, rel: { brick: 18 }, flag: 'brick_ally', trust: 4 },
       lines: [
-        ['brick', '…They want to see me score off the catch. I\'m a decent shooter. I just never get clean looks.'],
+        ['brick', '…They want to see me score off the catch. I can shoot — I just never get clean looks.'],
         ['you', 'Then I\'ll draw two and kick it. Every time.'],
         ['brick', '…Bet. Don\'t make me regret this, playground.', 'smile'],
       ], next: '@season' },
@@ -164,31 +164,31 @@ STORY.chapters.highschool = {
       ] },
     L_suspended: { scene: 'gym', fx: { injury: { games: 1, name: 'Suspended (conditioning only)' } },
       lines: [
-        ['brennan', 'One week. You practice, you run, you don\'t play. Hollis too.', 'fierce'],
+        ['brennan', 'One week: you practice, you run, you don\'t play. Hollis too.', 'fierce'],
         ['lou', 'You swung on a teammate? Kid, that\'s the kind of thing that follows you into every living room a college coach sits in.', 'sad', { notFlag: 'lou_snub' }],
       ], next: '@season' },
     L_promoted: { scene: 'gym', cutscene: 'varsity', fx: { flag: 'starter', trust: 4, morale: 6 },
       lines: [
         ['brennan', '{last}. My office.'],
-        ['brennan', 'You talk on defense now. You box out. You made the extra pass three times Friday when you could\'ve forced it.'],
+        ['brennan', 'You talk on defense now, you box out. Three times Friday you made the extra pass instead of forcing it.'],
         ['brennan', 'You start tonight. Don\'t make me look stupid.'],
       ], next: '@season' },
     L_kai1_pre: { scene: 'gym',
       lines: [
         ['narrator', 'Westbrook Academy comes to Lincoln. They bring a charter bus, a film crew from a streaming service, and a fan section in matching blazers.'],
         ['narrator', 'In the front row behind the Westbrook bench: Marcus "Silk" Sterling, arms crossed, sunglasses indoors.'],
-        ['kai', 'Halsey. Lincoln suits you. Everything here is old and falling apart.', 'smile', { maxRel: { kai: 9 } }],
-        ['kai', 'Hey. Good to see you. Let\'s give them a show.', 'smile', { rel: { kai: 10 } }],
+        ['kai', 'Lincoln suits you, Halsey. Everything here is old and falling apart.', 'smile', { maxRel: { kai: 9 } }],
+        ['kai', 'Hey, good to see you. Let\'s give them a show.', 'smile', { rel: { kai: 10 } }],
       ],
       choices: [
         { t: '"Tonight it\'s personal."', fx: { morale: 5, rel: { kai: -3 } }, next: '@season' },
         { t: 'Shake his hand. "May the best one win."', fx: { rel: { kai: 5 }, attrs: { iq: 1 } }, next: '@season' },
         { t: '"Your dad looks nervous, Kai."', req: { flag: 'trash_kai' }, fx: { rel: { kai: -10 }, rep: 3, morale: 6 }, next: '@season' },
       ] },
-    L_kai1_win: { scene: 'gym', fx: { rep: 6, fans: 3000, recruit: true, post: { by: 'courtvision', text: '🚨 UPSET ALERT 🚨 Lincoln High knocks off #1 Westbrook Academy. {first} {last} outplays Kai Sterling on his home floor… wait, Lincoln\'s home floor. You get it.' } },
+    L_kai1_win: { scene: 'gym', fx: { rep: 6, fans: 3000, recruit: true, post: { by: 'courtvision', text: '🚨 UPSET ALERT 🚨 Lincoln High knocks off #1 Westbrook! {first} {last} outplays Kai Sterling on his home floor… wait, Lincoln\'s home floor, you get it.' } },
       lines: [
         ['narrator', 'The buzzer sounds and the Lincoln student section pours onto the court. Somebody\'s little brother hugs you around the waist.'],
-        ['narrator', 'Through the crowd you see Silk Sterling grab Kai by the arm in the hallway. He\'s not yelling. That\'s somehow worse.'],
+        ['narrator', 'Through the crowd, you see Silk Sterling grab Kai by the arm in the hallway. He\'s not yelling — somehow that\'s worse.'],
       ],
       choices: [
         { t: 'Push through the crowd and check on Kai.', fx: { rel: { kai: 10 }, flag: 'saw_silk' }, next: 'L_kai_hall' },
@@ -198,10 +198,10 @@ STORY.chapters.highschool = {
       lines: [
         ['kai', '…What do you want, Halsey? Come to gloat?', 'sad'],
         ['you', 'Your dad always like that?'],
-        ['kai', '"Sterlings don\'t lose to public schools." That\'s what he said. That\'s all he said.', 'sad'],
+        ['kai', '"Sterlings don\'t lose to public schools." That\'s all he said.', 'sad'],
         ['kai', 'Don\'t tell anyone about this either. You\'re starting a collection.'],
       ], next: '@season' },
-    L_kai1_loss: { scene: 'gym', fx: { morale: -3, post: { by: 'kai', text: 'Lincoln was loud tonight. Still 1-0 though. See you in the playoffs 😴' } },
+    L_kai1_loss: { scene: 'gym', fx: { morale: -3, post: { by: 'kai', text: 'Lincoln was loud tonight, still 1-0 though. See you in the playoffs 😴' } },
       lines: [
         ['narrator', 'Kai finishes with thirty-one. Silk Sterling claps exactly once.'],
         ['kai', 'Good effort, Lincoln. Same time next year?'],
@@ -210,19 +210,19 @@ STORY.chapters.highschool = {
     L_cityfinal_pre: { scene: 'arena',
       lines: [
         ['narrator', 'City Final. Downtown at the Civic Arena — the first time Lincoln has played here in fourteen years.'],
-        ['brennan', 'I\'ve coached thirty-one years and I\'ve never won one of these. I\'m not going to give a speech. Just go play.'],
+        ['brennan', 'Thirty-one years, never won one of these. No speech — just go play.'],
         ['lou', '(in the stands, nodding at you) The rim, kid. Not the man.', null, { notFlag: 'lou_snub' }],
       ], next: '@season' },
     L_jr_champ: { scene: 'arena', fx: { trust: 10, rep: 6, fans: 5000, recruit: true, offers: true, post: { by: 'courtvision', text: '🏆 LINCOLN HIGH ARE CITY CHAMPIONS for the first time since 2011. Coach Brennan was spotted… smiling?' } },
       lines: [
-        ['narrator', 'Lincoln High. City Champions. The bucket under the leaky roof is getting a trophy next to it.'],
+        ['narrator', 'Lincoln High, City Champions. The bucket under the leaky roof is getting a trophy next to it.'],
         ['brennan', '…You earned it, {last}. Don\'t let it go to your head.', 'smile'],
-        ['tariq', 'WE\'RE CITY CHAMPS! TELL KAI! SOMEBODY TELL KAI!', 'smile'],
+        ['tariq', 'WE\'RE CITY CHAMPS! SOMEBODY TELL KAI!', 'smile'],
       ], next: 'c2_summer' },
     L_jr_out: { scene: 'gym', fx: { morale: -4 },
       lines: [
         ['narrator', 'The season ends with a long, quiet bus ride home.'],
-        ['brennan', 'Next year we go further. You hear me? Next year.'],
+        ['brennan', 'Next year we go further. You hear me — next year.'],
         ['tariq', 'Summer\'s gonna be different, bro. We\'re gonna live in that gym.'],
       ], next: 'c2_summer' },
 
@@ -232,19 +232,19 @@ STORY.chapters.highschool = {
     W_day1: { scene: 'gym', fx: { hs: 'westbrook' },
       lines: [
         ['narrator', 'Westbrook Academy. Three gyms, a cryotherapy chamber, a smoothie bar, and a trophy case longer than your whole apartment.'],
-        ['graves', 'Let\'s be clear about why you\'re here. Dee Carter vouched for you, and Dee has never been wrong. Yet.'],
-        ['graves', 'This program runs through Kai Sterling. He is going first overall in two years. Your job is to make his life easier.'],
+        ['graves', 'You\'re here because Dee Carter vouched for you. Dee has never been wrong — yet.'],
+        ['graves', 'This program runs through Kai Sterling, first overall in two years. Your job is to make his life easier.'],
         ['kai', 'Welcome to the big leagues, Halsey. Try not to get lost on the way to the cafeteria.', 'smile'],
       ],
       choices: [
         { t: '"I\'m not here to be anybody\'s backup, Coach."', fx: { rep: 3, trust: -6, rel: { kai: -4 } }, next: 'W_vale' },
         { t: '"Yes, Coach. Where do you need me?"', fx: { trust: 6, rel: { graves: 5 } }, next: 'W_vale' },
-        { t: 'Turn to Kai. "We could be unstoppable. Let\'s make this work."', fx: { rel: { kai: 7 }, chem: 4 }, next: 'W_vale' },
+        { t: 'Turn to Kai: "We could be unstoppable. Let\'s make this work."', fx: { rel: { kai: 7 }, chem: 4 }, next: 'W_vale' },
       ] },
     W_vale: { scene: 'locker',
       lines: [
-        ['vale', 'Yo, scholarship. Are those… retail? Like, from a store? With a receipt?', 'smile'],
-        ['narrator', 'Half the locker room laughs. Kai doesn\'t. He just watches.'],
+        ['vale', 'Yo, scholarship, are those… retail? Like, from a store, with a receipt?', 'smile'],
+        ['narrator', 'Half the locker room laughs. Kai doesn\'t — he just watches.'],
       ],
       choices: [
         { t: 'Laugh it off. "They still got buckets this summer."', fx: { chem: 6, morale: 2 }, next: 'W_tryout_pre' },
@@ -254,29 +254,29 @@ STORY.chapters.highschool = {
     W_vale_win: { scene: 'gym', fx: { chem: 6, rep: 4, money: 150, rel: { vale: 6 } },
       lines: [
         ['narrator', 'Eleven to four. Vale hands over a pair of shoes that cost more than your rent.'],
-        ['vale', '…Okay. Okay, scholarship. You can hoop. Keep the shoes. I have six more.'],
+        ['vale', '…Okay, scholarship, you can hoop. Keep the shoes — I have six more.'],
         ['narrator', 'You sell them on Sunday for $150 and give the money to Mom.'],
       ], next: 'W_tryout_pre' },
     W_vale_lose: { scene: 'gym', fx: { morale: -5, chem: -2 },
-      lines: [['narrator', 'Vale hits a fadeaway over you at 10-10 and spends the rest of the week calling you "Retail."'], ['kai', '(quietly) He\'s actually good. Nobody tells you that about rich kids. Sometimes they\'re good.']], next: 'W_tryout_pre' },
+      lines: [['narrator', 'Vale hits a fadeaway over you at 10-10 and spends the rest of the week calling you "Retail."'], ['kai', '(quietly) He\'s actually good. Nobody warns you that sometimes the rich kids are good.']], next: 'W_tryout_pre' },
     W_tryout_pre: { scene: 'gym',
       lines: [
-        ['graves', 'Blue versus White. Blue is my returning starters. White is everybody else. I set my rotation off this scrimmage. No do-overs.'],
+        ['graves', 'Blue is my returning starters, White is everybody else. This scrimmage sets my rotation — no do-overs.'],
         ['kai', 'Don\'t take it personal when I score on you. I score on everybody.', 'fierce'],
       ], next: 'W_tryout' },
     W_tryout: { type: 'match', us: 'westbrook_white', them: 'westbrook_blue', rating: 55, mateRating: 47, moments: 8, level: 'hs',
       title: 'Westbrook Scrimmage', sub: 'White vs Blue', win: 'W_starter', lose: 'W_bench' },
     W_starter: { scene: 'gym', cutscene: 'varsity', fx: { flag: 'starter', trust: 10, rep: 3, rel: { kai: -4 } },
       lines: [
-        ['graves', '…Fine. You start. Next to Kai.'],
-        ['kai', 'Next to me. Cute. Don\'t forget whose team it is.', 'fierce'],
+        ['graves', '…Fine. You start, next to Kai.'],
+        ['kai', 'Next to me? Cute — don\'t forget whose team it is.', 'fierce'],
       ], next: 'W_tariq_text' },
     W_bench: { scene: 'gym', fx: { trust: -3 },
       lines: [['graves', 'Sixth man. Earn it.'], ['vale', 'Welcome to the bench, Retail. Snacks are on the left.', 'smile']], next: 'W_tariq_text' },
     W_tariq_text: { scene: 'home',
       lines: [
         ['narrator', 'Your phone buzzes at 11:48 p.m.'],
-        ['tariq', '(text) u good over there? lincoln not the same without u. brennan made me run till i threw up lol', 'sad'],
+        ['tariq', '(text) u good over there? lincoln not the same without u, brennan made me run till i threw up lol', 'sad'],
         ['tariq', '(text) we play yall in like a month. dont go easy on me'],
       ],
       choices: [
@@ -302,7 +302,7 @@ STORY.chapters.highschool = {
       } },
     W_opener_pre: { scene: 'gym',
       lines: [
-        ['narrator', 'Season opener. Westbrook\'s games stream nationally. There\'s a man with a camera on a cable flying over the court.'],
+        ['narrator', 'Season opener, streaming nationally. A camera on a cable is flying over the court.'],
         ['tariq', '(behind the bench, in a Lincoln hoodie) I\'m only here for the free popcorn. Go cook.', 'smile', { rel: { tariq: 66 } }],
         ['graves', 'National audience. Don\'t do anything stupid.'],
       ],
@@ -319,20 +319,20 @@ STORY.chapters.highschool = {
       ] },
     W_kai_talk_ok: { scene: 'gym', fx: { rel: { kai: 12 }, chem: 10, flag: 'kai_ally' },
       lines: [
-        ['kai', 'You want the truth? My dad watches the film every night. Every pass I make that doesn\'t lead to MY bucket, he pauses it.', 'sad'],
+        ['kai', 'Truth? My dad watches film every night and pauses on every pass that doesn\'t lead to MY bucket.', 'sad'],
         ['kai', 'You secured my secret at that party. So I\'ll trust you with this one.', null, { flag: 'kai_secret' }],
-        ['you', 'Then let\'s give him film he can\'t argue with. Two-man game. Every night.'],
+        ['you', 'Then let\'s give him film he can\'t argue with. Two-man game, every night.'],
         ['kai', '…Fine. But I get the last shot.', 'smile'],
       ], next: '@season' },
     W_kai_talk_bad: { scene: 'gym', fx: { rel: { kai: -5 }, morale: -3 },
-      lines: [['kai', 'Talk? You think you\'re my therapist now? Go shoot your free throws, Halsey.', 'fierce']], next: '@season' },
+      lines: [['kai', 'You wanna talk, like you\'re my therapist? Go shoot your free throws, Halsey.', 'fierce']], next: '@season' },
     W_promoted: { scene: 'gym', cutscene: 'varsity', fx: { flag: 'starter', trust: 4, morale: 6 },
-      lines: [['graves', 'You defend. You don\'t complain. You make Kai better, which I didn\'t think was possible.'], ['graves', 'You start Friday.']], next: '@season' },
+      lines: [['graves', 'You defend, you don\'t complain, and you make Kai better — I didn\'t think that was possible.'], ['graves', 'You start Friday.']], next: '@season' },
     W_tariq_pre: { scene: 'gym',
       lines: [
         ['narrator', 'Westbrook at Lincoln. The leaky-roof gym is so packed they open the doors so people can watch from the hallway.'],
         ['narrator', 'The Lincoln student section has a banner: "HALSEY SOLD OUT." Somebody drew your face with a dollar sign for an eye.'],
-        ['tariq', 'Don\'t look at the sign, bro. Look at me. I\'m about to cook you.', 'smile', { rel: { tariq: 50 } }],
+        ['tariq', 'Don\'t look at the sign, bro, look at me. I\'m about to cook you.', 'smile', { rel: { tariq: 50 } }],
         ['tariq', '…', 'fierce', { maxRel: { tariq: 49 } }],
       ],
       choices: [
@@ -341,7 +341,7 @@ STORY.chapters.highschool = {
       ] },
     W_tariq_win: { scene: 'gym', fx: { rep: 3, recruit: true },
       lines: [
-        ['tariq', 'Proud of you, man. Still hate you. Mostly proud though.', 'smile', { rel: { tariq: 50 } }],
+        ['tariq', 'Proud of you, man. Still hate you — mostly proud though.', 'smile', { rel: { tariq: 50 } }],
         ['tariq', 'Hope it was worth it, {first}. Hope Westbrook was worth it.', 'sad', { maxRel: { tariq: 49 } }],
       ], next: '@season' },
     W_tariq_loss: { scene: 'gym', fx: { trust: -6, morale: -4, rel: { tariq: 5 }, post: { by: 'tariq', text: 'LINCOLN OVER WESTBROOK. I hit the game winner over my best friend and I will be talking about it at his wedding.' } },
@@ -352,26 +352,27 @@ STORY.chapters.highschool = {
       ], next: '@season' },
     W_cityfinal_pre: { scene: 'arena',
       lines: [
-        ['graves', 'Westbrook doesn\'t lose city finals. We have won nine of the last ten. Be the tenth.'],
+        ['graves', 'Westbrook doesn\'t lose city finals — nine of the last ten. Be the tenth.'],
         ['kai', '(to you, quiet) Two-man game. Like we practiced.', 'smile', { flag: 'kai_ally' }],
       ], next: '@season' },
-    W_jr_champ: { scene: 'arena', fx: { trust: 8, rep: 5, fans: 5000, recruit: true, offers: true, post: { by: 'silk', text: 'Proud of my son. City champs again. #SterlingStandard' } },
+    W_jr_champ: { scene: 'arena', fx: { trust: 8, rep: 5, fans: 5000, recruit: true, offers: true, post: { by: 'silk', text: 'Proud of my son. City champs again 🏆 #SterlingStandard' } },
       lines: [
         ['narrator', 'City Champions. Westbrook Academy hands out the hats like they\'ve done it before — because they have.'],
-        ['narrator', 'Silk Sterling\'s post congratulates Kai. It doesn\'t mention you. Nia screenshots it and sends it to you with eleven angry emojis.'],
+        ['narrator', 'Silk Sterling\'s post congratulates Kai and doesn\'t mention you. Nia screenshots it and sends it with eleven angry emojis.'],
         ['kai', 'Good season, Halsey. You were… useful.', 'smile'],
       ], next: 'c2_summer' },
     W_jr_out: { scene: 'locker', fx: { morale: -4 },
-      lines: [['graves', 'Westbrook does not lose in the playoffs. Find out why we did. Report back in June.', 'fierce'], ['kai', 'Summer. AAU. I\'m playing for my dad\'s team. Don\'t get in my way.', 'fierce']], next: 'c2_summer' },
+      lines: [['graves', 'Westbrook does not lose in the playoffs. Find out why we did and report back in June.', 'fierce'], ['kai', 'This summer I\'m playing AAU for my dad\'s team. Don\'t get in my way.', 'fierce']], next: 'c2_summer' },
 
     /* ================================================================
        SUMMER — rankings, Nia, Lou, Marcus, the Peach Slam
        ================================================================ */
     c2_viral_jr: { scene: 'home', fx: { flag: 'viral', fans: 8000, rep: 3, recruit: true },
       lines: [
-        ['nia', '{first}. FIRST. Wake UP.', 'smile'],
-        ['nia', 'I made a mixtape of your season. Music, slow-mo, everything. It has four hundred thousand views. CourtVision reposted it. Somebody made a remix with a duck.', 'smile'],
-        ['nia', 'People are asking who runs your page. I said me. Was that okay? That was okay.'],
+        ['nia', '{first} — FIRST — wake UP.', 'smile'],
+        ['nia', 'I made a mixtape of your season — music, slow-mo, everything. Four hundred thousand views.', 'smile'],
+        ['nia', 'CourtVision reposted it. Somebody made a remix with a duck.', 'smile'],
+        ['nia', 'People asked who runs your page and I said me. That was okay, right… that was okay.'],
       ],
       choices: [
         { t: '"You\'re officially my manager. Ten percent."', fx: { rel: { nia: 12 }, fans: 5000, flag: 'nia_manager' }, next: '@season' },
@@ -380,16 +381,17 @@ STORY.chapters.highschool = {
       ] },
     c2_summer: { scene: 'home', fx: { recruit: true, offers: true },
       lines: [
-        ['narrator', 'June. Junior year is over. Your phone hasn\'t stopped buzzing since the national rankings dropped.'],
-        ['nia', 'Okay. Okay okay okay. Recruiting Wire has you at {stars}. National rank {rank}. Kai is number one, obviously, because the universe is unfair.', 'smile'],
+        ['narrator', 'June. Junior year\'s over, and your phone hasn\'t stopped buzzing since the national rankings dropped.'],
+        ['nia', 'Okay okay okay. Recruiting Wire has you at {stars}, national rank {rank}!', 'smile'],
+        ['nia', 'Kai is number one, obviously. Because the universe is unfair.', 'smile'],
         ['mom', 'What does that mean, baby? Stars?', 'smile'],
         ['nia', 'It means colleges are going to start calling, Mom. Real ones.'],
-        ['narrator', 'You check the Recruiting tab in your hub. Some programs already sent offers. Others are "still watching."'],
+        ['narrator', 'You check the Recruiting tab in your hub: some programs already sent offers, others are "still watching."'],
       ], next: 'c2_nia_bday' },
     c2_nia_bday: { scene: 'home',
       lines: [
         ['narrator', 'Problem: the Elite 100 Camp — the top hundred juniors in the country, every major college coach in the gym — is the same weekend as Nia\'s thirteenth birthday.'],
-        ['nia', 'It\'s fine. Go to camp. I\'m thirteen, not three. I don\'t even want a party. (She absolutely wants a party.)', 'sad'],
+        ['nia', 'It\'s fine, go to camp — I\'m thirteen, not three, and I don\'t even want a party. (She absolutely wants a party.)', 'sad'],
         ['mom', 'Your sister has been planning this since March, {first}. Just so you know.'],
       ],
       choices: [
@@ -399,11 +401,11 @@ STORY.chapters.highschool = {
       ] },
     c2_camp: { scene: 'arena',
       lines: [
-        ['narrator', 'Elite 100 Camp. Four courts. Two hundred coaches in matching polo shirts holding iPads like weapons.'],
-        ['kai', 'Look who made it. Guard me in the all-star game, Halsey. I want the clip.', 'smile'],
+        ['narrator', 'Elite 100 Camp: four courts, two hundred coaches in matching polos holding iPads like weapons.'],
+        ['kai', 'Look who made it. Guard me in the all-star game, Halsey — I want the clip.', 'smile'],
         ['narrator', 'You hold Kai to two buckets in the all-star scrimmage. Three coaches ask for your mom\'s phone number.'],
         ['narrator', 'That night, Nia sends you one text: "happy birthday to me i guess." You stare at it for a long time.'],
-        ['kai', 'Hey. Halsey. Courts are empty. One-on-one, to eleven. No cameras. Just us.', 'fierce'],
+        ['kai', 'Hey, Halsey — courts are empty. One-on-one to eleven, no cameras, just us.', 'fierce'],
       ],
       choices: [
         { t: 'Accept. One-on-one with Kai, right now.', hint: '1v1 · first to 11', next: 'c2_kai_1v1' },
@@ -413,27 +415,27 @@ STORY.chapters.highschool = {
       level: 'street', pickup: { size: 1, target: 11 }, venue: 'rooftop',
       title: 'One-on-One', sub: 'vs Kai Sterling · first to 11', win: 'c2_kai_1v1_win', lose: 'c2_kai_1v1_loss' },
     c2_kai_1v1_win: { scene: 'arena', fx: { rep: 4, rel: { kai: 8 }, flag: 'beat_kai_1v1', recruit: true, post: { by: 'fan', text: 'somebody filmed {first} {last} beating KAI STERLING 1-on-1 in an empty camp gym at midnight. the internet is not okay.' } },
-      lines: [['kai', '…Run it back. No. Don\'t. I need to sit down.', 'sad'], ['kai', 'You\'re the only person my age who scares me. Don\'t tell anybody that either.']], next: 'c2_lou_aau' },
+      lines: [['kai', '…Run it back. No, don\'t — I need to sit down.', 'sad'], ['kai', 'You\'re the only person my age who scares me. Don\'t tell anybody that either.']], next: 'c2_lou_aau' },
     c2_kai_1v1_loss: { scene: 'arena', fx: { morale: -3, rel: { kai: 3 } },
-      lines: [['kai', 'Eleven. Told you. You\'re good, Halsey. You\'re just not me. Yet.', 'smile']], next: 'c2_lou_aau' },
+      lines: [['kai', 'Eleven, told you. You\'re good, Halsey — you\'re just not me yet.', 'smile']], next: 'c2_lou_aau' },
     c2_bday: { scene: 'home',
       lines: [
         ['narrator', 'Twelve kids from Nia\'s grade, a cake shaped like a basketball, and Tariq DJing from his phone.'],
-        ['nia', 'I made you something. It\'s a card. Like a trading card. Your future NBL card. Ninety-nine overall.', 'smile'],
+        ['nia', 'I made you something: your future NBL trading card. Ninety-nine overall.', 'smile'],
         ['nia', 'You can\'t have it until you\'re actually ninety-nine. That\'s the rule.'],
       ], next: 'c2_lou_aau' },
     c2_camp_nia: { scene: 'arena',
       lines: [
         ['narrator', 'Nia sits courtside for two days with her phone up. She films every rep.'],
         ['narrator', 'By Sunday she has talked her way into a conversation with a Westwood University assistant coach and handed him a business card she printed at the library.'],
-        ['nia', 'Best birthday ever. Also I told him you\'re six-eight. Grow, please.', 'smile'],
+        ['nia', 'Best birthday ever. Also I told him you\'re six-eight, so grow, please.', 'smile'],
       ], next: 'c2_lou_aau' },
     c2_lou_aau: { type: 'branch', branches: [{ if: { flag: 'lou_snub' }, next: 'c2_lou_return' }], else: 'c2_lou_team' },
     c2_lou_team: { scene: 'rec',
       lines: [
-        ['lou', 'I did something stupid. I started an AAU team. Halsey Hoops. Tariq\'s on it. Couple kids from Eastview and St. Vincent.'],
+        ['lou', 'I did something stupid: started an AAU team, Halsey Hoops. Tariq\'s on it, plus a couple kids from Eastview and St. Vincent.'],
         ['lou', 'We\'re going to the Peach Slam. Best AAU teams in the country, five hundred college coaches, one week in July.'],
-        ['lou', 'Kai\'s daddy runs a team called Sterling Select. They\'ve won it two years straight. I\'d like to ruin that.', 'smile'],
+        ['lou', 'Kai\'s daddy runs Sterling Select — they\'ve won it two years straight. I\'d like to ruin that.', 'smile'],
       ],
       choices: [
         { t: '"I\'m in. Let\'s ruin it."', fx: { rel: { lou: 6 }, morale: 4 }, next: 'c2_marcus' },
@@ -442,23 +444,24 @@ STORY.chapters.highschool = {
     c2_lou_money: { scene: 'rec', fx: { rel: { lou: 8 } },
       lines: [
         ['lou', '…Sold my truck.'],
-        ['lou', 'Don\'t look at me like that. I don\'t go anywhere anyway. Now get in the gym.', 'smile'],
+        ['lou', 'Don\'t look at me like that, I don\'t go anywhere anyway. Now get in the gym.', 'smile'],
       ], next: 'c2_marcus' },
     c2_lou_return: { scene: 'playground_night',
       lines: [
         ['narrator', 'Lou Banks is sitting on the bench at Halsey Street when you show up at 6 a.m. He\'s been waiting.'],
         ['lou', 'Still think you don\'t need a coach?'],
-        ['lou', 'I\'ve got an AAU team going to the Peach Slam. Tariq\'s on it. There\'s a spot if you want it. Conditions: you show up, you listen, you stop acting like you invented basketball.'],
+        ['lou', 'I\'ve got an AAU team going to the Peach Slam — Tariq\'s on it, and there\'s a spot for you.'],
+        ['lou', 'Conditions: you show up, you listen, and you stop acting like you invented basketball.'],
       ],
       choices: [
-        { t: '"I was wrong, Lou. I\'m sorry. I\'m in."', fx: { rel: { lou: 22 }, unflag: 'lou_snub', morale: 4 }, next: 'c2_marcus' },
+        { t: '"I was wrong, Lou, I\'m sorry. I\'m in."', fx: { rel: { lou: 22 }, unflag: 'lou_snub', morale: 4 }, next: 'c2_marcus' },
         { t: '"I\'ll play. But I\'ve done fine without you."', fx: { rel: { lou: -4 }, rep: 1 }, next: 'c2_marcus' },
       ] },
     c2_marcus: { scene: 'street_night',
       lines: [
         ['narrator', 'Cousin Marcus is leaning on a car outside your building. He walks with a cane now.', null, { flag: 'marcus_crash' }],
         ['narrator', 'Cousin Marcus is leaning on a car outside your building, grinning.', null, { notFlag: 'marcus_crash' }],
-        ['marcus', 'Cuz. I got a play. My man has a truck full of sneakers. Brand new, still in the boxes. We flip \'em online — two, three hundred profit a pair.', 'smile'],
+        ['marcus', 'Cuz, I got a play: my man has a truck full of brand-new sneakers. We flip \'em online — two, three hundred profit a pair.', 'smile'],
         ['marcus', 'Don\'t ask where the truck came from and the truck won\'t ask where you came from.'],
       ],
       choices: [
@@ -467,24 +470,24 @@ STORY.chapters.highschool = {
         { t: '"Marcus, Lou needs a team manager for the Peach Slam. Come with us."', check: { a: 'iq', dc: 50 }, next: 'c2_marcus_save', fail: 'c2_marcus_no' },
       ] },
     c2_marcus_no: { scene: 'street_night', fx: { rel: { marcus: -2 } },
-      lines: [['marcus', 'Carry water bottles for an old man? Nah, cuz. I\'m good.', 'smile'], ['narrator', 'He drives off. You hope he\'s smarter than he sounds.']], next: 'c2_aau' },
+      lines: [['marcus', 'Carry water bottles for an old man? Nah, cuz, I\'m good.', 'smile'], ['narrator', 'He drives off. You hope he\'s smarter than he sounds.']], next: 'c2_aau' },
     c2_marcus_save: { scene: 'rec', fx: { rel: { marcus: 15, lou: 4 }, flag: 'marcus_manager', chem: 5 },
       lines: [['marcus', '…Team manager. Like, with a clipboard?'], ['lou', 'With a clipboard and a curfew. Welcome aboard, son.'], ['narrator', 'Marcus pretends to hate it. He doesn\'t miss a single practice.']], next: 'c2_aau' },
     c2_scheme: { scene: 'street_night', fx: { money: 400, rep: -2, flag: 'scheme_once' },
       lines: [
-        ['narrator', 'One drop. A parking garage at midnight, forty boxes, a stranger\'s van. Four hundred dollars cash in an envelope.'],
+        ['narrator', 'One drop: a parking garage at midnight, forty boxes, a stranger\'s van. Four hundred cash in an envelope.'],
         ['narrator', 'Your hands are shaking the whole way home.'],
-        ['marcus', 'See? Easy. Next one\'s bigger. Thursday. A whole trailer.', 'smile'],
+        ['marcus', 'See? Easy money — and next one\'s bigger, a whole trailer Thursday.', 'smile'],
       ],
       choices: [
         { t: '"Never again, Marcus. I\'m out."', fx: { rel: { marcus: -6 }, morale: -2 }, next: 'c2_aau' },
-        { t: '"…Thursday. One more. Then I\'m done."', hint: '⚠ Career-defining', next: 'c2_scheme2' },
+        { t: '"…Thursday. One more, then I\'m done."', hint: '⚠ Career-defining', next: 'c2_scheme2' },
       ] },
     c2_scheme2: { scene: 'street_night', cutscene: 'career_end',
       lines: [
         ['narrator', 'Thursday. The trailer is in a lot behind a closed furniture store.'],
         ['narrator', 'The trailer is empty. The headlights that come on behind you are not.'],
-        ['narrator', 'It was a sting. Marcus runs. You don\'t make it to the fence.'],
+        ['narrator', 'It was a sting. Marcus runs — you don\'t make it to the fence.'],
       ],
       choices: [{ t: 'Hands up…', next: 'end_locked' }] },
     end_locked: { type: 'ending', ending: 'locked' },
@@ -503,15 +506,15 @@ STORY.chapters.highschool = {
       } },
     c2_aau_pre: { scene: 'arena',
       lines: [
-        ['narrator', 'The Peach Slam. A convention center turned into eight courts. Five hundred college coaches in polo shirts, all staring at the same twelve kids.'],
-        ['lou', 'This is a meat market, kid. They\'re not watching the score. They\'re watching your feet, your face when you miss, how you talk to your teammates.'],
+        ['narrator', 'The Peach Slam: a convention center turned into eight courts. Five hundred college coaches in polos, all staring at the same twelve kids.'],
+        ['lou', 'This is a meat market, kid. Nobody\'s watching the score — they\'re watching your feet, your face when you miss, how you talk to teammates.'],
         ['tariq', 'I\'m gonna get a scholarship off one dunk. Watch.', 'smile'],
       ], next: '@season' },
     c2_vince: { scene: 'street_night',
       lines: [
         ['narrator', 'After pool play, a man in a purple suit is waiting by the team van. He\'s holding a thick envelope and smiling like he owns the parking lot.'],
-        ['vince', 'Vince Shark. I help young men make good decisions about their futures. Friends of mine at a few big programs are very interested in you.', 'smile'],
-        ['vince', 'This? This is nothing. A gift. For your mom\'s rent. No strings. Well — one string. Remember who was there for you early.'],
+        ['vince', 'Vince Shark — I help young men make good decisions about their futures. Friends of mine at a few big programs are very interested in you.', 'smile'],
+        ['vince', 'This? Just a gift for your mom\'s rent, no strings — well, one: remember who was there for you early.'],
       ],
       choices: [
         { t: 'Take the envelope. ($2,000)', fx: { money: 2000, flag: 'booster', rel: { lou: -4 } }, next: '@season' },
@@ -526,7 +529,7 @@ STORY.chapters.highschool = {
         ['narrator', 'Sterling Select got knocked out in the semis. Silk Sterling is screaming at a referee in the parking lot.', null, { notOpp: 'sterling_select' }],
         ['lou', 'Whatever happens, I\'m proud of this team. Now go break some hearts.', 'smile'],
       ], next: '@season' },
-    c2_aau_champ: { scene: 'arena', fx: { rep: 8, fans: 15000, recruit: true, offers: true, rel: { lou: 8 }, post: { by: 'recruit', text: '🍑 PEACH SLAM CHAMPIONS: Halsey Hoops AAU! Coach Lou Banks\' team stuns the field. {name} is the talk of the event.' } },
+    c2_aau_champ: { scene: 'arena', fx: { rep: 8, fans: 15000, recruit: true, offers: true, rel: { lou: 8 }, post: { by: 'recruit', text: '🍑 PEACH SLAM CHAMPIONS: Lou Banks\' Halsey Hoops AAU stuns the field! {name} is the talk of the event.' } },
       lines: [
         ['narrator', 'Halsey Hoops — a team that drove nine hours in a borrowed church van — wins the Peach Slam.'],
         ['lou', '…Sold my truck for this. Best trade I ever made.', 'smile'],
@@ -534,14 +537,14 @@ STORY.chapters.highschool = {
       ], next: 'c2_coach_visit' },
     c2_aau_out: { scene: 'arena', fx: { rep: 2, recruit: true, offers: true },
       lines: [
-        ['narrator', 'Halsey Hoops goes home without the trophy. But on the way out, Lou\'s phone rings eleven times. All college coaches. All asking about you.'],
+        ['narrator', 'Halsey Hoops goes home without the trophy. On the way out, Lou\'s phone rings eleven times — all college coaches, all asking about you.'],
         ['lou', 'Trophies are nice. Phone calls are better.'],
       ], next: 'c2_coach_visit' },
     c2_coach_visit: { scene: 'home', fx: { offers: true },
       lines: [
         ['narrator', 'August. A head coach is sitting on your couch, which you vacuumed three times this morning.'],
-        ['kowalski', 'Mrs. {last}, I\'ve won five national championships and I\'ve never once promised a young man playing time. I promise opportunity. And a degree.', null, { minStars: 4 }],
-        ['simmons', 'Ma\'am, at Magnolia State your son wouldn\'t be one of many. He\'d be THE one. Day one. Face of the program.', 'smile', { maxStars: 3 }],
+        ['kowalski', 'Mrs. {last}, five national titles and I\'ve never once promised a young man playing time. I promise opportunity — and a degree.', null, { minStars: 4 }],
+        ['simmons', 'Ma\'am, at Magnolia State your son wouldn\'t be one of many. He\'d be THE one — day one, face of the program.', 'smile', { maxStars: 3 }],
         ['mom', 'I just have one question, Coach. When he gets hurt — and they all get hurt — what happens to him then?'],
       ],
       choices: [
@@ -551,8 +554,8 @@ STORY.chapters.highschool = {
       ] },
     c2_growth: { scene: 'playground', fx: { develop: 'hs_junior', recruit: true },
       lines: [
-        ['narrator', 'Somewhere between July and September, your body decides to cooperate. You grow half an inch. You add nine pounds of muscle. Your vertical jumps four inches.'],
-        ['lou', 'Look at you. Grown man legs. Now you got no excuses.', 'smile'],
+        ['narrator', 'Between July and September your body finally cooperates. Half an inch taller, nine pounds of muscle, four more inches of vertical.'],
+        ['lou', 'Look at you — grown man legs. Now you got no excuses.', 'smile'],
       ], next: 'c2_senior_branch' },
     c2_senior_branch: { type: 'branch', fx: { age: 18, set: { fatigue: 10 } }, branches: [{ if: { flag: 'hs_westbrook' }, next: 'W_senior_open' }], else: 'L_senior_open' },
 
@@ -562,8 +565,8 @@ STORY.chapters.highschool = {
     L_senior_open: { scene: 'gym',
       lines: [
         ['narrator', 'Senior year. One last run at Lincoln High.'],
-        ['brennan', 'I\'ve been wrong about players maybe twice in thirty-one years. You\'re the third. You\'re my captain.', 'smile', { minTrust: 58 }],
-        ['brennan', 'You\'ve got talent. I still don\'t trust your shot selection. Prove me wrong one more time.', null, { maxTrust: 57 }],
+        ['brennan', 'I\'ve been wrong about players maybe twice in thirty-one years. You\'re the third — and my captain.', 'smile', { minTrust: 58 }],
+        ['brennan', 'You\'ve got talent, but I still don\'t trust your shot selection. Prove me wrong one more time.', null, { maxTrust: 57 }],
         ['brick', '(on the phone from his college dorm) Run it back, playground. Win the thing I never could.', 'smile', { flag: 'brick_ally' }],
       ],
       choices: [
@@ -598,15 +601,15 @@ STORY.chapters.highschool = {
     L_kai2_win: { scene: 'gym', fx: { rep: 6, fans: 8000, recruit: true },
       lines: [
         ['narrator', 'Lincoln sweeps Westbrook for the first time in school history.'],
-        ['kai', 'Two years in a row. You\'re in my head, Halsey. I hate that you\'re in my head.', 'sad', { maxRel: { kai: 19 } }],
-        ['kai', 'Good game. Seriously. …My dad\'s gonna kill me. But good game.', 'smile', { rel: { kai: 20 } }],
+        ['kai', 'Two years in a row. You\'re in my head, Halsey, and I hate it.', 'sad', { maxRel: { kai: 19 } }],
+        ['kai', 'Good game, seriously. …My dad\'s gonna kill me, but good game.', 'smile', { rel: { kai: 20 } }],
       ], next: '@season' },
     L_kai2_loss: { scene: 'gym', fx: { morale: -3 },
       lines: [['narrator', 'Kai gets his revenge — thirty-four points and a stare-down after the buzzer.'], ['kai', 'One-one. See you in March.', 'fierce']], next: '@season' },
     W_senior_open: { scene: 'gym',
       lines: [
-        ['narrator', 'Senior year at Westbrook. You and Kai are on the cover of the program\'s season preview. He insisted his name go first.'],
-        ['graves', 'Co-captains. Sterling and {last}. If either of you two pouts, both of you sit.', null, { flag: 'kai_ally' }],
+        ['narrator', 'Senior year at Westbrook: you and Kai on the cover of the season preview. He insisted his name go first.'],
+        ['graves', 'Co-captains: Sterling and {last}. If either of you pouts, both of you sit.', null, { flag: 'kai_ally' }],
         ['graves', 'Kai is captain. You\'re… important.', null, { notFlag: 'kai_ally' }],
       ],
       choices: [
@@ -631,8 +634,8 @@ STORY.chapters.highschool = {
     W_silk: { scene: 'locker',
       lines: [
         ['silk', 'A word, young man.'],
-        ['silk', 'My son is going first overall. Every shot you take is a shot that doesn\'t go on his tape. You understand what I\'m telling you?', 'fierce'],
-        ['silk', 'You\'re a nice story. A charity case. Don\'t forget it.'],
+        ['silk', 'My son is going first overall, and every shot you take is one that isn\'t on his tape. Understand what I\'m telling you?', 'fierce'],
+        ['silk', 'You\'re a nice story — a charity case. Don\'t forget it.'],
       ],
       choices: [
         { t: '"With respect, sir — Kai plays better when he\'s not scared of you."', fx: { rel: { kai: 10, silk: -15 }, rep: 2, flag: 'kai_bond' }, next: '@season' },
@@ -641,14 +644,14 @@ STORY.chapters.highschool = {
       ] },
     W_lincoln2_pre: { scene: 'gym',
       lines: [
-        ['narrator', 'Lincoln comes to Westbrook. The Lincoln students chant your name — and then boo you. Both. At the same time.'],
-        ['tariq', 'Senior year, bro. Last time we ever play against each other. Make it count.', 'smile', { rel: { tariq: 45 } }],
+        ['narrator', 'Lincoln comes to Westbrook. Their students chant your name and boo you — somehow at the same time.'],
+        ['tariq', 'Senior year, bro — last time we ever play each other. Make it count.', 'smile', { rel: { tariq: 45 } }],
         ['tariq', 'Last time I ever have to look at you in that jersey.', 'fierce', { maxRel: { tariq: 44 } }],
       ], next: '@season' },
     c2_tariq_test: { type: 'branch', branches: [{ if: { flag: 'hs_westbrook', maxRel: { tariq: 44 } }, next: 'W_tariq_beef' }], else: 'c2_tariq_grades' },
     c2_tariq_grades: { scene: 'home',
       lines: [
-        ['tariq', 'Bro. I\'m failing chemistry. Like, failing failing. If I don\'t pass the midterm I\'m ineligible. No season. No scholarship. Nothing.', 'sad'],
+        ['tariq', 'Bro, I\'m failing chemistry — like, failing failing. Flunk the midterm and I\'m ineligible: no season, no scholarship, nothing.', 'sad'],
         ['tariq', 'I\'m not asking you for anything. I\'m just… telling you.', 'sad'],
       ],
       choices: [
@@ -658,8 +661,8 @@ STORY.chapters.highschool = {
       ] },
     W_tariq_beef: { scene: 'home', fx: { post: { by: 'tariq', text: 'funny how people forget where they came from the second somebody hands them a blazer. #HalseyNeverForgets' } },
       lines: [
-        ['narrator', 'Tariq posts a video. He doesn\'t say your name. He doesn\'t have to.'],
-        ['nia', 'It has 80,000 views. People are taking sides. {first}… what do you want me to do?', 'sad'],
+        ['narrator', 'Tariq posts a video. He doesn\'t say your name — he doesn\'t have to.'],
+        ['nia', '80,000 views and people are taking sides. {first}… what do you want me to do?', 'sad'],
       ],
       choices: [
         { t: 'Call him. Right now.', check: { a: 'iq', dc: 46 }, next: 'W_tariq_call', fail: 'W_tariq_call_bad' },
@@ -668,15 +671,15 @@ STORY.chapters.highschool = {
       ] },
     W_tariq_call: { scene: 'playground_night', fx: { rel: { tariq: 22 }, flag: 'tariq_eligible' },
       lines: [
-        ['tariq', '…I\'m failing chemistry, bro. I\'m gonna lose my season. And you\'re over there on TV. I just got mad.', 'sad'],
-        ['you', 'Then I\'m at your place every night till the midterm. I\'m good at chemistry. Okay, I\'m okay at chemistry.'],
+        ['tariq', '…I\'m failing chemistry and about to lose my season, and you\'re over there on TV. I just got mad.', 'sad'],
+        ['you', 'Then I\'m at your place every night till the midterm. I\'m good at chemistry — okay, I\'m okay at chemistry.'],
         ['tariq', '…You still owe me a dap for the game-winner I hit on you.', 'smile'],
       ], next: '@season' },
     W_tariq_call_bad: { scene: 'home', fx: { rel: { tariq: -8 } },
-      lines: [['tariq', 'Don\'t call me with your Westbrook voice, man. We\'re good. We\'re just not good, you know?', 'sad'], ['narrator', 'He hangs up.']], next: '@season' },
+      lines: [['tariq', 'Don\'t call me with your Westbrook voice, man. We\'re good… we\'re just not good, you know?', 'sad'], ['narrator', 'He hangs up.']], next: '@season' },
     c2_injury: { scene: 'gym',
       lines: [
-        ['narrator', 'Tuesday practice. You come down on a teammate\'s foot. Your ankle rolls all the way over. The sound it makes is not a good sound.'],
+        ['narrator', 'Tuesday practice: you land on a teammate\'s foot and your ankle rolls all the way over. The sound it makes is not a good sound.'],
         ['narrator', 'The trainer says "sprain." The trainer also says "maybe."'],
       ],
       choices: [
@@ -684,12 +687,12 @@ STORY.chapters.highschool = {
         { t: 'Tape it and play through.', check: { a: 'stam', dc: 48 }, fx: { rep: 2, trust: 3, flag: 'tough' }, next: '@season', fail: 'c2_injury_worse' },
       ] },
     c2_injury_worse: { scene: 'hospital', cutscene: 'injury', fx: { injury: { games: 3, name: 'Badly sprained ankle' }, flag: 'bad_ankle', morale: -6 },
-      lines: [['narrator', 'Two possessions into Friday\'s game, the ankle goes again. Worse.'], ['narrator', 'The X-ray is clean. The doctor says "high ankle sprain" and "don\'t be a hero." You\'ll play, but you won\'t be you for a few weeks.']], next: '@season' },
+      lines: [['narrator', 'Two possessions into Friday\'s game, the ankle goes again. Worse.'], ['narrator', 'Clean X-ray, but the doctor says "high ankle sprain" and "don\'t be a hero." You\'ll play — you just won\'t be you for a few weeks.']], next: '@season' },
     c2_scandal_check: { type: 'branch', branches: [{ if: { flag: 'booster' }, next: 'c2_booster_news' }], else: '@season' },
     c2_booster_news: { scene: 'home', fx: { post: { by: 'recruit', text: '🚨 REPORT: Top recruit {name} allegedly accepted cash from a runner tied to multiple college programs at the Peach Slam.' } },
       lines: [
         ['narrator', 'Somebody had a camera in that parking lot. The photo of you holding Vince Shark\'s envelope is everywhere by lunch.'],
-        ['mom', 'Is it true, {first}? Look at me. Is it true?', 'sad'],
+        ['mom', 'Look at me, {first}. Is it true?', 'sad'],
       ],
       choices: [
         { t: 'Tell the truth — to Mom, to your coach, to the compliance people.', fx: { rep: -4, rel: { mom: 8, lou: 8 }, money: -2000, flag: 'booster_admitted', trust: 3 }, next: '@season' },
@@ -699,7 +702,7 @@ STORY.chapters.highschool = {
       lines: [['narrator', 'Vince Shark gets arrested in an unrelated case and hands investigators a list. Your name is on it.'], ['narrator', 'Two of the biggest programs quietly stop calling.']], next: '@season' },
     c2_mom_hurt: { scene: 'hospital',
       lines: [
-        ['narrator', 'Mom hurt her back lifting a patient. Six weeks off work, minimum. The rent is due in nine days.'],
+        ['narrator', 'Mom hurt her back lifting a patient — six weeks off work, minimum. Rent is due in nine days.'],
         ['mom', 'Don\'t you dare worry about this, baby. You have a season to finish.', 'sad'],
         ['nia', '(quietly, in the hallway) We have $212 in the account. I checked.', 'sad'],
       ],
@@ -713,7 +716,7 @@ STORY.chapters.highschool = {
       lines: [
         ['narrator', 'Senior Night. They call your name and you walk to center court with your family.'],
         ['mom', '(in a back brace, refusing the wheelchair) I am WALKING out there, {first}. Don\'t you argue with me.', 'smile', { rel: { mom: 50 } }],
-        ['nia', '(holding a giant cardboard cutout of your head) I made it myself. Don\'t cry. You\'re crying.', 'smile', { rel: { nia: 50 } }],
+        ['nia', '(holding a giant cardboard cutout of your head) Made it myself. Don\'t cry — you\'re crying.', 'smile', { rel: { nia: 50 } }],
         ['lou', '(at the end of the line, in a tie for the first time in twenty years) Proud of you, kid.', 'smile', { rel: { lou: 40 } }],
       ],
       choices: [{ t: 'Hug all of them. Then go to work.', fx: { morale: 8, rel: { mom: 3, nia: 3 } }, next: '@season' }] },
@@ -727,7 +730,7 @@ STORY.chapters.highschool = {
     c2_pills: { scene: 'locker',
       lines: [
         ['narrator', 'Your ankle is still the size of a grapefruit. You can barely push off.'],
-        ['narrator', 'A guy who "works with athletes" — a friend of somebody\'s cousin — slips you two white pills in the hallway. "You won\'t feel a thing. Trust me."'],
+        ['narrator', 'A guy who "works with athletes" slips you two white pills in the hallway. "You won\'t feel a thing, trust me."'],
       ],
       choices: [
         { t: 'Take the pills and play like nothing\'s wrong.', hint: '⚠ Career-defining', check: { a: 'stam', dc: 60 }, fx: { morale: 4 }, next: 'c2_pills_ok', fail: 'c2_broken' },
@@ -737,37 +740,37 @@ STORY.chapters.highschool = {
       lines: [['narrator', 'You don\'t feel a thing. That\'s exactly what scares you.'], ['narrator', 'You promise yourself: never again.']], next: 'c2_semi_talk' },
     c2_broken: { scene: 'hospital', cutscene: 'career_end',
       lines: [
-        ['narrator', 'You don\'t feel it until you hear it. First drive of the third quarter. A crack like a gunshot.'],
-        ['narrator', 'It wasn\'t a sprain. It was a stress fracture. And now it\'s a complete one.'],
+        ['narrator', 'You don\'t feel it until you hear it: first drive of the third quarter, a crack like a gunshot.'],
+        ['narrator', 'It wasn\'t a sprain, it was a stress fracture. Now it\'s a complete one.'],
         ['lou', 'Why didn\'t you tell anybody, kid? Why didn\'t you TELL anybody?', 'sad', { notFlag: 'lou_snub' }],
       ],
       choices: [{ t: 'Stare at the ceiling…', next: 'end_broken' }] },
     end_broken: { type: 'ending', ending: 'broken' },
     c2_final_pre: { scene: 'arena',
       lines: [
-        ['narrator', 'The State Championship. Twelve thousand people in the downtown arena. Your face is on the jumbotron.'],
+        ['narrator', 'The State Championship: twelve thousand people downtown, and your face on the jumbotron.'],
         ['kai', 'It was always gonna be us, Halsey. Since that first day on your court.', 'fierce', { opp: 'westbrook' }],
-        ['tariq', 'Me and you. State final. Halsey Street\'s whole block is here. Whoever wins buys the other one wings for life.', 'smile', { opp: 'lincoln' }],
-        ['holt', 'Everybody keeps talking about you and Kai. Nobody talks about me. Let\'s fix that tonight.', 'fierce', { opp: 'northgate' }],
-        ['lou', '(from the third row) The rim, kid. Not the man. Never the man.', 'smile', { notFlag: 'lou_snub' }],
+        ['tariq', 'Me and you, state final, the whole block\'s here. Loser buys the other one wings for life.', 'smile', { opp: 'lincoln' }],
+        ['holt', 'Everybody talks about you and Kai, nobody talks about me. Let\'s fix that tonight.', 'fierce', { opp: 'northgate' }],
+        ['lou', '(from the third row) The rim, kid. Not the man — never the man.', 'smile', { notFlag: 'lou_snub' }],
       ], next: '@season' },
 
     /* ================================================================
        AFTER THE SEASON — results, signing day, the decision
        ================================================================ */
-    c2_state_champ: { scene: 'arena', cutscene: 'state_champ', fx: { rep: 10, fans: 40000, recruit: true, offers: true, flag: 'state_champ', post: { by: 'courtvision', text: '🏆 STATE CHAMPIONS 🏆 {name} and {hs} finish it. What a career. What a kid.' } },
+    c2_state_champ: { scene: 'arena', cutscene: 'state_champ', fx: { rep: 10, fans: 40000, recruit: true, offers: true, flag: 'state_champ', post: { by: 'courtvision', text: '🏆 STATE CHAMPIONS 🏆 {name} and {hs} finish it. What a career, what a kid.' } },
       lines: [
-        ['narrator', 'State Champions. Confetti falls from the arena ceiling. Somebody hands you a piece of the net.'],
+        ['narrator', 'State Champions! Confetti rains down and somebody hands you a piece of the net.'],
         ['brennan', '(holding the trophy like it might break) Thirty-two years. Thirty-two years, {last}.', 'smile', { hs: 'lincoln' }],
-        ['graves', 'Westbrook standard. …Good work, {last}. Genuinely.', 'smile', { hs: 'westbrook' }],
+        ['graves', 'Westbrook standard. …Good work, {last} — genuinely.', 'smile', { hs: 'westbrook' }],
         ['tariq', 'WE DID IT! FROM HALSEY STREET TO THE STATE TITLE!', 'smile', { hs: 'lincoln' }],
-        ['kai', 'Two state titles in a row for Westbrook. One of them was yours. …Don\'t tell my dad I said that.', 'smile', { hs: 'westbrook', rel: { kai: 15 } }],
+        ['kai', 'Two straight state titles for Westbrook, and one was yours. …Don\'t tell my dad I said that.', 'smile', { hs: 'westbrook', rel: { kai: 15 } }],
         ['mom', 'That\'s my baby! THAT\'S MY BABY!', 'smile'],
       ], next: 'c2_signing_day' },
     c2_state_out: { scene: 'locker', fx: { morale: -6, recruit: true, offers: true },
       lines: [
         ['narrator', 'The season ends in the state tournament. You sit in the locker room in your jersey for an hour after everyone leaves.'],
-        ['lou', 'Most of the greats lost their last high school game, kid. Ask any of them if it mattered. It mattered. It also made them.', null, { notFlag: 'lou_snub' }],
+        ['lou', 'Most of the greats lost their last high school game, kid. It mattered to every one of them — and it made them.', null, { notFlag: 'lou_snub' }],
       ], next: 'c2_signing_day' },
     c2_state_missed: { scene: 'gym', fx: { morale: -8, recruit: true, offers: true },
       lines: [['narrator', 'No state tournament. Senior year ends in February with a loss nobody will remember but you.'], ['nia', 'The coaches are still calling, {first}. They\'re still calling.', 'sad']], next: 'c2_signing_day' },
@@ -775,13 +778,13 @@ STORY.chapters.highschool = {
       lines: [
         ['narrator', 'Signing Day. A folding table in the {hsShort} gym, a microphone, and a row of college caps lined up in front of you.'],
         ['narrator', 'Final rankings: {stars}. National rank {rank}.'],
-        ['kai', '(on the stream from Westbrook) Blue Ridge. Obviously. I\'ll see the rest of you in March.', 'smile', { notCollege: 'blueridge' }],
-        ['mom', 'Whatever you pick, baby, pick it for you. Not for me. Not for Lou. For you.'],
+        ['kai', '(on the stream from Westbrook) Blue Ridge, obviously. I\'ll see the rest of you in March.', 'smile', { notCollege: 'blueridge' }],
+        ['mom', 'Whatever you pick, baby, pick it for you. Not for me, not for Lou — for you.'],
         ['nia', 'I made a graphic for every school. Just pick one so I can post it.', 'smile'],
       ], next: 'c2_choose' },
     c2_choose: { type: 'collegeChoice', scene: 'gym', next: 'c2_commit_react',
       lines: [
-        ['lou', 'Minutes. Development. A coach who\'ll yell at you when you need it. That\'s what you pick. Not the logo.', null, { notFlag: 'lou_snub' }],
+        ['lou', 'Pick minutes, development, and a coach who\'ll yell at you when you need it. Not the logo.', null, { notFlag: 'lou_snub' }],
         ['narrator', 'You reach for a cap.'],
       ],
       extra: [
@@ -792,17 +795,17 @@ STORY.chapters.highschool = {
       lines: [
         ['narrator', 'You put on the cap. The gym explodes.', null, { flag: 'path_college' }],
         ['narrator', 'You push the caps aside and announce you\'re turning pro. The room goes silent — then erupts.', null, { notFlag: 'path_college' }],
-        ['kai', 'Blue Ridge too? Great. Now I have to share a locker room with you AGAIN.', 'smile', { college: 'blueridge' }],
-        ['kai', 'Not Blue Ridge, huh? Good. I\'d rather beat you than babysit you.', 'fierce', { flag: 'path_college', notCollege: 'blueridge' }],
-        ['tariq', 'I got an offer too, bro! Division II, Bayside State! Because somebody tutored me through chemistry!', 'smile', { flag: 'tariq_eligible' }],
+        ['kai', 'Blue Ridge too? Great — now I have to share a locker room with you AGAIN.', 'smile', { college: 'blueridge' }],
+        ['kai', 'Not Blue Ridge, huh? Good — I\'d rather beat you than babysit you.', 'fierce', { flag: 'path_college', notCollege: 'blueridge' }],
+        ['tariq', 'I got an offer too, bro — Division II, Bayside State! All because somebody tutored me through chemistry!', 'smile', { flag: 'tariq_eligible' }],
         ['tariq', 'Proud of you, man. I\'m gonna be at the corner store, telling everybody I knew you first.', 'sad', { flag: 'tariq_failed' }],
         ['lou', 'Wherever you go, I\'ll be in the third row. That\'s a promise.', 'smile', { rel: { lou: 30 } }],
       ], next: 'c2_graduation' },
     c2_graduation: { scene: 'arena', fx: { xp: 150, morale: 8, log: 'Graduated high school.' },
       lines: [
-        ['narrator', 'Graduation. You walk across the stage in a gown that\'s too short because you grew again.'],
-        ['mom', 'First one in our family. First one. Your grandmother would\'ve…', 'sad'],
-        ['nia', 'Mom. MOM. We said no crying until the car.', 'smile'],
+        ['narrator', 'Graduation: you cross the stage in a gown that\'s too short, because you grew again.'],
+        ['mom', 'First one in our family, the very first. Your grandmother would\'ve…', 'sad'],
+        ['nia', 'Mom. MOM — we said no crying until the car.', 'smile'],
         ['narrator', 'That night you go back to Halsey Street, alone, and shoot until they cut the lights. Some things don\'t change.'],
       ], next: 'ch_end' },
 
