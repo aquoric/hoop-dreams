@@ -697,9 +697,12 @@ const Match = (() => {
       $('sbFlag').innerHTML = st.fire ? '<span class="fire-tag">🔥 ON FIRE</span>' : st.zone ? '<span class="fire-tag zone">⚡ THE ZONE</span>' : '';
       $('sb').classList.toggle('fire', st.fire);
     }
+    /* pickups ("first to N"): nobody reaches the target before the final whistle */
+    const capTarget = () => { if (cfg.target) { st.us = Math.min(st.us, cfg.target - 1); st.them = Math.min(st.them, cfg.target - 1); } };
     function addPts(side, p) {
       if (!p) return;
       if (side === 'us') st.us += p; else st.them += p;
+      capTarget();
       updBug(); const el = $(side === 'us' ? 'sbUs' : 'sbThem'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
     }
     function success(big) {
@@ -1205,6 +1208,7 @@ const Match = (() => {
       const myShare = L.pts * frac * (1 + (usR - oR) * .013) - .9 * frac * n;
       const thShare = L.pts * frac * (1 - (usR - oR) * .013) - .7 * frac * n;
       st.us += Math.max(0, Math.round(myShare * rnd(.65, 1.35))); st.them += Math.max(0, Math.round(thShare * rnd(.65, 1.35)));
+      capTarget();
     }
     /* Perfect Copy: defensive stops stack an offense bonus */
     async function withMirror(fn) { const ok = await fn(); if (ok && Engine.hasSpecial(s, 'mirror') && st.mirror < 12) { st.mirror += 3; pbp(`🪞 <b>Perfect Copy</b>: you copied their move. Offense +${st.mirror}%`, 'hot'); } return ok; }
