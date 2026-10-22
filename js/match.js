@@ -63,7 +63,7 @@ const Match = (() => {
       // hit-stop: everything (tweens, poses, particles) freezes for a few frames
       const stopped = this.stopT > 0; if (stopped) this.stopT = Math.max(0, this.stopT - dt);
       const sdt = stopped ? 0 : dt * this.timeScale; this.t += sdt; this.vdt = sdt;
-      this.players.forEach(p => { const a = p.anim; if (a && a.tick) { a.t += sdt; if (a.auto && a.T && a.t >= a.T) p.anim = null; } });
+      this.players.forEach(p => { const a = p.anim; if (a && a.tick) { a.t += sdt; if (a.auto && a.T && a.t >= a.T) p.anim = null; } if (p.auraT > 0) p.auraT -= dt; });
       this.kick *= Math.pow(.004, dt);
       for (let i = this.tweens.length - 1; i >= 0; i--) {
         const tw = this.tweens[i]; tw.el += sdt; const k = tw.ease(clamp(tw.el / tw.dur, 0, 1));
@@ -118,6 +118,7 @@ const Match = (() => {
       const items = vis.map(p => ({ y: p._s.y, d: () => R.player(p._s, { me: p.isUser, fire: p.isUser && this.fire, tag: p.tag && !p.isUser ? p.tag : '' }) }));
       if (b.show && !hold) items.push({ y: this.Y(b.y) + .5, d: () => R.freeBall({ x: this.X(b.x) - V.ox, y: this.Y(b.y), z: b.z * 3.2, spin: this.t * 12 }, this.fire) });
       items.sort((a, z) => a.y - z.y).forEach(i => i.d());
+      vis.forEach(p => { if (!(p.auraT > 0) || dt <= 0) return; const s2 = p._s; for (let k = 0; k < 3; k++) E.fx.push({ x: s2.x + rnd(-6, 6), y: s2.y - s2.z - rnd(0, 30), vx: rnd(-10, 10), vy: -rnd(20, 50), life: .4, col: k ? p.auraCol : '#ffffff', sz: 2, g: -.4 }); if (Math.random() < .12) R.ring(s2.x, s2.y, p.auraCol, 70, .35, 1, .35); });   // weapon aura
       R.hoop(true);
       const hang = vis.find(p => p.anim && p.anim.type === 'dunk' && p.anim.t > .62 && p.anim.t < .95); if (hang) R.player(hang._s, { me: hang.isUser });
       c.restore();
@@ -134,6 +135,37 @@ const Match = (() => {
     confetti(n = 120) { const E = this.R.E; for (let i = 0; i < n; i++) E.fx.push({ x: rnd(0, this.V.W), y: rnd(-40, 0), vx: rnd(-12, 12), vy: rnd(20, 45), life: rnd(2, 4), col: pick(['#f97316', '#facc15', '#22c55e', '#3b82f6', '#ec4899', '#fff']), conf: 1 }); }
     sparks(wx, wy, wz, col = '#facc15', n = 26) { this.R.burst(this.X(wx), this.Y(wy) - wz * 3.2, col, Math.round(n * .7), 70); }
     shake(n = 10) { this.shakeAmt = n; }
+    /* weapon aura around a player (seconds) */
+    aura(p, col = '#facc15', sec = 2) { if (p) { p.auraT = sec; p.auraCol = col; } }
+    /* close call: the ball rolls around the rim in slow motion, then falls in or out */
+    async rimRoll(made, from) {
+      const b = this.ball, s = from ? { x: from.x + .7, y: from.y + .3, z: from.z + 8.5 } : this.ballPos(); b.holder = null; Object.assign(b, s);
+      const o = { k: 0 }, sx = b.x, sy = b.y, sz = b.z;
+      await this.tween(o, { k: 1 }, .6, 'lin', k => { b.x = lerp(sx, 0, k); b.y = lerp(sy, HOOP.y, k); b.z = lerp(sz, HOOP.z + .6, k) + 5 * 4 * k * (1 - k); });
+      SFX.play('rim'); this.rimBend = .5; const prevTs = this.timeScale; this.timeScale = .45; this.tween(this, { zoom: 1.45 }, .5, 'io');
+      const loops = made ? 2.3 : 1.8, r = { k: 0 }; let lastQ = 0;
+      await this.tween(r, { k: 1 }, 1.7, 'io', k => { const a = k * loops * Math.PI * 2; b.x = Math.sin(a) * 1.05 * (1 - k * .25); b.y = HOOP.y + Math.cos(a) * .35; b.z = HOOP.z + .55 + Math.abs(Math.sin(a * 2)) * .25; const q = Math.floor(a / Math.PI); if (q !== lastQ) { lastQ = q; SFX.play('rim'); this.rimBend = .25; } });
+      this.timeScale = prevTs; this.tween(this, { zoom: 1 }, .6, 'io');
+      if (made) { SFX.play('swish'); SFX.play('net'); this.netWave = 1; await this.tween(b, { x: 0, z: HOOP.z - 2.5 }, .25, 'in'); await this.tween(b, { z: 0, y: HOOP.y + 1.5 }, .35, 'in'); SFX.play('bounce'); return true; }
+      SFX.play('rim'); this.rimBend = .7; await this.tween(b, { x: rnd(-4, 4), y: HOOP.y + 3, z: HOOP.z + 2 }, .25, 'out'); await this.tween(b, { x: rnd(-8, 8), y: rnd(10, 15), z: 0 }, .45, 'in'); SFX.play('bounce'); return false;
+    }
+    /* close call: the ball carrier runs into a set defender — charge (defender falls) or blocking foul */
+    async collide(att, def, charge) {
+      SFX.play('squeak'); await this.moveTo(att, def.x + .4, def.y + 1.2, .35); SFX.play('slap'); this.impact(.12, 8, .2, .05);
+      if (charge) { this.act(def, 'down', 1.3); this.act(att, 'stumble', .6); this.R.dust(this.X(def.x) - this.V.ox, this.Y(def.y), 10); }
+      else { this.act(def, 'stumble', .6); }
+      SFX.play('whistle'); await this.wait(.5);
+    }
+    /* close call: dive for a loose ball heading out of bounds */
+    async dive(p, side, saved, to) {
+      const b = this.ball; b.holder = null; Object.assign(b, { x: p.x + side * 4, y: p.y + 2, z: 2 });
+      const bt = this.tween(b, { x: side * 26, y: p.y + 6, z: 0 }, 1.0, 'out');
+      p.anim = { type: 'reach', t: .1, T: .32 }; this.timeScale = .45; this.tween(this, { zoom: 1.3 }, .4);
+      await this.tween(p, { x: side * 23.5, y: p.y + 4, z: 1.2 }, .55, 'out'); this.act(p, 'down', 1.2); this.R.dust(this.X(p.x) - this.V.ox, this.Y(p.y), 12); SFX.play('thud');
+      this.timeScale = 1; this.tween(this, { zoom: 1 }, .5);
+      if (saved && to) { await this.pass({ x: p.x, y: p.y, z: 0, anim: null }, to, .45, 2); return true; }
+      await bt; SFX.play('whistle'); return false;
+    }
     /* impact: hit-stop freeze + shake + flash + camera punch-in */
     impact(stop = .12, shake = 10, flash = .25, kick = .05, col = '255,255,255') { this.stopT = Math.max(this.stopT, stop); this.shakeAmt = Math.max(this.shakeAmt, shake); this.flashA = Math.max(this.flashA, flash); this.flashCol = col; this.kick = Math.max(this.kick, kick); }
     /* quick anime close-up cut for your highlight plays (rate-limited, needs the portrait ready) */
@@ -167,10 +199,11 @@ const Match = (() => {
     /* ---------- choreographed animations (16-bit action frames) ---------- */
     async moveTo(p, x, y, dur = .6) { p.moving = true; await this.tween(p, { x, y }, dur, 'io'); p.moving = false; }
     async jump(p, h = 3, dur = .5) { const own = !p.anim; if (own) p.anim = { type: 'reb', t: 0 }; await this.tween(p, { z: h }, dur / 2, 'out'); await this.tween(p, { z: 0 }, dur / 2, 'in'); if (own) p.anim = null; }
-    async pass(from, to, dur) {
+    async pass(from, to, dur, arc = 0) {
       const b = this.ball, s = this.ballPos(); from.anim = { type: 'pass', t: .15, T: .26, thrown: true }; b.holder = null; Object.assign(b, s); SFX.play('pass');
-      const d = Math.hypot(to.x - s.x, to.y - s.y); dur = dur || clamp(d / 34, .3, .7);
-      await this.tween(b, { x: to.x + .7, y: to.y + .3, z: 3.5 }, dur, 'lin'); b.holder = to; from.anim = null;
+      const d = Math.hypot(to.x - s.x, to.y - s.y); dur = dur || clamp(d / 34, .3, .7) * (arc ? 1.5 : 1);
+      const o = { k: 0 }, sx = s.x, sy = s.y, sz = s.z, tz = arc ? 9 : 3.5;
+      await this.tween(o, { k: 1 }, dur, arc ? 'io' : 'lin', k => { b.x = lerp(sx, to.x + .7, k); b.y = lerp(sy, to.y + .3, k); b.z = lerp(sz, tz, k) + arc * 4 * k * (1 - k); }); b.holder = to; from.anim = null;
       to.anim = { type: 'catch', t: 0, T: .2 }; setTimeout(() => { if (to.anim && to.anim.type === 'catch') to.anim = null; }, 220);
     }
     /* Shot: gather, rise, release at the top, follow-through; ball arcs to the rim.
@@ -569,9 +602,11 @@ const Match = (() => {
       const mates = [...sh.body.querySelectorAll('.pl-mate')], bar = sh.body.querySelector('.timer i');
       return new Promise(res => {
         let open = -1, openAt = 0, done = false, t0 = performance.now(); const total = 4200;
-        const setOpen = () => { mates.forEach(m => m.classList.remove('open')); let n; do { n = Math.floor(Math.random() * 4); } while (n === open); open = n; openAt = performance.now(); mates[n].classList.add('open'); SFX.play('tick'); };
+        const only = o.target != null && o.target < 4 ? o.target : null;
+        if (only != null) mates.forEach((m, i) => { if (i !== only) m.classList.add('dim'); else m.classList.add('target'); });
+        const setOpen = () => { mates.forEach(m => m.classList.remove('open')); let n; if (only != null) n = only; else do { n = Math.floor(Math.random() * 4); } while (n === open); open = n; openAt = performance.now(); mates[n].classList.add('open'); SFX.play('tick'); };
         const fin = async (ok, q, msg) => { if (done) return; done = true; offK(); SFX.play(ok ? 'pass' : 'bad'); await sh.close(msg, ok); res({ success: ok, quality: q }); };
-        const choose = i => { if (done) return; if (i === open) fin(true, clamp(1 - (performance.now() - openAt) / win, .3, 1), 'DIME!'); else fin(false, 0, 'INTERCEPTED'); };
+        const choose = i => { if (done) return; if (i === open) fin(true, clamp(1 - (performance.now() - openAt) / win, .3, 1), 'DIME!'); else fin(false, 0, only != null && i === only ? 'TELEGRAPHED — TOO EARLY' : 'INTERCEPTED'); };
         mates.forEach(m => m.addEventListener('pointerdown', e => { e.preventDefault(); choose(+m.dataset.i); }));
         const kd = e => { const n = parseInt(e.key, 10); if (n >= 1 && n <= 4) choose(n - 1); }; window.addEventListener('keydown', kd); const offK = () => window.removeEventListener('keydown', kd);
         setTimeout(() => !done && setOpen(), rnd(400, 900));
@@ -646,6 +681,7 @@ const Match = (() => {
       us: 0, them: 0, i: 0, box: { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, to: 0 },
       succ: 0, att: 0, streak: 0, fire: false, sig: 0, sigUsed: false, sigUses: 0, mirror: 0, zone: false, postponed: false, fatigue: s.meta.fatigue * .4, clutchN: 0, clutchW: 0, perfects: 0, highlights: [],
       counters: {}, gameWinner: false, lastType: '', posterizers: 0, clutch: false, last: false, fb: 0,
+      wUses: {}, oppSig: 0, starRun: 0, takeover: 0, closeN: 0, closeKinds: {}, mateMakes: 0,
     };
     const cnt = (k, v = 1) => st.counters[k] = (st.counters[k] || 0) + v;
 
@@ -665,7 +701,7 @@ const Match = (() => {
           <aside class="pbp glass">
             <div class="statline" id="statline"></div>
             <div class="meters"><div class="mini-meter"><span>WEAPON</span><div class="bar sig"><i id="sigBar"></i></div></div><div class="mini-meter"><span>FATIGUE</span><div class="bar fat"><i id="fatBar"></i></div></div></div>
-            <div class="pbp-head">PLAY-BY-PLAY</div><ol class="pbp-list" id="pbp"></ol>
+            <div class="pbp-head pbp-tabs"><button class="on" data-pv="pbp">PLAY-BY-PLAY</button><button data-pv="box">BOX SCORE</button></div><ol class="pbp-list" id="pbp"></ol><div class="box-live" id="boxLive" hidden></div>
           </aside>
         </div>
         <div class="moment-panel glass" id="panel"></div>
@@ -673,6 +709,7 @@ const Match = (() => {
     SFX.music('game'); UI.setBg('matchbg', cfg.us.abbr);
     const $ = id => document.getElementById(id);
     const court = new Court($('court'), cfg.us, cfg.them, cfg.venueId && VENUES[cfg.venueId] ? cfg.venueId : Venues.forMatch(cfg));
+    document.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { document.querySelectorAll('[data-pv]').forEach(x => x.classList.toggle('on', x === b)); $('pbp').hidden = b.dataset.pv !== 'pbp'; $('boxLive').hidden = b.dataset.pv !== 'box'; if (b.dataset.pv === 'box') renderLiveBox(); });
 
     /* ---------- roster sprites ---------- */
     const lk = Engine.look(s), myIdx = ['PG', 'SG', 'SF', 'PF', 'C'].indexOf(s.player.pos);
@@ -694,6 +731,19 @@ const Match = (() => {
       court.players.forEach(p => { p.hidden = !US.includes(p) && !TH.includes(p); });
     }
     const MATES = () => US.filter(p => !p.isUser);
+    /* every player on the floor: his own stats (team rating + style), weapons and box-score line */
+    const nbox = () => ({ pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, to: 0 });
+    const shortOf = n => properName(String(n || '').replace(/"[^"]*"\s*/, '').trim().split(' ').slice(-1)[0] || n);
+    court.players.forEach(p => {
+      if (p.isUser) { p.stats = ME; p.weapons = Engine.weapons(s).map(x => x.id); p.box = st.box; p.full = `${s.player.first} ${s.player.last}`; p.short = myName; p.role = 'you'; return; }
+      const named = p.name && !/^(Teammate|Defender) \d/.test(p.name), N = Weapons.npc(named ? p.name : (p.team === 'us' ? cfg.us.abbr : cfg.them.abbr) + p.name, p.team === 'us' ? (cfg.mateRating || 45) : oppR, p === STAR);
+      p.stats = N.stats; p.weapons = N.weapons; p.role = N.role; p.box = nbox(); p.full = named ? p.name : (p.team === 'us' ? cfg.us.abbr : cfg.them.abbr) + ' ' + p.name.split(' ').pop(); p.short = named ? shortOf(p.name) : p.full;
+    });
+    STAR.stats.perD = Math.max(STAR.stats.perD, DEF.perD); STAR.stats.intD = Math.max(STAR.stats.intD, DEF.intD);
+    const rest = arr => arr.filter(p => p !== U && p !== STAR);
+    /* who guards whom: you and their star, everyone else in order */
+    const opp = p => { if (p === U) return STAR; if (p === STAR) return U; const mine = p.team === 'us' ? US : TH, other = p.team === 'us' ? TH : US, i = rest(mine).indexOf(p); return rest(other)[i] || (p.team === 'us' ? STAR : U); };
+    function shotBox(p, made, three) { const b = p && p.box; if (!b || p.isUser) return; b.fga++; if (three) b.tpa++; if (made) { b.fgm++; b.pts += three ? 3 : 2; if (three) b.tpm++; } }
 
     function formation(off, userSpot) {
       const offT = off === 'us' ? US : TH, defT = off === 'us' ? TH : US;
@@ -732,6 +782,13 @@ const Match = (() => {
       $('fatBar').style.width = Math.min(100, st.fatigue) + '%';
       $('sbFlag').innerHTML = st.fire ? '<span class="fire-tag">🔥 ON FIRE</span>' : st.zone ? '<span class="fire-tag zone">⚡ THE ZONE</span>' : '';
       $('sb').classList.toggle('fire', st.fire);
+      if (!$('boxLive').hidden) renderLiveBox();
+    }
+    /* live box score for both teams (aside tab) */
+    function renderLiveBox() {
+      const row = p => `<tr class="${p.isUser ? 'me' : ''}"><td>${escH(p.isUser ? myName : p.short || p.name)}${p === STAR ? ' ★' : ''}</td><td>${p.box.pts}</td><td>${p.box.reb}</td><td>${p.box.ast}</td><td>${p.box.fgm}/${p.box.fga}</td></tr>`;
+      const tbl = (nm, list, sc) => `<div class="bl-team"><b>${escH(nm)} · ${sc}</b><table><tr><th></th><th>PTS</th><th>REB</th><th>AST</th><th>FG</th></tr>${list.map(row).join('')}</table></div>`;
+      $('boxLive').innerHTML = tbl(cfg.us.abbr, US, st.us) + tbl(cfg.them.abbr, TH, st.them) + '<small class="muted">Visible plays only — the rest fills in at the final buzzer.</small>';
     }
     /* pickups ("first to N"): nobody reaches the target before the final whistle */
     const capTarget = () => { if (cfg.target) { st.us = Math.min(st.us, cfg.target - 1); st.them = Math.min(st.them, cfg.target - 1); } };
@@ -816,12 +873,16 @@ const Match = (() => {
       } else SFX.play('groan');
       return made;
     }
-    async function theyShoot(action, contest, by = STAR) {
-      const p = theirPct(action, contest), made = roll(p), pts = BALANCE.actions[action].three ? 3 : 2;
-      court.ball.holder = by;
-      if (action === 'layup' || action === 'dunk') { await court.drive(by, rnd(-2, 2), 8, .4); }
-      await court.shoot(by, made ? 'swish' : 'miss', { arc: action === 'layup' ? 3 : undefined });
-      if (made) { addPts('them', pts); court.pop('+' + pts, by.x, by.y, 9, '#f87171', 30); court.celebrate(by, pts === 3 ? 'three' : action === 'dunk' ? 'dunk' : 'two'); }
+    async function theyShoot(action, contest, by = STAR, o = {}) {
+      const dst = o.def ? (o.def.stats || MATE) : ME;
+      const p = o.pct != null ? o.pct : Balance.pct(action, by.stats || THEM, { def: dst, contest, bonus: diffBonus().concat(heatBonus(by)) }).pct;
+      const made = o.made != null ? o.made : roll(p), three = !!BALANCE.actions[action].three, pts = three ? 3 : 2;
+      court.ball.holder = by; st.lastTheirPct = p;
+      if (action === 'dunk') await court.dunk(by, made, o.poster);
+      else { if (action === 'layup' || action === 'hook') await court.drive(by, rnd(-2, 2), 8, .4); await court.shoot(by, made ? 'swish' : 'miss', { arc: action === 'layup' ? 3 : undefined, slowmo: o.slowmo }); }
+      shotBox(by, made, three);
+      if (made) { addPts('them', pts); st.oppSig++; court.pop('+' + pts, by.x, by.y, 9, '#f87171', 30); court.celebrate(by, three ? 'three' : action === 'dunk' ? 'dunk' : 'two'); }
+      if (by === STAR) heatCheck(made);
       return made;
     }
     async function boardAfterMiss(offensive) { // quick rebound roll (no minigame) — or a live put-back scramble
@@ -864,9 +925,9 @@ const Match = (() => {
       if (sit !== 'post') add('layup', 'Drive & finish', 'Beat your man to the rim', 'layup', 'Combo → layup timing', sit === 'break' ? { contest: 'open' } : {});
       if (sit !== 'post') add('dunk', 'Drive & throw it down', 'Attack and rise', 'dunk', 'Combo → dunk timing', sit === 'break' ? { contest: 'open' } : {});
       if (sit === 'post' || sit === 'elbow') { add('hook', 'Post up → hook', 'Back him down, hook it over the top', 'hook', 'Strength push → hook timing'); add('fade', 'Post up → fadeaway', 'Back him down, turn and fade', 'fade', 'Strength push → shot meter'); }
-      const pc = calc('pass', clock), mate = Balance.pct('catchMid', MATE, { def: DEF, diff: s.difficulty, contest: 'open' });
-      if (MATES().length) o.push({ k: 'pass', label: 'Find the open man', desc: 'Pass, then your teammate shoots', action: 'pass', pct: Math.round(pc.pct * mate.pct / 100), parts: pc.parts.concat([{ label: `Teammate's open shot ${mate.pct}%`, v: null }]), mg: 'Passing lane', passPct: pc.pct, matePct: mate.pct });
-      if (sigReady()) o.push(weaponOpt());
+      const pc = calc('pass', clock);
+      if (MATES().length) o.push({ k: 'pass', label: sit === 'post' ? 'Kick it out of the double team' : sit === 'break' ? 'Look for the alley-oop' : 'Find the open man', desc: 'Pick the teammate — each shows his %', action: 'pass', pct: pc.pct, parts: pc.parts, mg: 'Passing lane', passKind: sit === 'break' ? 'alleyoop' : sit === 'post' ? 'kickout' : pick(['kickout', 'skip', 'giveandgo']) });
+      if (sigReady()) weaponOpts('off').forEach(w => o.push(w));
       return o;
     }
     async function offPossession(clutchCtx) {
@@ -881,8 +942,8 @@ const Match = (() => {
     async function runOffense(o, text, sit) {
       tire();
       const setup = `<b>${escH(text)}</b>`;
-      if (o.k === 'sig') return weapon(setup);
-      if (o.k === 'pass') return passPlay(o, setup);
+      if (o.k === 'sig') return weapon(setup, o.wid);
+      if (o.k === 'pass') return passMoment(o.passKind || 'kickout');
       let q = .5, kind, poster = false, perfect = false;
       if (o.k === 'catch') {
         const mateWithBall = MATES().length ? pick(MATES()) : STAR; court.ball.holder = mateWithBall; await court.pass(mateWithBall, U);
@@ -931,25 +992,11 @@ const Match = (() => {
       if (!made) await boardAfterMiss(true);
       return made;
     }
-    async function passPlay(o, setup) {
-      busy(setup, '🎮 Find the open man');
-      const mates = MATES();
-      const r = await MG.passLane($('mg'), { window: (450 + (ME.pass * .5 + ME.iq * .5) / 99 * 700) * WIN() * MGX('passWindow'), names: mates.map(m => (m.name || '').split(' ').slice(-1)[0]) });
-      idle();
-      const complete = r.success && roll(Balance.apply('pass', o.passPct, r.quality));
-      if (!complete) { if (!r.success || roll(50)) { st.box.to++; court.ball.holder = STAR; await court.moveTo(STAR, 0, 40, .6); pbp(say('turnover'), 'bad'); } else pbp('The pass is deflected out of bounds. Reset.'); fail(); return false; }
-      const mate = pick(mates); await court.pass(U, mate);
-      const made = roll(Balance.apply('catchMid', o.matePct, .5 + r.quality * .2));
-      await court.shoot(mate, made ? 'swish' : 'miss');
-      if (made) { court.celebrate(mate, 'two'); st.box.ast++; cnt('assists'); addPts('us', mate.x * mate.x > 300 ? 3 : 2); court.pop('+AST', U.x, U.y, 9, '#a78bfa'); pbp(say('assist', { mate: mate.name }), 'good'); success(); }
-      else { pbp(say('mate_miss', { mate: mate.name })); st.att++; await boardAfterMiss(true); }
-      return made;
-    }
-
     /* =================================================================
        DEFENSIVE POSSESSION — choose an approach, then play it
        ================================================================= */
     async function defPossession(clutchCtx) {
+      const sw = starWeapon(); if (sw && Math.random() < OB.weaponUse + (st.takeover > 0 ? .25 : 0)) return weaponCounter(STAR, sw, clutchCtx && clutchCtx.text);
       formation('them'); court.ball.holder = STAR; STAR.x = 4; STAR.y = 26; U.x = 3.6; U.y = 23; U.pose = 'def';
       const sit = clutchCtx ? 'iso' : pick(['iso', 'iso', 'drive', 'shooter']);
       const sName = properName(star.name.split(' ').slice(-1)[0]);
@@ -961,7 +1008,9 @@ const Match = (() => {
       add('steal', 'Go for the steal', 'Big reward, big risk', 'steal', 'Quick-hands reaction');
       if (sit !== 'shooter') add('help', 'Help & block', 'Meet him at the rim', 'block', 'Block timing');
       if (sit !== 'drive') add('contest', 'Contest the shot', 'Hand in his face', 'contest', 'Contest timing');
+      if (sigReady()) weaponOpts('def').forEach(w => o.push(Object.assign(w, { action: WEAPONS[w.wid].type === 'block' ? 'block' : WEAPONS[w.wid].type === 'steal' ? 'steal' : 'stop' })));
       const ch = await choose(`<b>${escH(text)}</b>`, o);
+      if (ch.k === 'sig') return defWeapon(ch, text);
       tire();
       const setup = `<b>${escH(text)}</b>`, fin = q => Balance.apply(ch.action, ch.pct, q);
       const attackerSvg = Art.avatar(Art.lookFromSeed(star.name, { jersey: cfg.them.colors[0], trim: cfg.them.colors[1], expr: 'fierce' }), { mode: 'bust' });
@@ -987,7 +1036,7 @@ const Match = (() => {
         idle();
         await court.drive(att, -3, 8, .45);
         const ok = r.success && roll(fin(r.quality));
-        await court.block(U, att, ok);
+        await court.block(U, att, ok); shotBox(att, !ok, false);
         if (ok) { st.box.blk++; cnt('blocks'); cnt('stops'); pbp(say('block'), 'good'); court.pop('REJECTED!', U.x, U.y, 10, '#38bdf8', 38); success(true); if (!(await maybeFastBreak('block', Math.random() < .6 ? 'me' : 'mate'))) await boardAfterMiss(false); return true; }
         addPts('them', 2); pbp(say('block_fail', { att: att.name }), 'bad'); fail(); return false;
       } else if (ch.k === 'contest') {
@@ -1005,11 +1054,331 @@ const Match = (() => {
       pbp(contest === 'open' ? `${sName} misses a good look. Lucky.` : say('stop', { def: star.name }), 'good');
       stop = true; success(); await boardAfterMiss(false); return stop;
     }
-    async function stealPlay() {
-      await court.steal(U, STAR); st.box.stl++; cnt('steals'); cnt('stops'); pbp(say('steal'), 'good'); court.pop('STEAL!', U.x, U.y, 8, '#38bdf8'); SFX.play('crowd', 1.3);
+    async function stealPlay(from = STAR) {
+      court.ball.holder = from; await court.steal(U, from); st.box.stl++; if (from.box) from.box.to++; cnt('steals'); cnt('stops'); pbp(say('steal'), 'good'); court.pop('STEAL!', U.x, U.y, 8, '#38bdf8'); SFX.play('crowd', 1.3);
       if (await maybeFastBreak('steal', 'me')) { success(true); return true; }
       const act = Balance.available('dunk', ME) ? 'dunk' : 'layup', p = calc(act, { contest: 'open' }).pct;
       const made = await myShot(act, roll(p)); if (made) pbp(say('breakaway'), 'good'); success(true); return true;
+    }
+
+    /* your defensive weapon (Lockdown Stance, Pickpocket, Chase-Down Block…) */
+    async function defWeapon(ch, text) {
+      const w = WEAPONS[ch.wid]; st.sigUses++; st.sig = 0; st.sigUsed = st.sigUses >= (Engine.hasSpecial(s, 'formless') ? 2 : 1);
+      await weaponFlash(U, ch.wid, 'us'); busy(`<b>${escH(text)}</b>`, `🎮 ${w.name}`);
+      let q;
+      if (w.type === 'block') { const r = await MG.rebound($('mg'), { title: '⚔ ' + w.name.toUpperCase(), zone: (.1 + (ME.intD * .6 + ME.vert * .4) / 99 * .16) * WIN() }); q = r.success ? r.quality : 0; }
+      else { const r = await MG.defenseReact($('mg'), { title: '⚔ ' + w.name.toUpperCase(), window: (450 + ME.perD / 99 * 450) * WIN() * 1.3 }); q = r.success ? Math.max(.5, r.quality) : .1; }
+      idle(); const ok = roll(clamp(Math.round(ch.pct + (q - .5) * WB.skill), 5, WB.max));
+      if (ok && w.type === 'steal') { pbp(`⚔ <b>${escH(w.name)}!</b>`, 'good hot'); return stealPlay(STAR); }
+      if (ok && w.type === 'block') { await court.drive(STAR, 1, 8, .35); await court.block(U, STAR, true); st.box.blk++; cnt('blocks'); cnt('stops'); pbp(`⚔ <b>${escH(w.name)}!</b> ${myName} sends it back.`, 'good hot'); st.highlights.push(`Weapon: ${w.name}`); success(true); await boardAfterMiss(false); return true; }
+      U.pose = ok ? 'block' : 'def'; const made = await theyShoot(pick(['pullMid', 'pull3']), ok ? 'heavy' : 'normal', STAR, { made: ok ? roll(12) : undefined }); U.pose = '';
+      if (!made) { cnt('stops'); pbp(`⚔ <b>${escH(w.name)}</b> — ${escH(STAR.short)} can't shake you.`, 'good hot'); success(true); await boardAfterMiss(false); return true; }
+      pbp(`${escH(STAR.short)} scores through ${escH(w.name)}.`, 'bad'); fail(); return false;
+    }
+
+    /* =================================================================
+       EVERYONE PLAYS — teammates and opponents take real shots with their own stats + weapons
+       ================================================================= */
+    const OB = BALANCE.others, PB = BALANCE.passing, CL = BALANCE.close, WB = BALANCE.weapons;
+    const ACT_OF = { three: 'pull3', mid: 'pullMid', drive: 'layup', dunk: 'dunk', post: 'fade', zone: 'pullMid' };
+    const roleAction = p => { const st2 = p.stats || MATE, r = p.role; if (r === 'shooter') return Math.random() < .6 ? 'catch3' : 'pullMid'; if (r === 'big') return Balance.available('dunk', st2) && Math.random() < .45 ? 'dunk' : 'hook'; if (r === 'slasher') return Math.random() < .7 ? 'layup' : 'pullMid'; if (r === 'playmaker') return pick(['pullMid', 'layup', 'catch3']); return pick(['layup', 'catchMid']); };
+    const ACT_LABEL = { catch3: 'catch-and-shoot three', pull3: 'pull-up three', catchMid: 'open jumper', pullMid: 'pull-up jumper', layup: 'drive and finish', dunk: 'throw it down', hook: 'post hook', fade: 'post fadeaway' };
+    /* one of our offensive weapons is usable for this action? (NPCs: each weapon twice per game) */
+    const npcWeapon = (p, action) => { const id = (p.weapons || []).find(w => Weapons.fits(w, action)); return id && (st.wUses[p.name + id] || 0) < 2 ? id : null; };
+    async function weaponFlash(p, id, side) {
+      const w = WEAPONS[id]; st.wUses[p.name + id] = (st.wUses[p.name + id] || 0) + 1; cnt(side === 'us' && p.isUser ? 'weaponUses' : 'npcWeapons');
+      court.aura(p, side === 'us' ? '#facc15' : '#ef4444', 2.4); court.impact(.28, 6, .4, .06, side === 'us' ? '250,204,21' : '239,68,68'); SFX.play('sig');
+      const ts = court.timeScale; court.timeScale = .35;
+      await banner(`<small>⚔ ${escH(p.full || p.name)}</small>${escH(w.name)}`, 'sig wpn-' + side, 1150); court.timeScale = ts;
+      pbp(`⚔ <b>${escH(p.short)}</b> uses <b>${escH(w.name)}</b>!`, side === 'us' ? 'hot' : 'bad');
+    }
+    /* animate any player's shot (not yours) — returns made */
+    async function animShot(p, action, made, o = {}) {
+      court.ball.holder = p;
+      if (action === 'dunk') return court.dunk(p, made, o.poster);
+      if (action === 'layup') return court.layup(p, made);
+      if (action === 'hook' || action === 'fade') { await court.moveTo(p, p.x > 0 ? 5 : -5, 9, .35); return court.shoot(p, made ? 'swish' : 'miss', { arc: 4, slowmo: o.slowmo }); }
+      if (action === 'pull3' || action === 'pullMid') { SFX.play('squeak'); await court.moveTo(p, p.x + (p.x > 0 ? 1.5 : -1.5), p.y + 1.2, .25); }
+      return court.shoot(p, made ? (Math.random() < .55 ? 'swish' : 'rimin') : (Math.random() < .06 ? 'airball' : 'miss'), { slowmo: o.slowmo });
+    }
+    function heatCheck(made) {
+      if (!made) { st.starRun = 0; return; }
+      st.starRun++;
+      if (st.starRun >= OB.star.heatAt && !(st.takeover > 0)) { st.takeover = OB.star.takeover; court.aura(STAR, '#ef4444', 3); pbp(`🔥 <b>${escH(STAR.short)} is taking over!</b> ${st.starRun} straight bucket${st.starRun > 1 ? 's' : ''}.`, 'bad'); banner(`<small>${escH(STAR.full)}</small>IS TAKING OVER`, 'fire', 1300); SFX.play('roar'); }
+    }
+    const heatBonus = by => by === STAR && st.takeover > 0 ? [{ label: 'Taking over', v: OB.star.bonus }] : [];
+    const diffBonus = () => diffShift ? [{ label: 'Difficulty', v: Math.round(diffShift * .6) }] : [];
+    /* a teammate's own possession — you choose how to help, then he plays it with his stats (and maybe a weapon) */
+    async function matePlay() {
+      const mates = MATES(); if (!mates.length) return offPossession();
+      const m = pick(mates.concat(mates.filter(x => x.role === 'shooter' || x.role === 'slasher')));
+      formation('us'); court.ball.holder = m; m.x = m.role === 'big' ? 6 : m.x; m.y = m.role === 'big' ? 10 : m.y;
+      let action = roleAction(m); const wid = Math.random() < OB.weaponUse * 1.4 ? (m.weapons || []).map(id => [id, ACT_OF[WEAPONS[id] && WEAPONS[id].type]]).find(([id, a]) => a && npcWeapon(m, a)) : null;
+      if (wid) action = wid[1];
+      const d = opp(m), def = d.stats || DEF;
+      const base = wid ? Weapons.pct(wid[0], m.stats, { def, npc: true, diff: s.difficulty }) : Balance.pct(action, m.stats, { def, diff: s.difficulty, contest: 'normal' });
+      const scr = Math.round(4 + (Balance.eff(ME.str) * .5 + Balance.eff(ME.iq) * .5) / 99 * 6);
+      const opts = [
+        { k: 'screen', label: 'Set a screen for him', desc: `Strength ${ME.str} + IQ ${ME.iq} free him up (+${scr}%)`, pct: Math.min(95, base.pct + scr), parts: base.parts.concat([{ label: 'Your screen', v: scr }]) },
+        { k: 'spot', label: 'Spot up for the kick-out', desc: 'If his man helps, he finds you open', pct: base.pct, parts: base.parts },
+        { k: 'crash', label: 'Crash the offensive glass', desc: 'If he misses, the board is yours more often', pct: base.pct, parts: base.parts },
+      ];
+      const ch = await choose(`<b>${escH(m.short)} has it — ${escH(ACT_LABEL[action] || 'attacking')} coming. ${wid ? `⚔ He's ready to use <i>${escH(WEAPONS[wid[0]].name)}</i>.` : ''}</b>`, opts);
+      tire();
+      if (ch.k === 'spot' && roll(34)) {   // kick-out to you
+        pbp(`${escH(m.short)} draws the help and kicks it out to ${myName}!`); await court.pass(m, U);
+        const c = calc('catch3', { contest: 'open' }); busy(`<b>Kick-out from ${escH(m.short)}!</b>`, '🎮 Catch & shoot');
+        const r = await MG.shotMeter($('mg'), { title: 'CATCH & SHOOT', green: green(ME.three) * MGX('green'), dur: 1, sub: `Three-Point ${ME.three} · base ${c.pct}%` }); idle();
+        const fin = Balance.apply('catch3', c.pct, meterQ(r)), made = await myShot('three', roll(fin), { perfect: r.perfect });
+        if (made) { m.box.ast++; pbp(`${myName} buries it off ${escH(m.short)}'s kick-out. <i class="pct-note">${fin}%</i>`, 'good'); success(); } else { pbp(`${myName} can't knock down the kick-out. <i class="pct-note">${fin}%</i>`); fail(); await boardAfterMiss(true); }
+        return made;
+      }
+      if (wid) await weaponFlash(m, wid[0], 'us');
+      const made = roll(ch.pct), three = !!BALANCE.actions[action].three;
+      await animShot(m, action, made, { poster: action === 'dunk' && made && wid }); shotBox(m, made, three);
+      if (ch.k === 'screen') cnt('screens');
+      if (made) { addPts('us', three ? 3 : 2); court.celebrate(m, three ? 'three' : action === 'dunk' ? 'dunk' : 'two'); pbp(`${escH(m.short)} ${three ? 'drills a three' : action === 'dunk' ? 'throws it down' : 'scores'}${ch.k === 'screen' ? ' off your screen' : ''}. <i class="pct-note">${ch.pct}%</i>`, 'good'); st.mateMakes++; if (ch.k === 'screen') success(); return true; }
+      pbp(`${escH(m.short)} misses. <i class="pct-note">${ch.pct}%</i>`);
+      if (ch.k === 'crash') { const p = Math.min(90, calc('rebound', { def: Balance.profile(oppR) }).pct * .8); if (roll(p)) { st.box.reb++; cnt('rebounds'); court.ball.holder = U; pbp(say('oreb'), 'good'); const pm = await myShot('layup', roll(calc('layup', { contest: 'contested' }).pct)); pbp(say(pm ? 'putback' : 'putback_miss'), pm ? 'good' : ''); success(); return pm; } pbp(say('lost_oreb')); return false; }
+      await boardAfterMiss(true); return false;
+    }
+    /* one of their role players attacks one of your teammates — you decide whether to help */
+    async function oppPlay() {
+      const others = TH.filter(p => p !== STAR); if (!others.length || !MATES().length) return defPossession();
+      const a = pick(others), g = opp(a), gd = g.stats || MATE;
+      formation('them'); court.ball.holder = a;
+      let action = roleAction(a); const wid = Math.random() < OB.weaponUse ? (a.weapons || []).map(id => [id, ACT_OF[WEAPONS[id] && WEAPONS[id].type]]).find(([id, x]) => x && npcWeapon(a, x)) : null;
+      if (wid) action = wid[1];
+      const their = wid ? Weapons.pct(wid[0], a.stats, { def: gd, npc: true, bonus: diffBonus() }).pct : Balance.pct(action, a.stats, { def: gd, contest: 'normal', bonus: diffBonus() }).pct;
+      const blk = calc('block', { def: a.stats }), stl = calc('steal', { def: a.stats });
+      const ch = await choose(`<b>${escH(a.short)} attacks ${escH(g.short)}${wid ? ` — ⚔ <i>${escH(WEAPONS[wid[0]].name)}</i> incoming!` : '.'}</b>`, [
+        { k: 'home', label: 'Stay home on your man', desc: `Trust ${g.short} to defend`, pct: 100 - their, parts: [{ label: `${a.short}'s shot ${their}% vs ${g.short}`, v: null }] },
+        { k: 'help', label: 'Help at the rim', desc: 'Block chance — but your man is left open', pct: blk.pct, parts: blk.parts, mg: 'Block timing' },
+        { k: 'lane', label: 'Jump the passing lane', desc: 'Quick decision · risky', pct: stl.pct, parts: stl.parts },
+      ]);
+      tire();
+      if (wid && ch.k !== 'lane') await weaponFlash(a, wid[0], 'them');
+      if (ch.k === 'lane') { if (roll(ch.pct)) return stealPlay(a); pbp(`${myName} gambles — ${escH(a.short)} goes right by.`, 'bad'); const mm = await theyShoot('layup', 'open', a, { def: g }); if (mm) fail(); return !mm; }
+      if (ch.k === 'help') {
+        busy(`<b>${escH(a.short)} drives on ${escH(g.short)}</b>`, '🎮 Time the block');
+        const r = await MG.rebound($('mg'), { title: 'BLOCK IT', zone: (.07 + (ME.intD * .6 + ME.vert * .4) / 99 * .14) * WIN() * (1 + APE * .02) }); idle();
+        const ok = r.success && roll(Balance.apply('block', blk.pct, r.quality));
+        await court.drive(a, -2, 8, .4); await court.block(U, a, ok);
+        if (ok) { st.box.blk++; cnt('blocks'); cnt('stops'); pbp(`${myName} rotates over and swats ${escH(a.short)}!`, 'good'); success(true); await boardAfterMiss(false); return true; }
+        pbp(`${escH(a.short)} sees you coming and kicks it to the open man.`, 'bad'); const mm = await theyShoot('catch3', 'open', STAR, { def: U }); if (mm) pbp(`${escH(STAR.short)} hits the open three.`, 'bad'); else pbp(`${escH(STAR.short)} misses the open three. Lucky.`); mm ? fail() : success(); if (!mm) await boardAfterMiss(false); return !mm;
+      }
+      const mm = await theyShoot(action, 'normal', a, { def: g, pct: their });
+      pbp(mm ? `${escH(a.short)} scores on ${escH(g.short)}. <i class="pct-note">${their}%</i>` : `${escH(g.short)} holds ${escH(a.short)} — miss. <i class="pct-note">${their}%</i>`, mm ? 'bad' : 'good');
+      if (!mm) await boardAfterMiss(false); return !mm;
+    }
+    /* a star uses a weapon on you: choose how to defend, then a quick defense minigame */
+    const DEFOPT = {
+      shot: [['crowd', 'Crowd the shooter', 'contest', 'Contest timing', 4], ['stay', 'Stay down — don\'t bite', 'stop', 'Mirror the move', 2], ['late', 'Give space, late contest', 'contest', 'Contest timing', -4]],
+      rim: [['wall', 'Wall up at the rim', 'block', 'Block timing', 3], ['charge', 'Take the charge', 'charge', 'Set your feet', 0], ['strip', 'Strip it on the gather', 'steal', 'Quick hands', -3]],
+      pass: [['lane', 'Jump the passing lane', 'steal', 'Quick hands', 0], ['home', 'Stay home', 'stop', 'Mirror the move', 4]],
+    };
+    async function weaponCounter(att, id, text) {
+      const w = WEAPONS[id], fam = ['three', 'mid'].includes(w.type) ? 'shot' : w.type === 'pass' ? 'pass' : 'rim', action = ACT_OF[w.type] || 'layup';
+      formation('them'); court.ball.holder = att; att.x = 4; att.y = w.type === 'three' ? 27 : 20; U.x = 3.6; U.y = att.y - 3; U.pose = 'def';
+      await weaponFlash(att, id, 'them'); st.oppSig = 0;
+      const wp = Weapons.pct(id, att.stats, { def: ME, npc: true, star: att === STAR, bonus: heatBonus(att).concat(diffBonus()) }).pct;
+      const opts = DEFOPT[fam].map(([k, label, act, mg, mod]) => { const dp = calc(act, { def: att.stats }).pct, their = clamp(Math.round(wp - (dp - 50) * .6 - mod), 5, 95); return { k, label, desc: `${w.name} is ${wp}% — you cut it to ${their}%`, act, pct: 100 - their, parts: [{ label: `${w.name} ${wp}%`, v: null }, { label: `Your ${BALANCE.actions[act].name.toLowerCase()} ${dp}%`, v: Math.round((dp - 50) * .6) }], mg, their }; });
+      const mine = sigReady() ? Engine.weapons(s).find(x => ['stop', 'steal', 'block'].includes(x.w.type)) : null;
+      if (mine) { const p = Engine.weaponPct(s, mine.id, att.stats, bonuses('stop')).pct; opts.push({ k: 'mywpn', label: '⚔ ' + mine.w.name, desc: 'Answer with your own weapon', act: mine.w.type === 'block' ? 'block' : mine.w.type === 'steal' ? 'steal' : 'stop', pct: Math.round((p + (100 - wp)) / 2), parts: [{ label: `${mine.w.name} ${p}% vs ${w.name} ${wp}%`, v: null }], mg: 'Weapon minigame', cls: 'sig', their: 100 - Math.round((p + (100 - wp)) / 2) }); }
+      const ch = await choose(`<b>⚔ ${escH(att.short)} is using <i>${escH(w.name)}</i> on you! ${escH(text || '')}</b>`, opts);
+      tire();
+      if (ch.k === 'mywpn') { st.sigUses++; st.sig = 0; st.sigUsed = st.sigUses >= (Engine.hasSpecial(s, 'formless') ? 2 : 1); await weaponFlash(U, mine.id, 'us'); }
+      const setup = `<b>Stop ${escH(att.short)}'s ${escH(w.name)}!</b>`; let q = .5;
+      busy(setup, `🎮 ${ch.mg}`);
+      if (ch.act === 'block' || ch.act === 'contest' || ch.act === 'charge') { const r = await MG.rebound($('mg'), { title: ch.act === 'charge' ? 'SET YOUR FEET' : ch.act === 'block' ? 'BLOCK IT' : 'CONTEST', zone: (.07 + (ch.act === 'charge' ? ME.iq : ME.perD * .6 + ME.vert * .4) / 99 * .14) * WIN() * MGX('defWindow'), dur: ch.act === 'charge' ? 1 : 1.3 }); q = r.success ? r.quality : 0; }
+      else { const r = await MG.defenseReact($('mg'), { window: (330 + (ME.perD * .6 + ME.speed * .4) / 99 * 470) * WIN() * MGX('defWindow') * (ch.k === 'mywpn' ? 1.25 : 1), title: ch.act === 'steal' ? 'GO FOR THE STEAL' : 'LOCK IN', attackerSvg: Art.avatar(Art.lookFromSeed(att.name, { jersey: cfg.them.colors[0], trim: cfg.them.colors[1], expr: 'fierce' }), { mode: 'bust' }) }); q = r.success ? r.quality : 0; }
+      idle();
+      const stopP = clamp(Math.round(ch.pct + (q - .5) * WB.skill), 5, 95), stopped = roll(stopP);
+      if (stopped && ch.act === 'steal') { pbp(`${myName} reads <b>${escH(w.name)}</b> and strips ${escH(att.short)}! <i class="pct-note">${stopP}% stop</i>`, 'good hot'); st.highlights.push(`Stopped ${att.short}'s ${w.name}`); return stealPlay(att); }
+      if (stopped && ch.act === 'charge') { await court.collide(att, U, true); banner('OFFENSIVE FOUL!', 'clutch', 1000); cnt('charges'); cnt('stops'); pbp(`${myName} takes the charge on ${escH(att.short)}'s <b>${escH(w.name)}</b>! <i class="pct-note">${stopP}%</i>`, 'good hot'); st.highlights.push(`Took a charge on ${att.short}`); success(true); SFX.play('roar'); return true; }
+      if (stopped && ch.act === 'block') { await court.drive(att, 1, 8, .35); await court.block(U, att, true); st.box.blk++; cnt('blocks'); cnt('stops'); pbp(`REJECTED! ${myName} meets ${escH(att.short)}'s <b>${escH(w.name)}</b> at the rim. <i class="pct-note">${stopP}%</i>`, 'good hot'); st.highlights.push(`Blocked ${att.short}'s ${w.name}`); success(true); await boardAfterMiss(false); return true; }
+      U.pose = stopped ? 'block' : 'def';
+      const made = await theyShoot(action, stopped ? 'heavy' : 'normal', att, { made: !stopped, slowmo: true }); U.pose = '';
+      if (made) { pbp(`<b>${escH(w.name)}</b> — ${escH(att.short)} gets you. <i class="pct-note">${stopP}% stop</i>`, 'bad'); fail(); return false; }
+      cnt('stops'); pbp(`${myName} stays with it — ${escH(att.short)}'s <b>${escH(w.name)}</b> misses! <i class="pct-note">${stopP}% stop</i>`, 'good hot'); st.highlights.push(`Stopped ${att.short}'s ${w.name}`); if (att === STAR) cnt('starStops'); success(true); await boardAfterMiss(false); return true;
+    }
+    const starWeapon = () => { const id = (STAR.weapons || []).find(x => WEAPONS[x] && WEAPONS[x].type !== 'stop' && WEAPONS[x].type !== 'steal' && WEAPONS[x].type !== 'block'); return id && (st.oppSig || 0) >= WB.npc.charge && (st.wUses[STAR.name + id] || 0) < 3 ? id : null; };
+    /* the star is hot: the coach asks if you can guard him */
+    async function guardStar() {
+      st.takeover--; const g = MATES().length ? opp(STAR) === U ? MATES()[0] : opp(STAR) : U;
+      const theirMe = Balance.pct('pullMid', STAR.stats, { def: ME, contest: 'normal', bonus: heatBonus(STAR).concat(diffBonus()) }).pct, theirMate = Balance.pct('pullMid', STAR.stats, { def: g.stats || MATE, contest: 'normal', bonus: heatBonus(STAR).concat(diffBonus()) }).pct;
+      formation('them'); court.ball.holder = STAR;
+      const ch = g === U ? { k: 'me' } : await choose(`<b>📣 Coach: "${escH(STAR.short)} is cooking. ${escH(properName(s.player.first))} — can you guard him?"</b>`, [
+        { k: 'me', label: '"I got him."', desc: 'Take the assignment (Coach Trust)', pct: 100 - theirMe, parts: [{ label: `${STAR.short} ${theirMe}% vs you`, v: null }] },
+        { k: 'mate', label: `Let ${g.short} take him`, desc: 'You stay on your own man', pct: 100 - theirMate, parts: [{ label: `${STAR.short} ${theirMate}% vs ${g.short}`, v: null }] }]);
+      if (ch.k === 'me') { cnt('starAssign'); pbp(`${myName} takes the ${escH(STAR.short)} assignment.`, 'hot'); const id = starWeapon(); if (id) return weaponCounter(STAR, id, 'He wants to cook you.'); return defPossession({ text: `${STAR.short} isolates on you. Everybody clears out.` }); }
+      const made = await theyShoot(pick(['pullMid', 'pull3', 'layup']), 'normal', STAR, { def: g });
+      pbp(made ? `${escH(STAR.short)} scores over ${escH(g.short)} again.` : `${escH(g.short)} gets a stop on ${escH(STAR.short)}!`, made ? 'bad' : 'good'); if (!made) await boardAfterMiss(false); return !made;
+    }
+
+    /* =================================================================
+       PASSING MOMENTS — pick the teammate (each shows his %), make the pass, he plays it
+       ================================================================= */
+    const PASS_KIND = {
+      kickout: { name: 'Kick-out', text: 'You drive and suck in two defenders. Kick it out!', mod: 0, mg: 'lane' },
+      lob: { name: 'Lob to the big', text: 'Their big steps up to stop you — your big man is alone behind him. Throw the lob!', mod: -4, mg: 'lob' },
+      alleyoop: { name: 'Alley-oop', text: 'A teammate is cutting baseline with nobody near him. Alley-oop?', mod: -8, mg: 'lob' },
+      giveandgo: { name: 'Give-and-go', text: 'Pass and cut — the give-and-go is wide open.', mod: 2, mg: 'lane' },
+      hockey: { name: 'Hockey assist', text: 'Swing it — one more pass finds the open man.', mod: -2, mg: 'lane' },
+      skip: { name: 'Skip pass', text: 'The defense loads up on the strong side. Skip it across the court!', mod: -6, mg: 'lane' },
+      outlet: { name: 'Outlet pass', text: 'Rebound secured. Hit the outlet and run!', mod: 4, mg: 'lane' },
+    };
+    const OPEN_TXT = { wide: 'WIDE OPEN', open: 'open', normal: 'covered', tight: 'tightly guarded' };
+    function rollOpen(kind) { const w = kind === 'skip' || kind === 'hockey' ? { wide: 3, open: 3, normal: 1, tight: .3 } : kind === 'kickout' ? { wide: 2, open: 3, normal: 2, tight: 1 } : { wide: 1, open: 3, normal: 2, tight: 1 }; let r = Math.random() * Object.values(w).reduce((a, b) => a + b, 0); for (const k in w) { r -= w[k]; if (r <= 0) return k; } return 'open'; }
+    function mateOpt(m, kind, i) {
+      const action = kind === 'lob' ? (Balance.available('dunk', m.stats) ? 'dunk' : 'layup') : kind === 'alleyoop' ? 'dunk' : kind === 'outlet' ? 'layup' : (m.role === 'big' ? 'catchMid' : m.role === 'shooter' || kind === 'skip' || kind === 'hockey' || Math.random() < .5 ? 'catch3' : 'catchMid');
+      const open = kind === 'hockey' ? 'wide' : rollOpen(kind), ob = [{ label: OPEN_TXT[open][0].toUpperCase() + OPEN_TXT[open].slice(1), v: PB.open[open] }], def = (opp(m).stats) || DEF;
+      let c = Balance.pct(action, m.stats, { def, diff: s.difficulty, bonus: ob }), wid = (m.weapons || []).find(id => Weapons.fits(id, action) || (kind === 'alleyoop' || kind === 'lob') && WEAPONS[id].type === 'dunk');
+      if (wid) { const wc = Weapons.pct(wid, m.stats, { def, npc: true, diff: s.difficulty, bonus: ob }); if (wc.pct > c.pct) c = wc; else wid = null; }
+      return { k: 'mate', i, m, action, open, wid, label: `${m.short} — ${ACT_LABEL[action]}`, desc: `${OPEN_TXT[open]} · ${m.role}${wid ? ` · ⚔ ${WEAPONS[wid].name}` : ''}`, pct: c.pct, parts: c.parts, cls: open === 'wide' ? 'open' : '' };
+    }
+    async function passMoment(kind, text) {
+      const mates = MATES(); if (!mates.length) return offPossession();
+      if (kind === 'lob' || kind === 'alleyoop') { if (!mates.some(m => m.role === 'big' || Balance.available('dunk', m.stats))) kind = 'kickout'; }
+      const K = PASS_KIND[kind]; formation('us', kind === 'skip' ? SPOTS.wing : kind === 'outlet' ? [4, 12] : SPOTS.top); court.ball.holder = U;
+      if (kind === 'kickout' || kind === 'lob') { await court.drive(U, rnd(-3, 3), 11, .5); }
+      const passC = calc('pass', { bonus: bonuses('pass').concat(K.mod ? [{ label: K.name, v: K.mod }] : []) });
+      let opts = mates.map((m, i) => mateOpt(m, kind, i));
+      if (kind === 'giveandgo') { const lay = calc('layup', { contest: 'open' }); opts = mates.map((m, i) => { const pb = Math.round((Balance.eff(m.stats.pass) - 50) * .3); return { k: 'mate', i, m, label: `Give it to ${m.short}, cut for the return`, desc: `You finish at the rim · ${m.short} passes ${m.stats.pass}`, pct: clamp(lay.pct + 2 + pb, 5, 95), parts: lay.parts.concat([{ label: `${m.short}'s return pass`, v: 2 + pb }]), action: 'layup', give: true }; }); }
+      if (kind === 'hockey' && mates.length > 1) opts = mates.map((m, i) => { const to = mates[(i + 1) % mates.length], o = mateOpt(to, 'hockey', mates.indexOf(to)); return Object.assign(o, { label: `${m.short} swings it to ${to.short}`, desc: `${to.short} ${OPEN_TXT[o.open]} · ${ACT_LABEL[o.action]}${o.wid ? ' · ⚔ ' + WEAPONS[o.wid].name : ''}`, via: m }); });
+      opts.push({ k: 'keep', label: 'Keep it — attack yourself', desc: 'Pick your own shot', pct: null });
+      const ch = await choose(`<b>${escH(text || K.text)}</b> <span class="pct-note">${K.name} · pass ${passC.pct}%</span>`, opts);
+      if (ch.k === 'keep') return offPossession();
+      tire();
+      const recv = ch.via || ch.m, idx = mates.indexOf(recv);
+      busy(`<b>${K.name} to ${escH(recv.short)}</b>`, K.mg === 'lob' ? '🎮 Time the lob' : '🎮 Thread the pass');
+      let q;
+      if (K.mg === 'lob') { const r = await MG.dunkChain($('mg'), { title: kind === 'alleyoop' ? 'ALLEY-OOP' : 'LOB IT', rings: 1, labels: ['LOB'], tol: (PB.lobTol + Balance.eff(ME.pass) / 99 * 8) * WIN() * MGX('passWindow'), speed: 85 }); q = r.quality; }
+      else { const r = await MG.passLane($('mg'), { title: K.name.toUpperCase(), window: (480 + (ME.pass * .5 + ME.iq * .5) / 99 * 700) * WIN() * MGX('passWindow'), names: mates.map(x => x.short), target: idx }); q = r.success ? r.quality : 0; }
+      idle();
+      const done = q > 0 && roll(Balance.apply('pass', passC.pct, q));
+      if (!done) { st.box.to++; const thief = opp(recv); thief.box && thief.box.stl++; court.ball.holder = U; await court.pass(U, thief, .35); pbp(`${K.name} picked off by ${escH(thief.short || 'the defense')}. <i class="pct-note">pass ${passC.pct}%</i>`, 'bad'); fail(); return false; }
+      const bonus = Math.round(q * PB.quality), lob = K.mg === 'lob' ? 2 : 0;
+      if (ch.give) {   // give-and-go: pass, cut, get it back, finish
+        await court.pass(U, recv); SFX.play('squeak'); await court.moveTo(U, rnd(-2, 2), 9, .45); await court.pass(recv, U, .3);
+        const fin = Math.min(95, ch.pct + bonus), made = await myShot('layup', roll(fin));
+        if (made) { recv.box.ast++; cnt('giveAndGo'); pbp(`Give-and-go! ${escH(recv.short)} hits ${myName} on the cut. <i class="pct-note">${fin}%</i>`, 'good'); success(); } else { pbp(`${myName} gets it back on the cut but misses. <i class="pct-note">${fin}%</i>`); fail(); await boardAfterMiss(true); }
+        return made;
+      }
+      if (ch.via) { await court.pass(U, ch.via); await court.pass(ch.via, ch.m, .35); } else await court.pass(U, recv, kind === 'skip' ? .55 : kind === 'outlet' ? .6 : undefined, lob);
+      if (kind === 'outlet' && canSeg()) { pbp(`${myName} hits ${escH(recv.short)} with the outlet — he's off!`, 'good'); return arcadeSegment('fastbreak', { handler: 'mate', trigger: 'outlet', sub: 'OUTLET — RUN THE LANE' }); }
+      if (ch.wid) await weaponFlash(ch.m, ch.wid, 'us');
+      const fin = Math.min(95, ch.pct + bonus), made = roll(fin), three = !!BALANCE.actions[ch.action].three;
+      await animShot(ch.m, ch.action, made, { poster: ch.action === 'dunk' && kind === 'alleyoop' });
+      shotBox(ch.m, made, three);
+      if (made) {
+        addPts('us', three ? 3 : 2); court.celebrate(ch.m, three ? 'three' : ch.action === 'dunk' ? 'dunk' : 'two');
+        if (ch.via) { ch.via.box.ast++; cnt('hockeyAssists'); pbp(`Hockey assist! ${myName} → ${escH(ch.via.short)} → ${escH(ch.m.short)}, ${three ? 'three' : 'bucket'}. <i class="pct-note">${fin}%</i>`, 'good'); }
+        else { st.box.ast++; cnt('assists'); court.pop('+AST', U.x, U.y, 9, '#a78bfa'); pbp(`${K.name}! ${myName} finds ${escH(ch.m.short)} — ${kind === 'alleyoop' ? 'ALLEY-OOP!' : ACT_LABEL[ch.action] + ', good'}. <i class="pct-note">${fin}%${bonus ? ` (+${bonus}% pass)` : ''}</i>`, 'good'); }
+        if (kind === 'alleyoop') st.highlights.push(`Alley-oop to ${ch.m.short}`);
+        success(kind === 'alleyoop'); return true;
+      }
+      pbp(`${escH(ch.m.short)} can't finish. <i class="pct-note">${fin}%</i>`); st.att++; await boardAfterMiss(true); return false;
+    }
+
+    /* =================================================================
+       CLOSE CALLS — slow motion, zoom, crowd build-up, then a quick reaction minigame
+       ================================================================= */
+    function closeKind(periodEnds, last) {
+      const w = Object.assign({}, CL.kinds), diff = st.us - st.them;
+      if (!(periodEnds || last)) w.buzzer = 0;
+      if (clk.per < L.periods) w.clutchft = 0; else if (!(st.clutch || last)) w.clutchft *= .4;
+      if (!(last && diff > 0)) w.stop = 0;
+      for (const k in w) w[k] /= 1 + (st.closeKinds[k] || 0) * 2;
+      let r = Math.random() * Object.values(w).reduce((a, b) => a + b, 0); for (const k in w) { r -= w[k]; if (r <= 0) return k; } return 'rimroll';
+    }
+    async function closeCall(kind) {
+      st.closeN++; st.closeKinds[kind] = (st.closeKinds[kind] || 0) + 1; cnt('closeCalls');
+      court.excite = 1; SFX.play('heartbeat'); let b = 0; const build = setInterval(() => SFX.play('crowd', .4 + (++b) * .22), 520);
+      const slow = on => { court.timeScale = on ? .4 : 1; court.tween(court, { zoom: on ? 1.35 : 1 }, .35); };
+      const endBuild = good => { clearInterval(build); slow(false); SFX.play(good ? 'roar' : 'groan'); };
+      const diffTxt = () => { const d = st.us - st.them; return d === 0 ? `Tied ${st.us}-${st.them}.` : d > 0 ? `Up ${d}.` : `Down ${-d}.`; };
+      await banner('<small>CLOSE CALL</small>' + { rimroll: 'ON THE RIM…', collision: 'COLLISION AT THE RIM', charge: 'CHARGE OR BLOCK?', save: 'SAVE IT!', buzzer: 'AT THE HORN…', clutchft: 'CLUTCH FREE THROWS', stop: 'ONE STOP' }[kind], 'clutch', 900);
+      try {
+        if (kind === 'rimroll') {
+          formation('us', SPOTS.elbow); court.ball.holder = U;
+          const c = Balance.pct('touch', ME, { bonus: st.clutch ? [{ label: 'Clutch', v: (ME.clutch - 50) * .15 }] : [] });
+          busy(`<b>${myName}'s floater kisses the front rim… it's rolling…</b> <span class="pct ${c.pct >= 50 ? 'hi' : 'mid'}">${c.pct}%</span>`, '🎮 Body English');
+          const r = await MG.rebound($('mg'), { title: 'BODY ENGLISH', sub: `Touch ${Math.round(Balance.blend(ME, BALANCE.actions.touch.off))} · tap when it's over the rim`, zone: (.08 + Balance.eff(Balance.blend(ME, BALANCE.actions.touch.off)) / 99 * .12) * WIN(), dur: 1.5 }); idle();
+          const fin = Balance.apply('touch', c.pct, r.success ? r.quality : .1), made = roll(fin);
+          U.anim = { type: 'shoot', t: .3, air: true, released: true }; setTimeout(() => { if (U.anim && U.anim.type === 'shoot') U.anim = null; }, 500);
+          st.box.fga++; const ok = await court.rimRoll(made, U);
+          if (ok) { st.box.fgm++; st.box.pts += 2; addPts('us', 2); court.celebrate(U, 'two'); pbp(`It rolls… and DROPS! ${myName}'s floater falls. <i class="pct-note">${fin}%</i>`, 'good hot'); st.highlights.push('Rolled one in'); success(); }
+          else { pbp(`It rolls around… and out. <i class="pct-note">${fin}%</i>`, 'bad'); fail(); await boardAfterMiss(true); }
+          endBuild(ok); return ok;
+        }
+        if (kind === 'collision') {
+          const big = TH.slice().sort((a, z) => (z.stats.intD || 0) - (a.stats.intD || 0))[0] || STAR;
+          formation('us', SPOTS.top); court.ball.holder = U;
+          if (Balance.available('dunk', ME)) {
+            const c = calc('dunk', { def: big.stats });
+            busy(`<b>${myName} rises — ${escH(big.short)} meets him at the rim!</b> <span class="pct">${c.pct}%</span>`, '🎮 Block or dunk?');
+            const r = await MG.dunkChain($('mg'), { title: 'BLOCK OR DUNK?', tol: (6 + ME.dunk / 99 * 9 + ME.vert / 99 * 4) * WIN() * MGX('dunkTol'), speed: 100 }); idle();
+            const fin = Balance.apply('dunk', c.pct, r.quality), made = roll(fin); slow(true);
+            if (made) { await myShot('dunk', true, { poster: true }); pbp(`${myName} DUNKS ON ${escH(big.short.toUpperCase())}! <i class="pct-note">${fin}%</i>`, 'good hot'); st.highlights.push(`Posterized ${big.short}`); success(true); }
+            else { st.box.fga++; await court.drive(U, 1, 8, .3); await court.block(big, U, true); big.box.blk++; pbp(`${escH(big.short)} STUFFS ${myName} at the rim! <i class="pct-note">${fin}%</i>`, 'bad'); fail(); }
+            endBuild(made); return made;
+          }
+          const att = big; formation('them'); court.ball.holder = att;
+          const c = calc('block', { def: att.stats });
+          busy(`<b>${escH(att.short)} takes off — you're the last line!</b> <span class="pct">${c.pct}%</span>`, '🎮 Meet him at the rim');
+          const r = await MG.rebound($('mg'), { title: 'MEET HIM AT THE RIM', zone: (.07 + (ME.intD * .6 + ME.vert * .4) / 99 * .14) * WIN() * (1 + APE * .02), dur: 1.1 }); idle();
+          const ok = r.success && roll(Balance.apply('block', c.pct, r.quality)); slow(true);
+          if (ok) { await court.drive(att, 1, 8, .3); await court.block(U, att, true); st.box.blk++; cnt('blocks'); pbp(`${myName} meets ${escH(att.short)} at the summit — BLOCKED!`, 'good hot'); st.highlights.push(`Blocked ${att.short} at the rim`); success(true); }
+          else { const mm = await theyShoot('dunk', 'heavy', att, { made: true, poster: true }); void mm; pbp(`${escH(att.short)} dunks on ${myName}. Ouch.`, 'bad'); fail(); }
+          endBuild(ok); return ok;
+        }
+        if (kind === 'charge') {
+          const att = pick(TH); formation('them'); court.ball.holder = att; att.x = 2; att.y = 24; U.x = 1; U.y = 12; U.pose = 'def';
+          const c = calc('charge', { def: att.stats });
+          busy(`<b>${escH(att.short)} barrels down the lane — set your feet!</b> <span class="pct">${c.pct}%</span>`, '🎮 Set your feet in time');
+          const r = await MG.rebound($('mg'), { title: 'SET YOUR FEET', sub: `IQ ${ME.iq} · Strength ${ME.str}`, zone: (.07 + Balance.eff(ME.iq) / 99 * .12) * WIN() * MGX('defWindow'), dur: .95 }); idle();
+          const ok = r.success && roll(Balance.apply('charge', c.pct, r.quality)); slow(true);
+          await court.collide(att, U, ok); U.pose = '';
+          if (ok) { await banner('<small>THE CALL…</small>OFFENSIVE FOUL!', 'win', 1100); cnt('charges'); cnt('stops'); pbp(`${myName} takes the charge on ${escH(att.short)}! Our ball.`, 'good hot'); st.highlights.push(`Took a charge on ${att.short}`); success(true); }
+          else { await banner('<small>THE CALL…</small>BLOCKING FOUL', 'loss', 1100); court.ball.holder = att; await court.shoot(att, 'swish', { arc: 3 }); shotBox(att, true, false); addPts('them', 2); const ft = roll(Balance.pct('ft', att.stats).pct); att.box.fta++; if (ft) { att.box.ftm++; att.box.pts++; addPts('them', 1); } pbp(`Blocking foul on ${myName} — ${escH(att.short)} scores${ft ? ' and hits the free throw' : ''}.`, 'bad'); fail(); }
+          endBuild(ok); return ok;
+        }
+        if (kind === 'save') {
+          formation('them'); court.ball.holder = null; const side = Math.random() < .5 ? -1 : 1; Object.assign(court.ball, { x: side * 14, y: 22, z: 3 });
+          const c = Balance.pct('save', ME), to = MATES().length ? pick(MATES()) : null;
+          busy(`<b>A tipped pass is heading out of bounds — dive for it!</b> <span class="pct">${c.pct}%</span>`, '🎮 Dive!');
+          const r = await MG.rebound($('mg'), { title: 'DIVE!', sub: `Speed ${ME.speed} · IQ ${ME.iq}`, zone: (.08 + Balance.eff(ME.speed) / 99 * .12) * WIN(), dur: .9 }); idle();
+          const ok = r.success && roll(Balance.apply('save', c.pct, r.quality));
+          U.x = side * 14; U.y = 20; const saved = await court.dive(U, side, ok, to || STAR);
+          if (saved && to) { cnt('saves'); pbp(`${myName} dives and saves it to ${escH(to.short)}!`, 'good hot'); st.highlights.push('Saved a ball from going out'); const a = roleAction(to), p = Balance.pct(a, to.stats, { def: opp(to).stats, contest: 'open' }).pct, made = roll(p), three = !!BALANCE.actions[a].three; await animShot(to, a, made); shotBox(to, made, three); if (made) { st.box.ast++; cnt('assists'); addPts('us', three ? 3 : 2); pbp(`…and ${escH(to.short)} cashes in! <i class="pct-note">${p}%</i>`, 'good'); } success(true); endBuild(true); return true; }
+          pbp(`${myName} dives — but it's out. Their ball.`, 'bad'); fail(); endBuild(false); return false;
+        }
+        if (kind === 'buzzer') {
+          formation('us', SPOTS.top); court.ball.holder = U; U.y = 33; clk.rem = Math.min(clk.rem, 2.4); updBug();
+          const c = calc('pull3', { contest: 'contested', shotClock: true, deep: true });
+          busy(`<b>3… 2… 1… ${myName} lets it fly from deep!</b> <span class="pct">${c.pct}%</span>`, '🎮 Beat the horn');
+          const r = await MG.shotMeter($('mg'), { title: 'BEAT THE HORN', green: green(ME.three) * MGX('green'), dur: .75, sub: 'Release before the red light' }); idle();
+          const q = meterQ(r), late = q < CL.tooLate, fin = Balance.apply('pull3', c.pct, q), inBasket = roll(fin);
+          st.box.fga++; st.box.tpa++; SFX.play('buzzer'); court.flashA = .3; court.flashCol = '239,68,68';
+          await court.shoot(U, inBasket ? 'swish' : 'miss', { slowmo: true, arc: 12 });
+          await banner('<small>INSTANT REPLAY</small>⏪ REVIEW', 'clutch', 900);
+          formation('us', SPOTS.top); court.ball.holder = U; U.y = 33; court.timeScale = .3; court.tween(court, { zoom: 1.5 }, .5);
+          await court.shoot(U, inBasket ? 'swish' : 'miss', { arc: 12 }); court.timeScale = 1; court.tween(court, { zoom: 1 }, .5);
+          const counts = inBasket && !late;
+          if (counts) { st.box.fgm++; st.box.tpm++; st.box.pts += 3; cnt('threes'); addPts('us', 3); await banner('<small>THE CALL STANDS</small>GOOD! IT COUNTS!', 'win', 1300); court.celebrate(U, 'three'); court.confetti(60); pbp(`${myName} BEATS THE HORN from deep! <i class="pct-note">${fin}%</i>`, 'good hot'); st.highlights.push('Beat the buzzer from deep'); success(true); }
+          else if (inBasket) { await banner('<small>AFTER REVIEW</small>TOO LATE — NO GOOD', 'loss', 1400); pbp(`It goes in — but the replay shows it was a hair too late. Waved off!`, 'bad'); fail(); }
+          else { pbp(`${myName}'s heave at the horn is no good. <i class="pct-note">${fin}%</i>`); fail(); }
+          endBuild(counts); return counts;
+        }
+        if (kind === 'clutchft') {
+          const secs = Math.max(2, Math.ceil(Math.min(clk.rem, rnd(3, 40))));
+          pbp(`${myName} is fouled with ${secs} seconds left. ${diffTxt()} The whole gym is on its feet.`, 'hot');
+          const was = st.clutch; st.clutch = true; const m = await T.free_throws({ shots: 2 }); st.clutch = was; endBuild(m === 2); return m === 2;
+        }
+        if (kind === 'stop') { const ok = await defPossession({ text: `${diffTxt()} One stop seals it. ${STAR.short} has the ball.` }); if (ok) st.highlights.push('Got the game-sealing stop'); endBuild(ok); return ok; }
+      } finally { clearInterval(build); court.timeScale = 1; }
+      endBuild(false); return false;
     }
 
     /* ---------- QUICK decision-only moments (pace) ---------- */
@@ -1042,7 +1411,7 @@ const Match = (() => {
         const off = MATES().length > 0 && Math.random() < .4; formation(off ? 'us' : 'them'); U.x = 3; U.y = 10;
         const c = calc('rebound', { def: Balance.profile(oppR) });
         await showSetup(`<b>${escH(say(off ? 'setup_oreb' : 'setup_dreb'))}</b> <span class="pct ${c.pct >= 55 ? 'hi' : 'mid'}">${c.pct}%</span>`);
-        const shooter = off ? pick(MATES()) : STAR; court.ball.holder = shooter;
+        const shooter = off ? pick(MATES()) : STAR; court.ball.holder = shooter; shotBox(shooter, false, false);
         const shotP = court.shoot(shooter, 'miss');
         const r = await MG.rebound($('mg'), { zone: (.07 + (ME.reb * .6 + ME.vert * .4) / 99 * .16) * WIN() * MGX('rebZone') * (1 + APE * .02), sub: `Rebounding ${ME.reb} · base ${c.pct}%` });
         idle(); await shotP;
@@ -1077,12 +1446,16 @@ const Match = (() => {
     };
 
     /* ---------- WEAPON (rolled signature move) ---------- */
-    function weaponOpt() {
-      const p = Math.min(95, WPN.power + (st.zone ? 5 : 0));
-      return { k: 'sig', label: '⚔ ' + WPN.name, desc: `Weapon (${RARITY[WPN.rarity].name}) — ${WPN.desc}`, pct: p, parts: [{ label: `${WPN.name} power ${WPN.power}%`, v: null }].concat(st.zone ? [{ label: 'The Zone', v: 5 }] : []), mg: 'Weapon minigame', cls: 'sig' };
+    /* your weapons that fit this moment ('off' or 'def'), each with its own % (stats-only formula, BALANCE.weapons) */
+    function weaponOpts(side) {
+      const offT = ['three', 'mid', 'drive', 'dunk', 'post', 'pass', 'zone'], defT = ['stop', 'steal', 'block'];
+      return Engine.weapons(s).filter(x => (side === 'off' ? offT : defT).includes(x.w.type)).map(x => {
+        const c = Engine.weaponPct(s, x.id, side === 'off' ? DEF : THEM, st.zone ? [{ label: 'The Zone', v: 5 }] : []);
+        return { k: 'sig', wid: x.id, label: '⚔ ' + x.w.name, desc: `Weapon · rank ${x.rank} — ${x.w.desc}`, pct: c.pct, parts: c.parts, mg: 'Weapon minigame', cls: 'sig' };
+      });
     }
-    async function weaponMinigame(setup) {
-      const sg = WPN, t = sg.type, title = '⚔ ' + sg.name.toUpperCase();
+    async function weaponMinigame(setup, sg) {
+      const t = sg.type, title = '⚔ ' + sg.name.toUpperCase();
       busy(setup, `🎮 ${sg.name}`);
       let r;
       if (t === 'three' || t === 'mid' || t === 'zone') { r = await MG.shotMeter($('mg'), { title, green: Math.min(.4, green(t === 'three' ? ME.three : ME.mid) * 1.5 * MGX('green')), dur: .95, sub: sg.desc }); return meterQ(r); }
@@ -1092,14 +1465,15 @@ const Match = (() => {
       if (t === 'post') { r = await MG.strengthPush($('mg'), { title, mine: ME.str + 10, theirs: DEF.str }); return r.quality; }
       r = await MG.defenseReact($('mg'), { title, window: (450 + ME.perD / 99 * 450) * WIN() * 1.3 }); return r.success ? Math.max(.5, r.quality) : .1;
     }
-    async function weapon(setup) {
-      const sg = WPN, p = weaponOpt().pct;
+    async function weapon(setup, wid) {
+      wid = wid || Engine.weapons(s)[0].id;
+      const sg = WEAPONS[wid], p = Engine.weaponPct(s, wid, DEF, st.zone ? [{ label: 'The Zone', v: 5 }] : []).pct;
       st.sigUses++; st.sig = 0; st.sigUsed = st.sigUses >= (Engine.hasSpecial(s, 'formless') ? 2 : 1);
-      SFX.play('sig'); court.flashA = .6; court.timeScale = .5;
-      await banner(`<small>WEAPON · ${RARITY[sg.rarity].name.toUpperCase()}</small>${escH(sg.name)}`, 'sig', 1400);
+      court.aura(U, '#facc15', 3); court.impact(.3, 6, .5, .07, '250,204,21'); SFX.play('sig'); court.timeScale = .5; cnt('weaponUses');
+      await banner(`<small>⚔ WEAPON · ${RARITY[sg.rarity].name.toUpperCase()}</small>${escH(sg.name)}`, 'sig', 1400);
       court.timeScale = 1;
-      const q = await weaponMinigame(setup); idle();
-      const ok = roll(Math.max(5, Math.min(95, Math.round(p + (q - .5) * 30))));
+      const q = await weaponMinigame(setup, sg); idle();
+      const ok = roll(Math.max(5, Math.min(WB.max, Math.round(p + (q - .5) * WB.skill))));
       let made = false;
       if (sg.type === 'zone') {
         st.zone = true; court.fire = true; $('vig').classList.add('zone'); SFX.play('levelup');
@@ -1174,10 +1548,12 @@ const Match = (() => {
       const hd = no > 1 ? (o.handler || 'me') : 'me';
       const r = await Arcade.segment({ kind, setup, offense, clock, clockLabel, untilClock, title: kind === 'fastbreak' && no > nd ? `FAST BREAK! ${no} ON ${nd}` : K.title,
         us: cfg.us, them: cfg.them, star, oppRating: oppR, mateRating: cfg.mateRating || 45, numbers: [no, nd], backD, handler: hd,
-        score: [st.us, st.them], venue: court.venueId, bonus: a => bonuses(a), stats: Object.assign({}, ME), stamina: 100 - st.fatigue });
+        score: [st.us, st.them], venue: court.venueId, bonus: a => bonuses(a), stats: Object.assign({}, ME), stamina: 100 - st.fatigue, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank })), level: s.player.level });
       st.inSeg = false;
       // box score, counters, fatigue
       const b = r.me || {};
+      (r.all || []).forEach(x => { if (x.isUser) return; const p = (x.team === 0 ? US : TH).find(q => q.name === x.name); if (!p || !p.box) return; ['pts', 'reb', 'ast', 'stl', 'blk', 'fgm', 'fga', 'tpm', 'tpa', 'to'].forEach(k => p.box[k] += x.box[k] || 0); });
+      (r.weapons || []).forEach(w => pbp(`🕹 ⚔ <b>${escH(shortOf(w.name))}</b> used <b>${escH(w.weapon)}</b>.`, w.team === 0 ? 'hot' : 'bad'));
       ['fga', 'fgm', 'tpa', 'tpm', 'reb', 'ast', 'stl', 'blk', 'to', 'pts'].forEach(k => st.box[k] += b[k] || 0);
       if (b.dunks) cnt('dunks', b.dunks); if (b.tpm) cnt('threes', b.tpm); if (b.ast) cnt('assists', b.ast); if (b.stl) cnt('steals', b.stl); if (b.blk) cnt('blocks', b.blk); if (b.reb) cnt('rebounds', b.reb); if (r.ankles) cnt('crosses', r.ankles);
       if (b.fgm && b.dunks < b.fgm && !b.tpm) cnt('layups', b.fgm - (b.dunks || 0));
@@ -1228,7 +1604,9 @@ const Match = (() => {
     /* ---------- moment selection ---------- */
     function pickMoment() {
       const big = ['PF', 'C'].includes(s.player.pos);
-      const w = { off_poss: 5, def_poss: 4, quick_off: 1.5, quick_def: 1.5, rebound: big ? 2 : 1 };
+      const hasM = MATES().length > 0, hasO = TH.length > 1;
+      const w = { off_poss: 5, def_poss: 4, quick_off: 1.5, quick_def: 1.5, rebound: big ? 2 : 1, pass_play: hasM ? 2.2 : 0, mate_play: hasM ? OB.mate : 0, opp_play: hasO && hasM ? OB.opp : 0 };
+      if (st.lastType === 'pass_play') w.pass_play *= .3; if (st.lastType === 'mate_play') w.mate_play *= .3;
       const ar = s.player.arch;
       if (['thief', 'copycat', 'emperor', 'titan'].includes(ar)) w.def_poss += 1;
       if (['titan', 'bruiser'].includes(ar)) w.rebound += 1;
@@ -1237,7 +1615,8 @@ const Match = (() => {
       const tot = Object.values(w).reduce((a, b) => a + b, 0); let r = Math.random() * tot;
       for (const k in w) { r -= w[k]; if (r <= 0) return k; } return 'off_poss';
     }
-    const RUN = { off_poss: () => offPossession(), def_poss: () => defPossession(), quick_off: quickOff, quick_def: quickDef, rebound: () => T.rebound() };
+    const passKind = () => { const w = PB.kinds; let r = Math.random() * Object.values(w).reduce((a, b) => a + b, 0); for (const k in w) { r -= w[k]; if (r <= 0) return k; } return 'kickout'; };
+    const RUN = { off_poss: () => offPossession(), def_poss: () => defPossession(), quick_off: quickOff, quick_def: quickDef, rebound: () => T.rebound(), pass_play: () => passMoment(passKind()), mate_play: matePlay, opp_play: oppPlay, guard_star: guardStar };
     /* simulate scoring between moments */
     function simSegment(frac) {
       const oR = oppR + diffShift * .5;
@@ -1256,6 +1635,7 @@ const Match = (() => {
     let prevPer = 1;
     for (let i = 0; i < n; i++) {
       st.i = i; $('momCount').textContent = `Moment ${i + 1}/${n}`;
+      st.oppSig += .5;   // their star's weapon charges as the game goes (and faster with every bucket)
       const last = i === n - 1;
       simSegment(1 / (n + 1));
       if (last && Math.abs(st.us - st.them) <= 10 && Math.random() < .7) { const target = Math.floor(rnd(-3, 3)); const d = st.us - st.them - target; if (d > 0) st.them += d; else st.us -= d; }
@@ -1286,9 +1666,10 @@ const Match = (() => {
         pbp(mine ? `${secs} seconds left in the ${L.label === 'H' ? 'half' : 'quarter'}. Hold for the last shot.` : `${cfg.them.name} hold for the last shot of the ${L.label === 'H' ? 'half' : 'quarter'}.`);
         await arcadeSegment('buzzer', { offense: mine ? 0 : 1, clock: secs, sub: mine ? `LAST SHOT · ${secs} SECONDS` : 'GET A STOP BEFORE THE HORN' }); type = 'buzzer';
       } else if (st.seg < segDue(i) && canSeg()) { await createdSegment(); type = 'segment'; }
+      else if (st.closeN < CL.max && st.lastType !== 'close' && Math.random() < (Math.abs(diff) <= CL.margin && clk.per > L.periods / 2 ? CL.late : CL.early)) { await closeCall(closeKind(periodEnds, last)); type = 'close'; }
       else {
-        type = pickMoment();
-        if (type === 'def_poss' || type === 'quick_def') await withMirror(RUN[type]); else await RUN[type]();
+        type = st.takeover > 0 && Math.random() < OB.star.askGuard ? 'guard_star' : pickMoment();
+        if (type === 'def_poss' || type === 'quick_def' || type === 'guard_star') await withMirror(RUN[type]); else await RUN[type]();
       }
       st.lastType = type; idle();
       if (clk.per === L.periods && last) clk.rem = 0;
@@ -1324,6 +1705,26 @@ const Match = (() => {
     const extra = { pts: made2 * 2, reb: Math.round(rnd(.3, 1.2) * (ME.reb / 18) * bg), ast: Math.round(rnd(.3, 1.2) * (ME.pass / 20) * bg) };
     st.box.pts += extra.pts; st.box.reb += extra.reb; st.box.ast += extra.ast; st.box.fgm += made2; st.box.fga += made2 + Math.round(made2 * rnd(.4, 1.1));
 
+    /* ---------- full box score: points the visible plays didn't cover are spread over each roster ---------- */
+    function fillTeam(list, total) {
+      const others = list.filter(p => !p.isUser); if (!others.length) return;
+      let left = total - list.reduce((t, p) => t + p.box.pts, 0);
+      while (left < 0 && others.some(p => p.box.pts >= 2)) { const p = others.filter(q => q.box.pts >= 2).sort((a, z) => z.box.pts - a.box.pts)[0]; p.box.pts -= 2; p.box.fgm = Math.max(0, p.box.fgm - 1); left += 2; }
+      const wt = p => (p === STAR ? 3 : 1) + (p.role === 'shooter' || p.role === 'slasher' ? .5 : 0);
+      for (let g = 0; left > 0 && g < 500; g++) {
+        let r = Math.random() * others.reduce((t, p) => t + wt(p), 0), p = others[0]; for (const q of others) { r -= wt(q); if (r <= 0) { p = q; break; } }
+        const b = p.box;
+        if (left >= 3 && Math.random() < (p.role === 'shooter' ? .45 : .18)) { b.pts += 3; b.fgm++; b.fga++; b.tpm++; b.tpa++; left -= 3; }
+        else if (left >= 2) { b.pts += 2; b.fgm++; b.fga++; left -= 2; }
+        else { b.pts++; b.ftm++; b.fta++; left--; }
+        if (Math.random() < .6) { b.fga++; if (p.role === 'shooter' && Math.random() < .6) b.tpa++; }
+      }
+      others.forEach(p => { const b = p.box, k = Math.max(.3, L.bg * 2); b.reb += Math.round(rnd(.2, 1) * (p.role === 'big' ? 4 : 1.6) * k); b.ast += Math.round(rnd(0, 1) * (p.role === 'playmaker' ? 3 : 1.2) * k); b.stl += Math.random() < .3 * k ? 1 : 0; b.blk += p.role === 'big' && Math.random() < .35 * k ? 1 : 0; });
+    }
+    fillTeam(US, st.us); fillTeam(TH, st.them);
+    const rowOf = p => Object.assign({ name: p.isUser ? `${s.player.first} ${s.player.last}` : p.full, short: p.short, isUser: !!p.isUser, star: p === STAR, weapons: (p.weapons || []).map(id => WEAPONS[id] && WEAPONS[id].name).filter(Boolean) }, p.box);
+    const teams = { us: US.map(rowOf), them: TH.map(rowOf) };
+
     /* ---------- grade ---------- */
     const rate = st.att ? st.succ / st.att : .5;
     const gs = 18 + rate * 66 + (win ? 12 : 0) + st.clutchW * 6 + st.perfects * 2 + Math.min(8, st.box.pts / 3) - st.box.to * 3;
@@ -1332,7 +1733,7 @@ const Match = (() => {
     return {
       win, us: st.us, them: st.them, box: st.box, grade, gradeScore: gs, successes: st.succ, attempts: st.att, clutchMoments: st.clutchN, clutchWins: st.clutchW,
       gameWinner: st.gameWinner, highlights: st.highlights, counters: st.counters, perfects: st.perfects, posterizers: st.posterizers, segments: st.seg, segKinds: st.segKinds, segMoments: st.segMoments || [], moments: n, venueId: court.venueId,
-      fatigue: st.fatigue, level: cfg.level, importance: cfg.importance || 1, cfg,
+      fatigue: st.fatigue, level: cfg.level, importance: cfg.importance || 1, cfg, teams, closeCalls: st.closeN,
     };
   }
 

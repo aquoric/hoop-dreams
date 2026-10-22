@@ -241,6 +241,10 @@ const Game = {
       chem: r.win ? 3 : -1,
     };
     if (r.level !== 'street') fx.trust = ({ A: 4, B: 2, C: 0, D: -2, F: -4 }[r.grade[0]]) + (r.win ? 1 : 0);
+    // passing builds chemistry and Coach Trust; taking the star assignment earns trust
+    const c = r.counters || {}, dimes = b.ast + (c.hockeyAssists || 0);
+    if (dimes >= 3) fx.chem += Math.min(4, Math.floor(dimes / 3));
+    if (r.level !== 'street') fx.trust += Math.min(3, Math.floor(dimes / 4)) + ((c.starAssign || 0) && (c.starStops || 0) ? 1 : 0);
     const changes = Engine.applyFx(s, fx);
     s.career.games.push({ label: `${node.title}${node.sub ? ' · ' + node.sub : ''}`, opp: r.cfg.them.name, us: r.us, them: r.them, win: r.win, pts: b.pts, reb: b.reb, ast: b.ast, grade: r.grade });
     this.recordOvr(node.sub || node.title);

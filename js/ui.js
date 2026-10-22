@@ -208,12 +208,13 @@ const UI = (() => {
       <div class="ac-bon">${Object.entries(a.bonus).map(([k, v]) => `<em>+${v} ${ATTR_BY_KEY[k].s}</em>`).join('')}</div>
       <div class="rc-pass"><b>PASSIVE · ${esc(a.passive.name)}</b><span>${esc(a.passive.desc)}</span></div></div>`;
   }
-  const WTYPE = { three: 'Three-pointer', mid: 'Jump shot', drive: 'Drive', dunk: 'Dunk', pass: 'Pass', post: 'Post move', steal: 'Steal + finish', block: 'Block + break', zone: 'Zone state' };
+  const WTYPE = { three: 'Three-pointer', mid: 'Jump shot', drive: 'Drive', dunk: 'Dunk', pass: 'Pass', post: 'Post move', steal: 'Steal + finish', block: 'Block + break', stop: 'Lockdown defense', zone: 'Zone state' };
+  const wStats = w => Object.keys(w.stats || {}).map(k => ATTR_BY_KEY[k] ? ATTR_BY_KEY[k].s : k).join(' · ');
   function weaponCard(id) {
     const w = WEAPONS[id]; if (!w) return '';
     return `<div class="rcard rar-${w.rarity}" style="--rc:${RARITY[w.rarity].color}"><div class="rc-top">${rarityTag(w.rarity)}<div class="rc-ico">${Art.icon(w.icon, RARITY[w.rarity].color, '#0006', 40)}</div></div>
       <b class="rc-name">⚔ ${esc(w.name)}</b><p>${esc(w.desc)}</p>
-      <div class="ac-bon"><em>${WTYPE[w.type]}</em><em>${w.power}% success</em><em>Charges after ${w.charge} wins</em></div></div>`;
+      <div class="ac-bon"><em>${WTYPE[w.type]}</em><em>Uses ${wStats(w)}</em><em>Charges after ${w.charge} wins</em></div></div>`;
   }
 
   /* =================================================================
@@ -309,7 +310,7 @@ const UI = (() => {
     /* slot-machine reel: flicker through entries, slow down, land on the rolled result */
     const doRoll = async k => {
       if (c.rolling || spinsLeft(k) <= 0) return;
-      const table = k === 'arch' ? ARCHETYPES : WEAPONS, result = Engine.roll(table), ids = Object.keys(table);
+      const table = k === 'arch' ? ARCHETYPES : Object.fromEntries(Object.entries(WEAPONS).filter(([, w]) => !w.learn)), result = Engine.roll(table), ids = Object.keys(table);
       c.rolling = true; c.used[k]++; SFX.init();
       $$('[data-roll]', form).forEach(b => b.disabled = true);
       const reel = $('#reel-' + k);
@@ -500,7 +501,7 @@ const UI = (() => {
             </div>${m.fatigue >= 60 ? '<p class="warn-text">High fatigue lowers your success % and makes free throws wobble. Rest or grab an Ice Bath.</p>' : ''}</div>
             <div class="glass panel style-panel"><h4>Play Style</h4>${(() => { const A = Engine.archOf(s), W = Engine.weaponOf(s), ap = Engine.ape(s); return `
               <div class="sp-row"><div class="sp-ico">${Art.icon(A.icon, A.color, '#0006', 30)}</div><div><b>${esc(A.name)}</b> ${rarityTag(A.rarity)}<small>${esc(A.passive.name)}: ${esc(A.passive.desc)}</small></div></div>
-              <div class="sp-row"><div class="sp-ico">${Art.icon(W.icon, RARITY[W.rarity].color, '#0006', 30)}</div><div><b>⚔ ${esc(W.name)}</b> ${rarityTag(W.rarity)}<small>${esc(W.desc)} ${W.power}% success · charges after ${W.charge} wins${Engine.hasSpecial(s, 'formless') ? ' · two uses per game' : ''}.</small></div></div>
+              <div class="sp-row"><div class="sp-ico">${Art.icon(W.icon, RARITY[W.rarity].color, '#0006', 30)}</div><div><b>⚔ ${esc(W.name)}</b> ${rarityTag(W.rarity)}<small>${esc(W.desc)} Uses ${wStats(W)} · charges after ${W.charge} wins${Engine.hasSpecial(s, 'formless') ? ' · two uses per game' : ''}.${Engine.weapons(s).length > 1 ? ` <b>+${Engine.weapons(s).length - 1} more weapon${Engine.weapons(s).length > 2 ? 's' : ''}</b> (Upgrade tab).` : ''}</small></div></div>
               <div class="sp-row"><div class="sp-ico">📏</div><div><b>${Engine.heightStr(s.player.height)} · wingspan ${Engine.heightStr(s.player.wingspan)}</b><small>Ape index ${ap >= 0 ? '+' : ''}${ap}". ${ap >= 3 ? 'Long arms boost your blocks, steals, contests and rebounds.' : ap < 0 ? 'Short arms: tighter handle, tougher on defense.' : 'Average length.'}</small></div></div>`; })()}</div>
             <div class="glass panel"><h4>Relationships</h4><div class="rels">${rels}</div></div>
             <div class="glass panel"><h4>Latest posts</h4>${s.feed.slice(0, 3).map(feedPost).join('') || '<p class="muted">Nobody\'s talking about you. Yet.</p>'}</div>
@@ -535,6 +536,16 @@ const UI = (() => {
           <button class="tcard glass rest" data-rest ${s.hub.ap <= 0 ? 'disabled' : ''}><div class="tc-ico">${Art.icon('heart', '#22c55e', '#0006', 40)}</div><b>Rest & Recover</b><span>Sleep in, eat right, ice the knees.</span><div class="tc-attrs"><em>−35 Fatigue</em><em>+4 Confidence</em></div></button></div>
         ${s.hub.ap <= 0 ? '<p class="warn-text center">No actions left. Continue the story to refresh.</p>' : ''}`,
       upgrade: () => {
+        const weaponPanel = () => {
+          const own = Engine.weapons(s), slots = Engine.weaponSlots(s), next = BALANCE.weapons.slots.find(l => l > s.player.level), avg = Balance.profile(Math.max(40, Engine.ovr(s) - 2));
+          const row = x => { const i = Engine.weaponUpgradeInfo(s, x.id), p = Engine.weaponPct(s, x.id, avg).pct;
+            return `<div class="wp-row"><div class="sp-ico">${Art.icon(x.w.icon, RARITY[x.w.rarity].color, '#0006', 30)}</div><div class="wp-info"><b>⚔ ${esc(x.w.name)}</b> ${rarityTag(x.w.rarity)}<small>${esc(WTYPE[x.w.type])} · uses ${wStats(x.w)} · ~${p}% vs an even defender</small><span class="wp-rank">${[...Array(BALANCE.weapons.ranks.max)].map((_, k) => `<i class="${k < x.rank ? 'on' : ''}"></i>`).join('')}</span></div>
+              ${i.max ? '<em class="muted small">MAX</em>' : `<button class="btn sm" data-wup="${x.id}" ${i.ok ? '' : 'disabled'} title="${s.player.level < i.level ? 'Needs level ' + i.level : 'Costs ' + i.cost + ' SP'}">Rank ${x.rank + 1} · ${i.cost} SP${s.player.level < i.level ? ` · Lv ${i.level}` : ''}</button>`}</div>`; };
+          const offers = own.length < slots ? Engine.weaponOffers(s) : [];
+          return `<div class="glass panel wp-panel"><div class="up-head"><b>⚔ Weapons (${own.length}/${slots} slots)</b><span class="muted">${next ? `Next slot at level ${next}` : 'All slots open'} · each rank adds +${BALANCE.weapons.perRank}% · your level adds +${BALANCE.weapons.perLevel}%/level</span></div>
+            ${own.map(row).join('')}
+            ${offers.length ? `<h4>New weapon slot — pick one to learn</h4><div class="wp-offers">${offers.map(id => `<div class="wp-offer">${weaponCard(id)}<button class="btn sm glow" data-wlearn="${id}">Learn</button></div>`).join('')}</div>` : ''}</div>`;
+        };
         const cp = Engine.capsOf(s);
         const groups = {}; ATTRS.forEach(a => (groups[a.g] = groups[a.g] || []).push(a));
         const pend = k => pendingUp[k] || 0;
@@ -545,7 +556,7 @@ const UI = (() => {
           ${Object.entries(groups).map(([g, list]) => `<h4>${g}</h4>${list.map(a => { const v = s.player.attrs[a.k] + pend(a.k), cost = Engine.upgradeCost(v); return `<div class="up-row"><span class="up-n">${a.n}</span><div class="up-bar"><i style="width:${s.player.attrs[a.k] / 99 * 100}%"></i><i class="pend" style="left:${s.player.attrs[a.k] / 99 * 100}%;width:${pend(a.k) / 99 * 100}%"></i><u style="left:${cp[a.k] / 99 * 100}%" title="Cap ${cp[a.k]}"></u></div><b class="${pend(a.k) ? 'hl' : ''}">${v}</b><button class="mini" data-dn="${a.k}" ${pend(a.k) ? '' : 'disabled'}>−</button><button class="mini plus" data-up="${a.k}" ${v >= cp[a.k] || cost > spLeft ? 'disabled' : ''} title="Cost ${cost} SP">+</button></div>`; }).join('')}`).join('')}
         </div><div class="up-side glass panel"><h4>Overall</h4><div class="up-ovr"><b>${Engine.ovr(s)}</b>${Object.keys(pendingUp).length ? ` → <b class="hl">${Engine.ovr(tmp)}</b>` : ''}</div>${radar(Engine.radar(s), 240, Object.keys(pendingUp).length ? Engine.radar(tmp) : null)}
           <div class="row"><button class="btn ghost" id="upReset" ${Object.keys(pendingUp).length ? '' : 'disabled'}>Reset</button><button class="btn glow" id="upApply" ${Object.keys(pendingUp).length ? '' : 'disabled'}>Apply</button></div>
-          <p class="muted small">The grey tick on each bar is your height-based cap.</p></div></div>`;
+          <p class="muted small">The grey tick on each bar is your height-based cap.</p></div></div>${weaponPanel()}`;
       },
       badges: () => `<div class="badge-grid">${BADGES.map(b => { const t = Engine.badgeTier(s, b), nx = t < 4 ? `Next: ${ATTR_BY_KEY[b.attr].n} ${b.at[t]} or ${b.ct[t]} career ${b.counter.replace(/([A-Z])/g, ' $1').toLowerCase()} (${s.counters[b.counter] || 0})` : 'MAXED'; return `<div class="bcard glass ${t ? '' : 'locked'}">${Art.badge(b, t, 58)}<div><b>${b.name}</b><span class="btier t${t}">${BADGE_TIERS[t]}</span><p>${b.desc}</p><small>${nx}</small></div></div>`; }).join('')}</div>`,
       shop: () => {
@@ -594,6 +605,8 @@ const UI = (() => {
     $$('[data-eq]', body).forEach(b => b.onclick = () => Game.equip(b.dataset.eq));
     $$('[data-up]', body).forEach(b => b.onclick = () => { pendingUp[b.dataset.up] = (pendingUp[b.dataset.up] || 0) + 1; SFX.play('tick'); renderHub(ctx); });
     $$('[data-dn]', body).forEach(b => b.onclick = () => { const k = b.dataset.dn; pendingUp[k]--; if (!pendingUp[k]) delete pendingUp[k]; renderHub(ctx); });
+    $$('[data-wup]', body).forEach(b => b.onclick = () => { if (Engine.upgradeWeapon(s, b.dataset.wup)) { SFX.play('levelup'); toast(`⚔ ${WEAPONS[b.dataset.wup].name} upgraded to rank ${Engine.weapons(s).find(x => x.id === b.dataset.wup).rank}!`, 'good'); Game.save(); renderHub(ctx); } });
+    $$('[data-wlearn]', body).forEach(b => b.onclick = () => { if (Engine.learnWeapon(s, b.dataset.wlearn)) { SFX.play('sig'); toast(`⚔ New weapon: <b>${esc(WEAPONS[b.dataset.wlearn].name)}</b>`, 'ach', 3500); Game.save(); renderHub(ctx); } });
     const ap = $('#upApply', body); if (ap) ap.onclick = () => { Game.applyUpgrades(pendingUp); pendingUp = {}; renderHub(ctx); };
     const rs = $('#upReset', body); if (rs) rs.onclick = () => { pendingUp = {}; renderHub(ctx); };
   }
@@ -635,6 +648,7 @@ const UI = (() => {
           ${summary.badges.length ? `<h4>Badge Unlocked</h4><div class="pg-badges">${summary.badges.map(x => `<div>${Art.badge(x.b, x.tier, 46)}<b>${x.b.name}</b><span>${BADGE_TIERS[x.tier]}</span></div>`).join('')}</div>` : ''}
           ${summary.achievements.length ? `<h4>Achievements</h4>${summary.achievements.map(a => `<div class="pg-ach">🏆 <b>${a.name}</b> — ${a.desc}</div>`).join('')}` : ''}
         </div>
+        ${r.teams ? `<div class="glass panel pg-box">${['us', 'them'].map(t => `<div class="pgb-team"><h4>${esc(t === 'us' ? cfg.us.name : cfg.them.name)} · ${t === 'us' ? r.us : r.them}</h4><table><tr><th></th><th>PTS</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>FG</th><th>3PT</th><th>FT</th></tr>${r.teams[t].map(p => `<tr class="${p.isUser ? 'me' : ''}"><td title="${esc(p.weapons.join(', '))}">${esc(p.name)}${p.star ? ' ★' : ''}${p.weapons.length && !p.isUser ? `<small>⚔ ${esc(p.weapons.join(' · '))}</small>` : ''}</td><td><b>${p.pts}</b></td><td>${p.reb}</td><td>${p.ast}</td><td>${p.stl}</td><td>${p.blk}</td><td>${p.fgm}/${p.fga}</td><td>${p.tpm}/${p.tpa}</td><td>${p.ftm}/${p.fta}</td></tr>`).join('')}</table></div>`).join('')}</div>` : ''}
         <div class="glass panel pg-high"><h4>Highlights</h4><ul>${(r.highlights.length ? r.highlights : [r.win ? 'Got the W' : 'Took the L, learned something']).map(h => `<li>${esc(h)}</li>`).join('')}</ul>
           <div class="pg-quote"><div class="q-av">${Art.avatar(charLook(speaker, r.win ? 'smile' : 'neutral'), { mode: 'portrait' })}</div><div><b>${STORY.characters[speaker].short}</b><p>"${esc(quote)}"</p></div></div>
         </div>
@@ -644,6 +658,7 @@ const UI = (() => {
     // animate XP bar
     setTimeout(() => { const i = $('.pg-xp .bar i'); if (i) i.style.width = Math.min(100, s.player.xp / PROGRESSION.xpForLevel(s.player.level) * 100) + '%'; }, 300);
     if (summary.levels) setTimeout(() => levelBurst(`LEVEL ${s.player.level}!`), 700);
+    if (summary.levels && Engine.weapons(s).length < Engine.weaponSlots(s)) setTimeout(() => toast('⚔ <b>New weapon slot unlocked!</b> Pick a new weapon in the Upgrade tab.', 'ach', 5000), 1600);
     if (r.win) confetti(r.importance > 1 ? 160 : 70);
     if (summary.badges.length) setTimeout(() => SFX.play('perfect'), 1200);
     $('#pgCont').onclick = () => { SFX.play('click'); onContinue(); };

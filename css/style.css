@@ -892,3 +892,27 @@ body[data-screen=postgame] .pg-score, body[data-screen=postgame] .pg-result { fo
   .sb-score { font-size: 1.4rem; } .sb-abbr { font-size: .75rem; }
 }
 
+
+/* ---------- weapons for everyone · passing · close calls · full box score ---------- */
+.court-banner.wpn-us { color: #fde68a; text-shadow: 0 0 26px #f59e0b, 4px 4px 0 #000; background: linear-gradient(90deg, transparent, rgba(120, 53, 15, .85), transparent); }
+.court-banner.wpn-them { color: #fecaca; text-shadow: 0 0 26px #dc2626, 4px 4px 0 #000; background: linear-gradient(90deg, transparent, rgba(127, 29, 29, .88), transparent); }
+.opt.open { border-color: #22c55e88; }
+.pl-mate.dim { opacity: .35; } .pl-mate.target { border-color: #facc15; }
+.pbp-tabs { display: flex; gap: 6px; } .pbp-tabs button { flex: 1; font: inherit; letter-spacing: .14em; color: var(--muted); background: rgba(0, 0, 0, .25); border: 1px solid rgba(255, 255, 255, .1); padding: 4px 0; cursor: pointer; }
+.pbp-tabs button.on { color: #facc15; border-color: #facc1566; }
+.box-live { font-size: .75rem; overflow: auto; max-height: 100%; } .box-live b { display: block; font-family: var(--px); font-size: .7rem; color: #facc15; margin: 6px 0 2px; }
+.box-live table, .pg-box table { width: 100%; border-collapse: collapse; } .box-live td, .box-live th, .pg-box td, .pg-box th { padding: 2px 4px; text-align: right; border-bottom: 1px solid rgba(255, 255, 255, .06); white-space: nowrap; }
+.box-live td:first-child, .box-live th:first-child, .pg-box td:first-child, .pg-box th:first-child { text-align: left; } .box-live th, .pg-box th { color: var(--muted); font-weight: 500; font-size: .65rem; }
+.box-live tr.me td, .pg-box tr.me td { color: #facc15; }
+.pg-box { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; overflow-x: auto; font-size: .8rem; }
+.pg-box td small { display: block; color: var(--muted); font-size: .62rem; white-space: normal; }
+@media (max-width: 760px) { .pg-box { grid-template-columns: 1fr; } }
+.wp-panel { grid-column: 1 / -1; margin-top: 14px; }
+.wp-row { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.wp-info { flex: 1; min-width: 0; } .wp-info b { font-family: var(--cond); } .wp-info small { display: block; color: var(--muted); font-size: .76rem; }
+.wp-rank { display: inline-flex; gap: 3px; margin-top: 4px; } .wp-rank i { width: 14px; height: 6px; background: #1e293b; border: 1px solid #000; } .wp-rank i.on { background: #facc15; }
+.wp-offers { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; } .wp-offer { display: flex; flex-direction: column; gap: 6px; }
+.ab-wpn b { color: #facc15; } .ab-wpn.on b { color: #fde047; text-shadow: 0 0 8px #f59e0b; } .ab-wpn.cd b { color: #64748b; }
+.arc-pad { position: relative; }
+.arc-pad button.wpn { position: absolute; right: 0; top: -66px; width: 56px; height: 56px; background: #78350f; border-color: #000; opacity: .55; }
+.arc-pad button.wpn.ready { opacity: 1; background: #b45309; box-shadow: 0 0 14px #f59e0b; } .arc-pad button.wpn.on { opacity: 1; background: #facc15; color: #111; }

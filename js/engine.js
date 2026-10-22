@@ -46,7 +46,7 @@ const Engine = (() => {
       v: 1, id: 'c' + Date.now().toString(36), createdAt: Date.now(), updatedAt: Date.now(),
       difficulty: o.difficulty || 'pro',
       player: {
-        first: o.first, last: o.last, pos: o.pos, height: o.height, hometown: o.hometown, num: o.num, arch: o.arch, weapon: o.weapon || 'lightning_dribble', wingspan: ws,
+        first: o.first, last: o.last, pos: o.pos, height: o.height, hometown: o.hometown, num: o.num, arch: o.arch, weapon: o.weapon || 'lightning_dribble', weapons: [{ id: o.weapon || 'lightning_dribble', rank: 1 }], wingspan: ws,
         look: Object.assign({}, o.look, { num: o.num }), attrs, level: 1, xp: 0, sp: 2, age: 16,
       },
       meta: { rep: 5, fans: 120, trust: 50, chem: 50, morale: 60, fatigue: 0, money: 40, injury: { games: 0, name: '' } },
@@ -70,6 +70,20 @@ const Engine = (() => {
   /* ---------- ARCHETYPE PASSIVES + WEAPONS ---------- */
   function archOf(s) { return ARCHETYPES[s.player.arch] || ARCHETYPES.lightning; }
   function weaponOf(s) { return WEAPONS[s.player.weapon] || WEAPONS.lightning_dribble; }
+  /* your weapons: [{ id, rank, w }] — the rolled one first, more unlock as you level up (BALANCE.weapons.slots) */
+  function weapons(s) { if (!s.player.weapons) s.player.weapons = [{ id: s.player.weapon || 'lightning_dribble', rank: 1 }]; return s.player.weapons.filter(x => WEAPONS[x.id]).map(x => ({ id: x.id, rank: x.rank || 1, w: WEAPONS[x.id] })); }
+  function weaponSlots(s) { return BALANCE.weapons.slots.filter(l => s.player.level >= l).length; }
+  /* three weapons you can learn for an open slot — fitting your best stats, stable until you pick */
+  function weaponOffers(s) {
+    const own = weapons(s).map(x => x.id), R = Art.seeded(s.id + ':w' + own.length);
+    const types = own.map(id => WEAPONS[id].type), score = id => { const w = WEAPONS[id]; let v = 0, t = 0; for (const k in w.stats) { v += (s.player.attrs[k] || 50) * w.stats[k]; t += w.stats[k]; } return v / t + R() * 14 - (types.includes(w.type) ? 12 : 0); };
+    return Object.keys(WEAPONS).filter(id => !own.includes(id) && WEAPONS[id].type !== 'zone').sort((a, b) => score(b) - score(a)).slice(0, 3);
+  }
+  function learnWeapon(s, id) { weapons(s); if (!WEAPONS[id] || s.player.weapons.length >= weaponSlots(s) || s.player.weapons.some(x => x.id === id)) return false; s.player.weapons.push({ id, rank: 1 }); return true; }
+  function weaponUpgradeInfo(s, id) { const x = weapons(s).find(y => y.id === id), R = BALANCE.weapons.ranks; if (!x) return null; const next = x.rank + 1; return { rank: x.rank, max: x.rank >= R.max, cost: R.cost(x.rank), level: R.level(next), ok: x.rank < R.max && s.player.sp >= R.cost(x.rank) && s.player.level >= R.level(next) }; }
+  function upgradeWeapon(s, id) { const i = weaponUpgradeInfo(s, id); if (!i || !i.ok) return false; s.player.sp -= i.cost; s.player.weapons.find(y => y.id === id).rank++; return true; }
+  /* % of one of your weapons against a defender (stats) */
+  function weaponPct(s, id, def, bonus) { const x = weapons(s).find(y => y.id === id) || { rank: 1 }; return Weapons.pct(id, Balance.userStats(s), { def, level: s.player.level, rank: x.rank, diff: s.difficulty, bonus }); }
   function passiveMod(s, key) { const m = archOf(s).passive.mods || {}; return (m[key] || 0) + (m.all || 0); }
   function passiveMg(s, key) { const m = archOf(s).passive.mg || {}; return m[key] || 1; }
   function hasSpecial(s, id) { return archOf(s).passive.special === id; }
@@ -311,6 +325,8 @@ const Engine = (() => {
     // archetype/weapon split + wingspan (older saves)
     const OLD_SIG = { sharpshooter: 'splash', slasher: 'lightning', playmaker: 'nolook', lockdown: 'clamp', twoway: 'takeover', stretch: 'popbomb', post: 'dream', rimrunner: 'skyscraper' };
     if (!s.player.weapon) s.player.weapon = WEAPON_MIGRATE[OLD_SIG[s.player.arch]] || 'lightning_dribble';
+    if (!WEAPONS[s.player.weapon]) s.player.weapon = 'lightning_dribble';
+    if (!Array.isArray(s.player.weapons)) s.player.weapons = [{ id: s.player.weapon, rank: 1 }];   // multi-weapon saves (older saves had one)
     if (ARCH_MIGRATE[s.player.arch]) s.player.arch = ARCH_MIGRATE[s.player.arch];
     if (!ARCHETYPES[s.player.arch]) s.player.arch = 'lightning';
     s.player.first = properName(s.player.first); s.player.last = properName(s.player.last);
@@ -340,7 +356,7 @@ const Engine = (() => {
   }
 
   return {
-    clamp, rand, randi, pick, properName, caps, capsOf, ape, apeOf, archOf, weaponOf, passiveMod, passiveMg, hasSpecial, roll, createState, attr, look, ovr, ovrRaw, ovrLabel, tierOf, radar,
+    clamp, rand, randi, pick, properName, caps, capsOf, ape, apeOf, archOf, weaponOf, weapons, weaponSlots, weaponOffers, learnWeapon, weaponUpgradeInfo, upgradeWeapon, weaponPct, passiveMod, passiveMg, hasSpecial, roll, createState, attr, look, ovr, ovrRaw, ovrLabel, tierOf, radar,
     badges, badgeTier, badgeBonus, badgeSnapshot, badgeDiff, addXP, upgradeCost, canUpgrade, upgrade, bump,
     applyFx, check, checkPct, playPct, checkAchievements, text, heightStr, starStr, snapshotStage, stagePerf, develop, recruitScore, starsFor, rankFor, fmtFans, fmtMoney, post,
     save, load, remove, list, latest, exportSave, importSave,

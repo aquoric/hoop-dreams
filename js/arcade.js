@@ -97,15 +97,16 @@ const Arcade = (() => {
           <div class="ah-btns"><button class="arc-btn-sm" data-a="help" aria-label="Controls">?</button>${SEGM ? '' : '<button class="arc-btn-sm" data-a="quit">Quit</button>'}</div>
         </div>
         <div class="arc-stage" style="aspect-ratio:${VW} / ${A.H}"><canvas width="${VW}" height="${A.H}"></canvas><div class="arc-scan"></div><div class="arc-tags"></div><div class="arc-pop"></div><div class="arc-intro"></div><div class="arc-trans"><div class="at-stripes"></div><b></b></div></div>
-        <div class="arc-bar"><div class="ab-stam"><span>STAMINA</span><div class="ab-meter"><i id="abStam"></i></div></div><div class="ab-move" id="abMove"><span>DRIBBLE MOVE</span><b>READY</b></div>
+        <div class="arc-bar"><div class="ab-stam"><span>STAMINA</span><div class="ab-meter"><i id="abStam"></i></div></div><div class="ab-move" id="abMove"><span>DRIBBLE MOVE</span><b>READY</b></div><div class="ab-move ab-wpn" id="abWpn"><span>⚔ WEAPON${touch ? '' : ' [E]'}</span><b>READY</b></div>
           <div class="arc-keys"> ${touch ? '' : 'MOVE <kbd>WASD</kbd> · SHOOT/BLOCK <kbd>J</kbd>/<kbd>SPACE</kbd> hold &amp; release · PASS/STEAL <kbd>K</kbd> · DRIBBLE MOVE <kbd>L</kbd>/<kbd>SHIFT</kbd>'}</div></div>
-        <div class="arc-touch ${touch ? 'on' : ''}"><div class="arc-joy"><div class="arc-knob"></div></div><div class="arc-pad"><button data-b="move" id="tbMove">MOVE<small>DRIBBLE</small></button><button data-b="pass">PASS<small>STEAL</small></button><button data-b="shoot" class="big">SHOOT<small>BLOCK</small></button></div></div>
+        <div class="arc-touch ${touch ? 'on' : ''}"><div class="arc-joy"><div class="arc-knob"></div></div><div class="arc-pad"><button data-b="wpn" id="tbWpn" class="wpn">⚔<small>WEAPON</small></button><button data-b="move" id="tbMove">MOVE<small>DRIBBLE</small></button><button data-b="pass">PASS<small>STEAL</small></button><button data-b="shoot" class="big">SHOOT<small>BLOCK</small></button></div></div>
         <div class="arc-help"><div class="arc-help-card"><h3>ARCADE CONTROLS</h3>
           <p><b>Move</b> WASD / arrow keys · touch: joystick</p>
           <p><b>Shoot</b> hold J / SPACE (or SHOOT), release at the top of your jump. Near the rim you lay it up or dunk.</p>
           <p><b>Pass</b> K — toward the joystick direction, or to the open man. Without the ball, K calls for it.</p>
           <p><b>Dribble move</b> L / SHIFT (MOVE). Stick away from where you face = crossover-type move, no stick = hesitation, stick forward with a defender in front = spin. Each move gives a burst of speed and a chance to beat or freeze your man. There's a short cooldown — spamming it can cost you the ball.</p>
           <p><b>Defense</b> J = jump to block · K = steal · L = defensive slide (slide then K = shove)</p>
+          <p><b>⚔ Weapon</b> E (or ⚔) — fires the weapon that fits the moment (shot, drive, steal, block…). A short aura boosts that play. Teammates with an <b>OPEN</b> tag are calling for the ball.</p>
           <p class="arc-moves" id="arcMoves"></p>
           <button class="btn glow" data-a="gotit">Got it — let's play</button></div></div>`;
       document.body.appendChild(root); document.body.classList.add('arc-open');
@@ -117,7 +118,8 @@ const Arcade = (() => {
       const players = [];
       cfg.teams.forEach((tm, ti) => tm.players.forEach((pl, i) => {
         const look = pl.look || Art.lookFromSeed(pl.name);
-        players.push({ team: ti, i, name: pl.name, short: String(pl.name).split(' ').slice(-1)[0].replace(/"/g, ''), st: pl.stats, arch: pl.arch, isUser: !!pl.isUser, bonusFn: pl.bonus,
+        players.push({ team: ti, i, name: pl.name, short: String(pl.name).replace(/"[^"]*"\s*/, '').trim().split(' ').slice(-1)[0], st: pl.stats, arch: pl.arch, isUser: !!pl.isUser, bonusFn: pl.bonus, isStar: !!pl.star,
+          weapons: (pl.weapons || []).map(w => typeof w === 'string' ? { id: w, rank: 1 } : w).filter(w => WEAPONS[w.id]), wpn: null, wUsed: 0,
           num: pl.num != null ? pl.num : (look.num || (7 + i * 13 + ti * 5) % 60),
           skin: look.skin || '#a86b43', skinD: shade(look.skin || '#a86b43', -.28), hair: look.hair || 'fade', hairC: look.hairColor || '#111', band: look.headband || '', shoe: look.shoeColor || '#f8fafc',
           col: tm.colors[0], colD: shade(tm.colors[0], -.32), colL: shade(tm.colors[0], .18), col2: tm.colors[1] || '#ffffff',
@@ -130,7 +132,7 @@ const Arcade = (() => {
       const teamOf = t => players.filter(p => p.team === t);
       const ball = { state: 'held', owner: null, x: 192, y: 160, z: 10, vx: 0, vy: 0, vz: 0, spin: 0, shot: null, pass: null, lastPasser: null, passT: -9, sx: 0, sy: 0, sz: 0 };
       const G = { score: [0, 0], off: 0, clock: SEGM ? SEG.clock : PACE.shotClock, over: false, paused: true, started: false, time: 0, real: 0, cam: (A.W - VW) / 2,
-        slowT: 0, zoom: 1, zf: { x: A.hoop.x, y: 40 }, shake: 0, flash: 0, speedT: 0, stop: 0, kick: 0, vt: 0, cutAt: -99, cuts: 0, flashCol: '255,255,255',
+        slowT: 0, zoom: 1, zf: { x: A.hoop.x, y: 40 }, shake: 0, flash: 0, speedT: 0, stop: 0, kick: 0, vt: 0, cutAt: -99, cuts: 0, flashCol: '255,255,255', wlog: [], callT: 0,
         anyFire: false, mustClear: false, endAt: 0, pending: null, log: [], stamUsed: 0, lastScorer: null, lastShooter: null, fbStart: 0 };
       const RD = Pixel.renderer(c, VEN), E = RD.E;
       E.onLand = (p, h) => { if (h > 14) SFX.play('thud', p === me ? .9 : .45); };
@@ -190,6 +192,7 @@ const Arcade = (() => {
         const out = p.bonusFn ? p.bonusFn(action) : [];
         if (p.team !== me.team && BALANCE.defense[diff]) out.push({ label: 'Difficulty', v: BALANCE.defense[diff] * .6 });
         if (p.fire > 0) out.push({ label: 'On fire', v: 6 });
+        if (p.wpn && p.wpn.t > 0 && Weapons.fits(p.wpn.id, action)) out.push({ label: WEAPONS[p.wpn.id].name, v: WA.bonus + (p.wpn.rank - 1) * WA.perRank });
         if (BREAK && p.team === 0 && ['layup', 'dunk', 'catchMid', 'pullMid', 'catch3', 'pull3'].includes(action)) out.push({ label: 'Fast break', v: 6 });
         if (easeShot && p.team === me.team && ['layup', 'dunk', 'catchMid', 'pullMid', 'catch3', 'pull3', 'move'].includes(action)) out.push({ label: 'Early career', v: easeShot });
         return out;
@@ -213,6 +216,33 @@ const Arcade = (() => {
         tagEl.appendChild(el); setTimeout(() => el.remove(), 1100);
       }
       const logLine = t => G.log.push(t);
+      /* ---- WEAPONS: anyone can fire one — name pop-up, freeze frame, aura, then a boost on the matching play ---- */
+      const WA = BALANCE.weapons.arcade;
+      const wLimit = p => SEGM ? 1 : 2 + Math.floor(p.box.pts / 7);
+      const wReady = p => p.weapons.length && p.wUsed < wLimit(p) && !(p.wpn && p.wpn.t > 0);
+      function activateWeapon(p, id) {
+        const w = WEAPONS[id]; if (!w) return false;
+        const rank = (p.weapons.find(x => x.id === id) || { rank: 1 }).rank, mine = p.team === me.team;
+        p.wpn = { id, t: WA.aura, rank }; p.wUsed++;
+        G.stop = Math.max(G.stop, .32); G.flash = Math.max(G.flash, .35); G.flashCol = mine ? '250,204,21' : '239,68,68'; G.kick = Math.max(G.kick, .06);
+        pop(`⚔ ${w.name.toUpperCase()}`, mine ? '#facc15' : '#f87171', true); tag(p === me ? 'WEAPON!' : p.short.toUpperCase(), p, mine ? '#fde68a' : '#fca5a5'); SFX.play('sig');
+        RD.ring(p.x, p.y, mine ? '#facc15' : '#ef4444', 120, .5, 2, .4); G.wlog.push({ name: p.name, weapon: w.name, team: p.team }); logLine(`${p.name} uses ${w.name}`);
+        return true;
+      }
+      /* the weapon that fits what p is doing right now */
+      function fitWeapon(p, action) { return (p.weapons.find(x => Weapons.fits(x.id, action)) || {}).id; }
+      const aiWeapon = (p, action) => { if (p === me || !wReady(p) || Math.random() > WA.aiUse * (p.isStar ? 1.5 : 1)) return; const id = fitWeapon(p, action); if (id) activateWeapon(p, id); };
+      const spendWeapon = (p, action) => { if (p.wpn && Weapons.fits(p.wpn.id, action)) p.wpn.t = Math.min(p.wpn.t, .5); };
+      function pressWeaponBtn() {
+        if (!live()) return;
+        if (!wReady(me)) { tag(me.wpn && me.wpn.t > 0 ? 'ACTIVE!' : me.weapons.length ? 'USED' : 'NO WEAPON', me, '#94a3b8'); return; }
+        let id;
+        if (ball.owner === me) { const sc = shotChance(me); id = fitWeapon(me, sc.action) || fitWeapon(me, 'layup') || fitWeapon(me, isThree(me) ? 'pull3' : 'pullMid') || fitWeapon(me, 'pass'); }
+        else if (G.off !== me.team) id = fitWeapon(me, 'steal') || fitWeapon(me, 'block') || fitWeapon(me, 'stop');
+        else id = fitWeapon(me, 'catch3') || fitWeapon(me, 'catchMid') || fitWeapon(me, 'layup');
+        if (!id) { tag('NO WEAPON FITS', me, '#94a3b8'); return; }
+        activateWeapon(me, id);
+      }
       /* ---- impact feel: hit-stop freeze, camera punch-in, flash ---- */
       function impact(stop, shake, flash, kick = .05, col = '255,255,255') { G.stop = Math.max(G.stop, stop); G.shake = Math.max(G.shake, shake); G.flash = Math.max(G.flash, flash); G.flashCol = col; G.kick = Math.max(G.kick, kick); }
       /* ---- quick cut to an anime close-up for highlight plays (rate-limited) ---- */
@@ -243,7 +273,8 @@ const Arcade = (() => {
         if (ball.owner !== p || ball.state !== 'held' || !canAct(p) || p.z > 0) return;
         if (G.mustClear && !isThree(p)) { if (p === me) tag('TAKE IT BACK!', p, '#fca5a5'); return; }
         if (p.act && p.act.type === 'move') p.act = null;
-        const sc = shotChance(p);
+        if (p !== me) aiWeapon(p, shotChance(p).action);
+        const sc = shotChance(p); spendWeapon(p, sc.action);
         if (sc.action === 'dunk') return startDunk(p, sc);
         if (sc.action === 'layup') return startLayup(p, sc);
         p.act = { type: 'shoot', t: 0, sc, air: false, released: false };
@@ -264,7 +295,7 @@ const Arcade = (() => {
         players.forEach(q => {
           if (blocker || q.team === shooter.team || q.stun > 0 || !(q.act && q.act.type === 'block') || q.act.t > .5) return;
           if (dist(q, shooter) > (q.act.chase ? 20 : 17)) return;
-          const p = pctOf('block', q, shooter) * (kind === 'dunk' ? .45 : kind === 'layup' ? .8 : 1) * (q === me ? 1 : .6 + aiFor(q).block * .4) * (q.act.chase ? 1.15 : 1);
+          const p = pctOf('block', q, shooter) * (kind === 'dunk' ? .45 : kind === 'layup' ? .8 : 1) * (q === me ? 1 : .6 + aiFor(q).block * .4) * (q.act.chase ? 1.15 : 1); spendWeapon(q, 'block');
           if (Math.random() * 100 < p) blocker = q;
         });
         return blocker;
@@ -347,7 +378,8 @@ const Arcade = (() => {
       function throwPass(from, to) {
         let intercept = null;
         const d0 = dist(from, to) || 1;
-        players.forEach(d => { if (d.team === from.team || d.stun > 0 || intercept) return;
+        const noLook = from.wpn && from.wpn.t > 0 && Weapons.fits(from.wpn.id, 'pass'); if (noLook) { spendWeapon(from, 'pass'); tag(WEAPONS[from.wpn.id].name.toUpperCase(), from, '#fde68a'); }
+        players.forEach(d => { if (noLook || d.team === from.team || d.stun > 0 || intercept) return;
           const t = clamp(((d.x - from.x) * (to.x - from.x) + (d.y - from.y) * (to.y - from.y) * 1.69) / (d0 * d0), 0, 1);
           const px_ = from.x + (to.x - from.x) * t, py = from.y + (to.y - from.y) * t;
           if (Math.hypot(d.x - px_, (d.y - py) * 1.3) < 8 && t > .15 && t < .9 && Math.random() * 100 < pctOf('steal', d, from) * .6) intercept = d; });
@@ -364,7 +396,8 @@ const Arcade = (() => {
         if (!h || h.team === p.team || ball.state !== 'held' || dist(p, h) > 17) return;
         if (p.slide > 0 && p === me) return shove(p, h);
         const busy = h.act && (h.act.type === 'move' || h.act.type === 'shoot');
-        const pct = pctOf('steal', p, h) * .62 * (busy ? .6 : 1);
+        if (p !== me) aiWeapon(p, 'steal');
+        const pct = pctOf('steal', p, h) * .62 * (busy ? .6 : 1); spendWeapon(p, 'steal');
         if (Math.random() * 100 < pct) {
           h.box.to++; p.box.stl++; pop(pick(A.lines.steal), '#38bdf8'); SFX.play('whoosh'); SFX.play('slap'); E.hype = Math.min(1, E.hype + .25); burst(h.x + h.face * 5, h.y - 12, '#7dd3fc', 8, 40); G.kick = Math.max(G.kick, .03);
           logLine(`${p.name} picks ${h.name}'s pocket!`);
@@ -382,6 +415,7 @@ const Arcade = (() => {
       /* ---- blocks / jumps ---- */
       function tryBlock(p) {
         if (!canAct(p) || p.z > 0) return;
+        if (p !== me) aiWeapon(p, 'block');
         const chase = BREAK && p.role === 'trail';
         p.act = { type: 'block', t: 0, chase }; p.vz = PACE.jump(p.st.vert) * 1.05; p.z = .1;
         const sh = ball.owner && ball.owner.team !== p.team ? ball.owner : null; if (sh) p.face = sh.x >= p.x ? 1 : -1;
@@ -464,6 +498,7 @@ const Arcade = (() => {
         if ((k === 'KeyJ' || k === 'Space') && !input.shoot) { input.shoot = true; pressShootBtn(); }
         if (k === 'KeyK') pressPassBtn();
         if (k === 'KeyL' || k === 'ShiftLeft' || k === 'ShiftRight') pressMoveBtn();
+        if (k === 'KeyE') pressWeaponBtn();
       };
       const ku = e => { keys[e.code] = false; if ((e.code === 'KeyJ' || e.code === 'Space') && input.shoot) { input.shoot = false; releaseShoot(me); } };
       addEventListener('keydown', kd); addEventListener('keyup', ku);
@@ -503,7 +538,7 @@ const Arcade = (() => {
       joy.addEventListener('pointerup', endJoy); joy.addEventListener('pointercancel', endJoy);
       root.querySelectorAll('[data-b]').forEach(b => {
         const k = b.dataset.b;
-        b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('down'); if (k === 'move') pressMoveBtn(); if (k === 'pass') pressPassBtn(); if (k === 'shoot' && !input.shoot) { input.shoot = true; pressShootBtn(); } });
+        b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('down'); if (k === 'move') pressMoveBtn(); if (k === 'wpn') pressWeaponBtn(); if (k === 'pass') pressPassBtn(); if (k === 'shoot' && !input.shoot) { input.shoot = true; pressShootBtn(); } });
         const up = () => { b.classList.remove('down'); if (k === 'shoot' && input.shoot) { input.shoot = false; releaseShoot(me); } };
         b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
       });
@@ -537,6 +572,7 @@ const Arcade = (() => {
       }
       function aiHandler(p, AI) {
         if (p.act && busyActs.includes(p.act.type)) return;
+        if (p.isStar) AI = Object.assign({}, AI, { shootAt: AI.shootAt - 6, moves: AI.moves + .15 });   // stars hunt their shot
         const dh = toHoop(p), def = nearestDef(p), dd = def ? dist(def, p) : 999;
         const inFront = def && dd < 22 && toHoop(def) < dh;
         if (G.mustClear && !isThree(p)) { const a = Math.atan2(p.y - A.hoop.y, p.x - A.hoop.x); p.goal = { x: A.hoop.x + Math.cos(a) * (A.three.rx + 14), y: A.hoop.y + Math.max(.4, Math.sin(a)) * (A.three.ry + 14) }; return; }
@@ -554,7 +590,7 @@ const Arcade = (() => {
         const sc = shotChance(p);
         if (dh < A.layupRange || sc.pct >= AI.shootAt + rnd(-5, 5) || (openness(p) > 28 && sc.pct >= AI.shootAt - 8) || G.clock < 2.2) { p.wantShoot = true; return; }
         if (inFront && p.cool <= 0 && Math.random() < AI.moves) { doMove(p, Math.random() < .5 ? -p.face : p.face * .4, rnd(-.6, .2)); return; }
-        if (open.length && Math.random() < .3) { startPass(p, pick(open)); return; }
+        if (open.length && Math.random() < .3) { aiWeapon(p, 'pass'); startPass(p, open.includes(me) && Math.random() < .5 ? me : pick(open)); return; }
         const laneClear = !def || (toHoop(def) > dh - 4) || Math.abs(def.x - p.x) > 14;
         p.goal = laneClear && Math.random() < .55 ? { x: A.hoop.x + rnd(-12, 12), y: A.hoop.y + 22 } : { x: clamp(p.x + rnd(-44, 44), 40, 344), y: clamp(p.y + rnd(-14, 26), 76, 196) };
       }
@@ -620,6 +656,7 @@ const Arcade = (() => {
         const [six, siy] = stick();
         players.forEach(p => {
           p.stealCD = Math.max(0, p.stealCD - dt); p.cool = Math.max(0, p.cool - dt); p.burst = Math.max(0, p.burst - dt); p.slide = Math.max(0, p.slide - dt);
+          if (p.wpn) { p.wpn.t -= dt; if (p.wpn.t <= 0) p.wpn = null; }
           if (p.stun > 0) p.stun = Math.max(0, p.stun - dt);
           if (G.time - p.lastMove > MV.spamWindow) p.spam = 0;
           let ix = 0, iy = 0;
@@ -846,6 +883,12 @@ const Arcade = (() => {
          ================================================================= */
       function drawP(p) {
         const K = RD.player(p, { me: p === me, mate: p.team === me.team && p !== me, fire: p.fire > 0 });
+        if (p.wpn && p.wpn.t > 0) { const col = p.team === me.team ? '#facc15' : '#ef4444'; for (let k = 0; k < 2; k++) E.fx.push({ x: p.x + rnd(-6, 6), y: p.y - p.z - rnd(0, 30), vx: rnd(-10, 10), vy: -rnd(20, 50), life: .35, col: k ? col : '#ffffff', sz: 2, g: -.4 }); }
+        if (ball.owner === me && p.team === me.team && p !== me && ball.state === 'held' && openness(p) > 24 && !G.pending) {   // OPEN indicator over teammates calling for the ball
+          const y = Math.round(K.head[1] - 13 + Math.sin(G.real * 8) * 1.5), x = Math.round(K.head[0]);
+          RD.text('OPEN', x, y - 6, '#86efac', 1, 'center', '#0a0a12'); RD.px(x - 2, y, 5, 1, '#86efac'); RD.px(x - 1, y + 1, 3, 1, '#86efac'); RD.px(x, y + 2, 1, 1, '#86efac');
+          if (G.real - (p.callT || 0) > 2.4 && Math.random() < .02) { p.callT = G.real; tag(pick(['HERE!', 'I\'M OPEN!', 'BALL!']), p, '#86efac'); SFX.play('blip', { f: 240 + p.i * 40, w: 'square', g: .03 }); }
+        }
         if (p === me && p.act && p.act.type === 'shoot' && !p.act.released) {   // shot meter over your head
           const a = p.act, apex = a.apex || (PACE.gather + PACE.jump(p.st.vert) / PACE.gravity), kk = clamp(a.t / (apex * 2), 0, 1);
           const stat = a.sc.three ? p.st.three : p.st.mid, win = (.05 + Balance.eff(stat) / 99 * .09) * WINDOW, gh = Math.max(2, Math.round(win * 2 / (apex * 2) * 22));
@@ -885,6 +928,7 @@ const Arcade = (() => {
         // HUD values (HTML)
         $('abStam').style.width = me.stamina + '%'; $('abStam').classList.toggle('low', me.stamina < 25);
         const mv = $('abMove'), ready = me.cool <= 0; mv.classList.toggle('cd', !ready); mv.querySelector('b').textContent = ready ? (ball.owner === me ? 'READY' : G.off === me.team ? 'CUT' : 'SLIDE') : '…';
+        const wb = $('abWpn'), wr = wReady(me), wa = me.wpn && me.wpn.t > 0; wb.classList.toggle('cd', !wr && !wa); wb.classList.toggle('on', wa); wb.querySelector('b').textContent = !me.weapons.length ? '—' : wa ? WEAPONS[me.wpn.id].name.toUpperCase() : wr ? 'READY' : 'USED'; $('tbWpn').classList.toggle('ready', wr); $('tbWpn').classList.toggle('on', wa);
         const tb = $('tbMove'); tb.style.setProperty('--cd', ready ? 0 : me.cool / CF().moves.cooldown); const ctxt = ball.owner === me ? ['MOVE', 'DRIBBLE'] : G.off === me.team ? ['CUT', 'OFF BALL'] : ['SLIDE', 'DEFENSE']; if (tb.firstChild.textContent !== ctxt[0]) { tb.firstChild.textContent = ctxt[0]; tb.querySelector('small').textContent = ctxt[1]; }
         const clk = $('ahClock'); clk.textContent = G.pending ? '' : SEGM ? (G.off < 0 ? 'LOOSE BALL' : `${SEG.clockLabel || 'CLOCK'} ${Math.max(0, G.clock).toFixed(1)}`) : `TO ${target} · ${Math.max(0, Math.ceil(G.clock))}`; clk.classList.toggle('low', G.clock < 3);
       }
@@ -930,12 +974,13 @@ const Arcade = (() => {
         if (SEGM) {
           const scorer = extra.scorer || null;
           res = { kind: SEG.kind, ptsUs: G.score[0], ptsThem: G.score[1], pts: G.score[0], end: extra.end || 'miss', offense: G.off, scorer: role(scorer), scorerName: scorer && scorer.name, me: Object.assign({}, me.box),
-            foul: extra.foul || null, fouled: role(extra.fouled || (extra.foul && scorer)), dunk: !!extra.dunk, buzzer: !!extra.buzzer, stamina: Math.round(G.stamUsed + (100 - me.stamina) * .3), log: G.log.slice(), ankles: G.anklesBy || 0 };
+            foul: extra.foul || null, fouled: role(extra.fouled || (extra.foul && scorer)), dunk: !!extra.dunk, buzzer: !!extra.buzzer, stamina: Math.round(G.stamUsed + (100 - me.stamina) * .3), log: G.log.slice(), ankles: G.anklesBy || 0,
+            all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice() };
           banner = res.ptsUs ? (extra.foul ? 'AND ONE!' : extra.buzzer ? 'AT THE BUZZER!' : `+${res.ptsUs}`) : res.ptsThem ? (extra.foul ? 'AND ONE — THEM' : 'THEY SCORE') :
             ({ foul: res.foul && res.foul.team === 1 ? 'FOUL ON YOU' : 'FOUL — TO THE LINE', to: 'TURNOVER', set: 'DEFENSE SET', oreb: 'RESET', miss: 'NO GOOD', stop: 'STOP!', buzzer: 'BUZZER' })[res.end] || 'NO GOOD';
         } else {
           const win = extra.forfeit ? false : G.score[0] > G.score[1];
-          res = { win, score: G.score.slice(), box: me.box, fire: G.anyFire, shatter: E.shatter, forfeit: !!extra.forfeit, ankles: G.anklesBy || 0, fatigue: clamp(Math.round(G.stamUsed / 5 + 15), 15, 60), all: players.map(p => ({ team: p.team, name: p.name, box: p.box })) };
+          res = { win, score: G.score.slice(), box: me.box, fire: G.anyFire, shatter: E.shatter, forfeit: !!extra.forfeit, ankles: G.anklesBy || 0, fatigue: clamp(Math.round(G.stamUsed / 5 + 15), 15, 60), all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice() };
           banner = win ? 'YOU WIN!' : 'GAME OVER'; sub = `${G.score[0]} – ${G.score[1]}`;
         }
         intro.className = 'arc-intro on'; intro.innerHTML = `<b>${banner}</b>${sub ? `<small>${sub}</small>` : ''}`;
@@ -962,12 +1007,14 @@ const Arcade = (() => {
   function userPlayer() {
     const s = Game.state, arch = Engine.archOf(s);
     const bonus = action => { const k = KEYMAP[action], m = arch.passive.mods || {}, out = []; const v = (m[k] || 0) + (m.all || 0); if (v) out.push({ label: arch.passive.name, v }); const bb = Engine.badgeBonus(s, k); if (bb) out.push({ label: 'Badges', v: bb }); return out; };
-    return { name: `${s.player.first} ${s.player.last}`, stats: Balance.userStats(s), look: Engine.look(s), num: s.player.num, arch: s.player.arch, isUser: true, bonus };
+    return { name: `${s.player.first} ${s.player.last}`, stats: Balance.userStats(s), look: Engine.look(s), num: s.player.num, arch: s.player.arch, isUser: true, bonus, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank })) };
   }
   function crew(team, rating, n, star) {
     const names = (team.roster || []).filter(nm => !/Kai Sterling/.test(nm) || (star && star.name === nm));
     if (star && !names.includes(star.name)) names.unshift(star.name);
-    return [...Array(n)].map((_, i) => { const nm = names[i] || `${team.abbr} ${i + 1}`, isStar = star && nm === star.name; return { name: nm, stats: Balance.profile(rating + (isStar ? 4 : -2 + Math.random() * 4), isStar ? { perD: star.perD || rating, intD: star.intD || rating } : {}) }; });
+    return [...Array(n)].map((_, i) => { const nm = names[i] || `${team.abbr} ${i + 1}`, isStar = !!(star && nm === star.name), N = Weapons.npc(nm, rating + (isStar ? 0 : -2 + Math.random() * 4), isStar);
+      if (isStar) { N.stats.perD = Math.max(N.stats.perD, star.perD || rating); N.stats.intD = Math.max(N.stats.intD, star.intD || rating); }
+      return { name: nm, stats: N.stats, weapons: N.weapons, star: isStar }; });
   }
   /* Pickup game (first to `target`) — same result shape as before */
   function play(cfg) { return run(Object.assign({ mode: 'game', venue: 'street' }, cfg)); }
@@ -979,6 +1026,7 @@ const Arcade = (() => {
     const meP = userPlayer(); if (m.bonus) meP.bonus = m.bonus;
     if (m.stats) meP.stats = m.stats;
     if (m.stamina != null) meP.stamina = m.stamina;
+    if (m.weapons) meP.weapons = m.weapons;
     const mates = crew(m.us, m.mateRating || 45, Math.max(0, no - 1));
     const usPl = m.handler === 'mate' && mates.length && m.setup === 'break' ? [mates[0], meP].concat(mates.slice(1)) : [meP].concat(mates);
     const thPl = crew(m.them, m.oppRating || 45, Math.max(1, nd), m.star && nd >= 1 ? m.star : null);

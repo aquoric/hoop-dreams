@@ -45,6 +45,8 @@ const BALANCE = {
     contest:  { name: 'Contest',          off: { perD: .7, vert: .3 },           def: { mid: .5, three: .5 },       base: 50, k: .8, skill: 30 },
     charge:   { name: 'Take the charge',  off: { iq: .6, str: .4 },              def: { str: .5, speed: .5 },       base: 38, k: .7, skill: 20 },
     rebound:  { name: 'Rebound',          off: { reb: .5, str: .25, vert: .25 }, def: { reb: .5, str: .25, vert: .25 }, base: 53, k: .8, skill: 30 },
+    save:     { name: 'Save the ball',    off: { speed: .5, iq: .3, vert: .2 }, def: null,                base: 6,  k: .62, skill: 40, abs: true },   // close call: dive before it goes out
+    touch:    { name: 'Shooter\'s touch', off: { finish: .4, mid: .4, clutch: .2 }, def: null,              base: 12, k: .6,  skill: 40, abs: true },   // close call: ball rolling around the rim
     move:     { name: 'Dribble move',     off: { handle: .8, speed: .2 },        def: { perD: .8, speed: .2 },      base: 38, k: .8, skill: 0 },   // arcade: beat your defender
   },
 
@@ -59,6 +61,40 @@ const BALANCE = {
     clutch: 1.5,                                   // per 10 Clutch points above/below 50 — only in clutch time
     fire: 6,                                       // On Fire
   },
+  /* ---------- WEAPONS (signature moves — see WEAPONS in js/data-game.js) ----------
+     pct = base + (weapon stats − defender stats) × k + your level × perLevel + (rank − 1) × perRank + rarity bonus,
+     using ONLY the stats listed on the weapon (weights) and the defender stats in `def` for its type.
+     Minigames then move it by ± skill/2. Clamped to minPct–max (never automatic).
+     npc: other players' weapons (teammates, opponents, stars) — dangerous, never automatic.
+     ranks: upgrade costs (Skill Points) and the player level each rank needs. slots: level when weapon slot 1–4 opens. */
+  weapons: {
+    base: 47, k: .75, perLevel: .3, perRank: 3.5, skill: 30, max: 92,
+    rarity: { common: 0, rare: 2, epic: 4, legendary: 6, mythic: 8 },
+    def: { three: { perD: 1 }, mid: { perD: .7, vert: .3 }, drive: { perD: .5, intD: .5 }, dunk: { intD: .7, vert: .3 }, post: { intD: .6, str: .4 },
+           pass: { perD: .5, iq: .5 }, steal: { handle: .8, iq: .2 }, block: { finish: .5, dunk: .3, str: .2 }, stop: { handle: .6, speed: .4 }, zone: null },
+    npc: { base: 45, k: .7, max: 72, star: 4, charge: 2 },     // star: extra % for a team's star · charge: their makes before a weapon is ready
+    ranks: { max: 5, cost: r => 2 + r * 2, level: r => (r - 1) * 3 },
+    slots: [1, 5, 11, 18],
+    arcade: { bonus: 12, perRank: 2, aura: 4, aiUse: .4 },   // arcade: % bonus on the matching action while the aura is up (s)
+  },
+  /* ---------- PASSING moments (choices mode) ----------
+     open: % added to the teammate's shot by how open he is. quality: a perfect pass adds up to this % to his shot.
+     kinds: how often each passing moment comes up (weights). */
+  passing: {
+    open: { wide: 12, open: 7, normal: 0, tight: -8 }, quality: 12, lobTol: 9, hockeyOpen: 'wide',
+    kinds: { kickout: 3, lob: 2, alleyoop: 1.5, giveandgo: 2, hockey: 1.2, skip: 1.5, outlet: 1.2 },
+  },
+  /* ---------- OTHER PLAYERS (choices mode) ----------
+     moments: how often teammates / opponents get their own visible possessions (weights next to yours).
+     star: a star "takes over" after `heatAt` straight buckets for `takeover` moments (+bonus %), and the
+     coach asks you to guard him (askGuard = chance per defensive moment while he's hot). */
+  others: { mate: 1.6, opp: 1.3, weaponUse: .5, star: { heatAt: 2, takeover: 3, bonus: 6, askGuard: .7 } },
+  /* ---------- CLOSE CALLS (slow motion, zoom, crowd build-up + a quick reaction minigame) ----------
+     chance per moment: early in the game / late in a close game (margin = "close"). max per game.
+     kinds: weights. tooLate: buzzer-beater minigame quality below this = released after the horn. */
+  close: { early: .05, late: .38, margin: 6, max: 4, tooLate: .22,
+    kinds: { rimroll: 3, collision: 2.2, charge: 2, save: 1.6, buzzer: 1.6, clutchft: 1.2, stop: 1.4 } },
+
   /* ---------- DIFFICULTY (only Pro and Hall of Fame; Pro is the default) ----------
      defense: shifts the defender's ratings in every % (and the opponent's shooting vs you).
      window:  minigame timing windows (× size). checks: % added to story stat checks.
@@ -197,4 +233,52 @@ const Balance = (() => {
   function describe(parts) { return parts.map(x => x.v == null ? x.label : `${x.label} ${x.v > 0 ? '+' : '−'}${Math.abs(x.v)}%`).join(' · '); }
 
   return { pct, apply, roll, profile, userStats, available, describe, eff, blend };
+})();
+
+/* ---------- named players: stats with a style + their weapons ---------- */
+const Weapons = (() => {
+  const W = () => BALANCE.weapons;
+  const hash = str => { let h = 2166136261; for (const ch of String(str)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+  const ROLE_OF = { three: 'shooter', mid: 'shooter', drive: 'slasher', dunk: 'big', post: 'big', pass: 'playmaker', steal: 'stopper', stop: 'stopper', block: 'big', zone: 'slasher' };
+  const POOL = { shooter: ['logo_three', 'step_back', 'barrier_jumper', 'spin_fade'], slasher: ['euro_step', 'floater', 'vanishing_drive', 'lightning_dribble'], big: ['post_fade', 'sky_hook', 'poster_dunk', 'chase_block', 'lob_threat'], playmaker: ['no_look', 'ignite_pass', 'step_back'], stopper: ['lockdown', 'pickpocket', 'chase_block'] };
+  /* 1–2 weapons for any player: the PLAYER_WEAPONS list, else picked from the name (stable) */
+  function forName(name, star) {
+    if (typeof PLAYER_WEAPONS !== 'undefined' && PLAYER_WEAPONS[name]) return PLAYER_WEAPONS[name].slice();
+    const h = hash(name), roles = Object.keys(POOL), role = roles[h % roles.length], pool = POOL[role];
+    const a = pool[(h >> 4) % pool.length], b = pool[(h >> 9) % pool.length];
+    return star || (h >> 13) % 3 === 0 ? [...new Set([a, b])] : [a];
+  }
+  const roleOf = ids => { const c = {}; ids.forEach(id => { const w = WEAPONS[id]; if (w) c[ROLE_OF[w.type]] = (c[ROLE_OF[w.type]] || 0) + 1; }); return Object.entries(c).sort((x, y) => y[1] - x[1])[0]?.[0] || 'slasher'; };
+  const STYLE = {
+    shooter: { three: 9, mid: 6, ft: 6, intD: -6, reb: -5, str: -4 }, slasher: { finish: 7, speed: 6, handle: 5, three: -5 },
+    big: { intD: 9, reb: 9, str: 8, dunk: 6, vert: 3, three: -12, handle: -8, speed: -4 }, playmaker: { pass: 10, iq: 7, handle: 6, str: -5 },
+    stopper: { perD: 10, speed: 4, iq: 3, three: -4 },
+  };
+  /* a named player's stat line: team rating + his style (+ a little for stars) */
+  function npc(name, rating, star) {
+    const ids = forName(name, star), role = roleOf(ids), st = Balance.profile(rating + (star ? W().npc.star : 0)), adj = STYLE[role] || {};
+    for (const k in adj) st[k] = Math.max(20, Math.min(99, st[k] + adj[k]));
+    return { stats: st, weapons: ids, role };
+  }
+  /* success % of a weapon. o: { def: defender stats, level, rank, npc, star, diff, bonus:[{label,v}] } */
+  function pct(id, stats, o = {}) {
+    const w = WEAPONS[id], C = W(); if (!w) return { pct: 50, parts: [] };
+    const parts = [], eff = Balance.eff, mine = eff(Balance.blend(stats, w.stats)), main = Object.entries(w.stats).sort((a, b) => b[1] - a[1])[0][0];
+    const base = o.npc ? C.npc.base : C.base, k = o.npc ? C.npc.k : C.k, dw = C.def[w.type];
+    let p;
+    const NM = typeof ATTR_BY_KEY !== 'undefined' ? ATTR_BY_KEY : {};
+    parts.push({ label: `${w.name}: ${Object.keys(w.stats).map(s => (NM[s] ? NM[s].s : s) + ' ' + Math.round(stats[s] || 50)).join(' · ')}`, v: null });
+    if (dw && o.def) { const dShift = (o.diff && BALANCE.defense[o.diff]) || 0, theirs = eff(Balance.blend(o.def, dw) + dShift); p = base + (mine - theirs) * k; parts.push({ label: 'vs defender', v: Math.round((mine - theirs) * k) }); }
+    else { p = base + (mine - 50) * k * .6; }
+    const add = (label, v) => { if (v) { p += v; parts.push({ label, v: Math.round(v) }); } };
+    if (!o.npc) { add('Your level', (o.level || 1) * C.perLevel); add(`Rank ${o.rank || 1}`, ((o.rank || 1) - 1) * C.perRank); }
+    add(RARITY[w.rarity].name, C.rarity[w.rarity] || 0);
+    if (o.star) add('Star', C.npc.star);
+    (o.bonus || []).forEach(b => add(b.label, b.v));
+    return { pct: Math.round(Math.max(BALANCE.minPct, Math.min(o.npc ? C.npc.max : C.max, p))), parts };
+  }
+  /* which weapon fits a situation: action → weapon types that can be used for it */
+  const FITS = { catch3: ['three'], pull3: ['three'], catchMid: ['mid'], pullMid: ['mid'], fade: ['mid', 'post'], hook: ['post'], layup: ['drive'], dunk: ['dunk', 'drive'], pass: ['pass'], steal: ['steal'], block: ['block'], stop: ['stop', 'steal'], contest: ['stop', 'block'] };
+  const fits = (id, action) => { const w = WEAPONS[id]; return !!w && (FITS[action] || []).includes(w.type); };
+  return { forName, npc, pct, fits, roleOf, FITS, hash };
 })();

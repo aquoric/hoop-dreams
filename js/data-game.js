@@ -159,31 +159,62 @@ const ARCHETYPES = {
 /* Old saves used the original 8 archetypes: map them onto the new ones. */
 const ARCH_MIGRATE = { sharpshooter: 'sniper', slasher: 'lightning', playmaker: 'hawkeye', lockdown: 'thief', twoway: 'copycat', stretch: 'barrier', post: 'ironheart', rimrunner: 'sky' };
 
-/* ---------- WEAPONS (signature moves, rolled separately) ----------
-   type: the play it creates in a game — three | mid | drive | dunk | pass | post | steal | block | zone
-   power: minimum success % when you use it. charge: successful moments needed to charge it. */
+/* ---------- WEAPONS (signature moves) ----------
+   Like Blue Lock: every notable player has 1–2 "weapons". Yours are rolled at creation, more unlock as you
+   level up (Upgrade tab), and every weapon has ranks you upgrade with Skill Points.
+   type:  the play it creates — three | mid | drive | dunk | pass | post | steal | block | stop | zone
+   stats: the ONLY stats its success % uses (weights). The formula is in js/balance.js (BALANCE.weapons).
+   charge: good moments needed to charge it in a game. learn: true = can't be rolled, only unlocked later. */
 const WEAPONS = {
   /* ---- COMMON ---- */
-  lightning_dribble: { name: 'Lightning Dribble', rarity: 'common', type: 'drive', power: 72, charge: 3, icon: 'bolt', desc: 'A blur of crossovers and straight to the rim.' },
-  barrier_jumper:    { name: 'Barrier Jumper', rarity: 'common', type: 'three', power: 72, charge: 3, icon: 'target', desc: 'Step back, lean away, splash it over the contest.' },
-  hammer_board:      { name: 'Hammer Put-Back', rarity: 'common', type: 'dunk', power: 72, charge: 3, icon: 'fist', desc: 'Rip the rebound and hammer it back down.' },
+  lightning_dribble: { name: 'Lightning Dribble', rarity: 'common', type: 'drive', charge: 3, icon: 'bolt', stats: { handle: .5, speed: .3, finish: .2 }, desc: 'A blur of crossovers and straight to the rim.' },
+  barrier_jumper:    { name: 'Barrier Jumper', rarity: 'common', type: 'three', charge: 3, icon: 'target', stats: { three: .7, mid: .2, clutch: .1 }, desc: 'Step back, lean away, splash it over the contest.' },
+  hammer_board:      { name: 'Hammer Put-Back', rarity: 'common', type: 'dunk', charge: 3, icon: 'fist', stats: { reb: .4, dunk: .3, str: .3 }, desc: 'Rip the rebound and hammer it back down.' },
   /* ---- RARE ---- */
-  vanishing_drive:   { name: 'Vanishing Drive', rarity: 'rare', type: 'drive', power: 76, charge: 3, icon: 'ghost', desc: 'Your defender blinks — and you\'re gone.' },
-  ignite_pass:       { name: 'Ignite Pass', rarity: 'rare', type: 'pass', power: 76, charge: 3, icon: 'pass', desc: 'A palm-strike pass so fast it burns the hands that catch it.' },
-  postponement:      { name: 'Right of Postponement', rarity: 'rare', type: 'post', power: 76, charge: 3, icon: 'anchor', desc: 'Hang in the air, wait out the block, then decide.' },
-  robbery:           { name: 'Robbery', rarity: 'rare', type: 'steal', power: 76, charge: 3, icon: 'claw', desc: 'Pick the pocket at half court and finish the other way.' },
+  vanishing_drive:   { name: 'Vanishing Drive', rarity: 'rare', type: 'drive', charge: 3, icon: 'ghost', stats: { speed: .4, handle: .4, finish: .2 }, desc: 'Your defender blinks — and you\'re gone.' },
+  ignite_pass:       { name: 'Ignite Pass', rarity: 'rare', type: 'pass', charge: 3, icon: 'pass', stats: { pass: .7, iq: .3 }, desc: 'A palm-strike pass so fast it burns the hands that catch it.' },
+  postponement:      { name: 'Right of Postponement', rarity: 'rare', type: 'post', charge: 3, icon: 'anchor', stats: { str: .4, finish: .4, iq: .2 }, desc: 'Hang in the air, wait out the block, then decide.' },
+  robbery:           { name: 'Robbery', rarity: 'rare', type: 'steal', charge: 3, icon: 'claw', stats: { perD: .5, speed: .3, iq: .2 }, desc: 'Pick the pocket at half court and finish the other way.' },
   /* ---- EPIC ---- */
-  phantom_shot:      { name: 'Phantom Shot', rarity: 'epic', type: 'mid', power: 80, charge: 3, icon: 'eye', desc: 'A low-release jumper the defender can\'t even see leave your hands.' },
-  heaven_shot:       { name: 'Heaven · Earth · Void', rarity: 'epic', type: 'mid', power: 80, charge: 3, icon: 'yin', desc: 'Three different jump shots. They can\'t guard all of them.' },
-  thors_hammer:      { name: 'Thor\'s Hammer', rarity: 'epic', type: 'dunk', power: 80, charge: 3, icon: 'dunk', desc: 'Full spin, two hands, rim nearly torn down.' },
-  destroyer:         { name: 'Destroyer Block', rarity: 'epic', type: 'block', power: 80, charge: 3, icon: 'hand', desc: 'Swat it into the third row, start the break.' },
+  phantom_shot:      { name: 'Phantom Shot', rarity: 'epic', type: 'mid', charge: 3, icon: 'eye', stats: { mid: .7, iq: .3 }, desc: 'A low-release jumper the defender can\'t even see leave your hands.' },
+  heaven_shot:       { name: 'Heaven · Earth · Void', rarity: 'epic', type: 'mid', charge: 3, icon: 'yin', stats: { mid: .6, handle: .2, clutch: .2 }, desc: 'Three different jump shots. They can\'t guard all of them.' },
+  thors_hammer:      { name: 'Thor\'s Hammer', rarity: 'epic', type: 'dunk', charge: 3, icon: 'dunk', stats: { dunk: .5, vert: .3, str: .2 }, desc: 'Full spin, two hands, rim nearly torn down.' },
+  destroyer:         { name: 'Destroyer Block', rarity: 'epic', type: 'block', charge: 3, icon: 'hand', stats: { intD: .6, vert: .4 }, desc: 'Swat it into the third row, start the break.' },
   /* ---- LEGENDARY ---- */
-  meteor_jam:        { name: 'Meteor Jam', rarity: 'legendary', type: 'dunk', power: 85, charge: 4, icon: 'flame', desc: 'Take off from the free-throw line and fall on the rim like a meteor.' },
-  sky_three:         { name: 'Sky-High Three', rarity: 'legendary', type: 'three', power: 85, charge: 4, icon: 'star', desc: 'A full-court rainbow so high it scrapes the ceiling. Always good.' },
-  ankle_break:       { name: 'Emperor\'s Ankle Break', rarity: 'legendary', type: 'drive', power: 85, charge: 4, icon: 'crown', desc: 'See the defender\'s next step and send them to the floor.' },
+  meteor_jam:        { name: 'Meteor Jam', rarity: 'legendary', type: 'dunk', charge: 4, icon: 'flame', stats: { dunk: .4, vert: .5, speed: .1 }, desc: 'Take off from the free-throw line and fall on the rim like a meteor.' },
+  sky_three:         { name: 'Sky-High Three', rarity: 'legendary', type: 'three', charge: 4, icon: 'star', stats: { three: .8, clutch: .2 }, desc: 'A full-court rainbow so high it scrapes the ceiling.' },
+  ankle_break:       { name: 'Emperor\'s Ankle Break', rarity: 'legendary', type: 'drive', charge: 4, icon: 'crown', stats: { handle: .6, iq: .2, speed: .2 }, desc: 'See the defender\'s next step and send them to the floor.' },
   /* ---- MYTHIC ---- */
-  formless_shot:     { name: 'Formless Shot', rarity: 'mythic', type: 'mid', power: 88, charge: 4, icon: 'zigzag', desc: 'Behind the backboard, falling sideways, one hand. Still money.' },
-  the_zone:          { name: 'The Zone', rarity: 'mythic', type: 'zone', power: 88, charge: 4, icon: 'bolt', desc: 'Enter the Zone: the game slows down. +12% on everything and wider timing windows for the rest of the game.' },
+  formless_shot:     { name: 'Formless Shot', rarity: 'mythic', type: 'mid', charge: 4, icon: 'zigzag', stats: { mid: .5, finish: .3, handle: .2 }, desc: 'Behind the backboard, falling sideways, one hand. Still money.' },
+  the_zone:          { name: 'The Zone', rarity: 'mythic', type: 'zone', charge: 4, icon: 'bolt', stats: { iq: .4, clutch: .3, stam: .3 }, desc: 'Enter the Zone: the game slows down. +12% on everything and wider timing windows for the rest of the game.' },
+  /* ---- LEARNABLE (unlock as you level up — and what the rest of the league uses) ---- */
+  logo_three:   { name: 'Logo Three', rarity: 'rare', type: 'three', charge: 3, icon: 'target', learn: true, stats: { three: .85, clutch: .15 }, desc: 'Pull up from the half-court logo. Range is a state of mind.' },
+  step_back:    { name: 'Step-Back Three', rarity: 'rare', type: 'three', charge: 3, icon: 'zigzag', learn: true, stats: { three: .55, handle: .35, iq: .1 }, desc: 'One hard dribble, a step back, and a clean look.' },
+  spin_fade:    { name: 'Spin Fadeaway', rarity: 'epic', type: 'mid', charge: 3, icon: 'yin', learn: true, stats: { mid: .55, handle: .25, str: .2 }, desc: 'Spin baseline, fade away, release over the top.' },
+  poster_dunk:  { name: 'Poster Dunk', rarity: 'rare', type: 'dunk', charge: 3, icon: 'dunk', learn: true, stats: { dunk: .5, vert: .3, str: .2 }, desc: 'Go right at the shot blocker and put him on a poster.' },
+  no_look:      { name: 'No-Look Dime', rarity: 'rare', type: 'pass', charge: 3, icon: 'pass', learn: true, stats: { pass: .65, iq: .35 }, desc: 'Look one way, pass the other. The defense never sees it.' },
+  lockdown:     { name: 'Lockdown Stance', rarity: 'rare', type: 'stop', charge: 3, icon: 'lock', learn: true, stats: { perD: .7, speed: .2, iq: .1 }, desc: 'Low, wide, mirroring every step. Nothing gets by.' },
+  chase_block:  { name: 'Chase-Down Block', rarity: 'epic', type: 'block', charge: 3, icon: 'hand', learn: true, stats: { intD: .4, vert: .35, speed: .25 }, desc: 'Run him down from behind and pin it on the glass.' },
+  post_fade:    { name: 'Post Fadeaway', rarity: 'rare', type: 'post', charge: 3, icon: 'anchor', learn: true, stats: { mid: .5, str: .3, finish: .2 }, desc: 'Back him down, turn, fade, splash.' },
+  euro_step:    { name: 'Euro Step', rarity: 'common', type: 'drive', charge: 3, icon: 'zigzag', learn: true, stats: { finish: .55, handle: .25, speed: .2 }, desc: 'Left, then right, then past the help.' },
+  floater:      { name: 'Teardrop Floater', rarity: 'common', type: 'drive', charge: 3, icon: 'star', learn: true, stats: { finish: .6, mid: .4 }, desc: 'Too small to finish over the bigs? Go over them.' },
+  sky_hook:     { name: 'Sky Hook', rarity: 'epic', type: 'post', charge: 3, icon: 'anchor', learn: true, stats: { finish: .6, str: .2, iq: .2 }, desc: 'A hook shot released from the rafters. Unblockable.' },
+  pickpocket:   { name: 'Pickpocket', rarity: 'common', type: 'steal', charge: 3, icon: 'claw', learn: true, stats: { perD: .6, speed: .3, iq: .1 }, desc: 'Quick hands on the dribble. Take it and go.' },
+  lob_threat:   { name: 'Lob Threat', rarity: 'common', type: 'dunk', charge: 3, icon: 'wing', learn: true, stats: { vert: .5, dunk: .4, iq: .1 }, desc: 'Throw it anywhere near the rim. He\'ll go get it.' },
+  dream_shake:  { name: 'Dream Shake', rarity: 'legendary', type: 'post', charge: 4, icon: 'yin', learn: true, stats: { str: .35, handle: .35, finish: .3 }, desc: 'Fake, pivot, fake again — the defender is already in the air.' },
+};
+/* Every named player's weapons (1–2, fitting their position and style). Anyone not listed gets
+   1–2 weapons picked from their name + role (Weapons.forName), so every key player has them. */
+const PLAYER_WEAPONS = {
+  // Halsey Street + Lincoln (your teammates)
+  'Tariq "T-Bone" Miles': ['no_look', 'post_fade'], 'Big Rudy': ['sky_hook', 'hammer_board'], 'Smoke': ['logo_three'], 'Lil\' Dez': ['pickpocket', 'floater'],
+  'Darnell "Brick" Hollis': ['post_fade', 'chase_block'], 'Jordan Pike': ['step_back'], 'Andre Cole': ['euro_step', 'lockdown'],
+  // rivals
+  'Kai Sterling': ['step_back', 'ankle_break'], 'Brandon Vale': ['logo_three'], 'Theo "Tank" Marsh': ['poster_dunk', 'destroyer'], 'Jules Okafor': ['lockdown', 'lob_threat'], 'Preston Ames': ['no_look'],
+  'Hammer Jones': ['thors_hammer', 'post_fade'], 'Q-Tip': ['floater'], 'Marlon Cross': ['pickpocket'], 'Big Shoes': ['sky_hook'],
+  'Flash Gordon Lee': ['vanishing_drive', 'euro_step'], 'Ricky Two-Times': ['step_back'], 'Mo Bamba-ish': ['chase_block'],
+  'Darius "D-Train" Holt': ['poster_dunk', 'spin_fade'], 'Quincy Fields': ['logo_three', 'step_back'], 'Isaiah Grant': ['euro_step'], 'Chidi Eze': ['destroyer', 'sky_hook'], 'Deshawn Price': ['pickpocket', 'floater'], 'Elijah Ross': ['spin_fade', 'lockdown'],
+  'Marcus "Silk" Sterling': ['dream_shake', 'spin_fade'],
 };
 const WEAPON_MIGRATE = { splash: 'sky_three', lightning: 'vanishing_drive', nolook: 'ignite_pass', clamp: 'robbery', takeover: 'thors_hammer', popbomb: 'barrier_jumper', dream: 'postponement', skyscraper: 'meteor_jam' };
 
