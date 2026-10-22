@@ -45,8 +45,28 @@ const TALK = {
                good: ['…Hm.', 'Okay. You\'re not scared.'], bad: ['Talk is cheap.', 'Yawn.'] },
     showman:  { kind: 'rival', trait: 'A showman. Hates being upstaged.', styles: { joke: 26, needle: 14, calm: 10, brag: -12, humble: -10, insult: -12 },
                good: ['Okay, okay — that was funny.', 'Nobody laughs at me!'], bad: ['Ha! The crowd loves me, not you.', 'Boring.'] },
+    /* ---- teammates (trust: good answers build it) — pre-game only ---- */
+    mate_vet:  { kind: 'mate', trait: 'Quiet veteran. Wants honesty and effort.', start: 50, look: { skin: '#8a5233', hair: 'buzz', hairColor: '#0f0d0c', beard: 'goatee' },
+               styles: { honest: 24, effort: 20, team: 18, joke: 2, respect: 10, ego: -20, argue: -14, excuse: -22 },
+               good: ['That\'s what I like to hear.', 'Alright. I got your back.'], bad: ['Talk is cheap, rook.', 'We\'ll see.'] },
+    mate_hype: { kind: 'mate', trait: 'The hype man. Loves energy and jokes.', start: 50, look: { skin: '#d9a77e', hair: 'dreads', hairColor: '#3b2416' },
+               styles: { joke: 24, effort: 16, team: 14, ego: 8, honest: 6, respect: 4, argue: -12, excuse: -18 },
+               good: ['LET\'S GOOO!', 'That\'s my guy!'], bad: ['Bro, relax.', 'Okay… weird energy.'] },
   },
   scripts: {
+    /* PRE-GAME — one short talk before big games (2 exchanges, small effect) */
+    pre_coach: [
+      { say: 'Big one tonight, {first}. You ready?', opts: [['effort', 'Ready. I\'ll guard whoever you want.'], ['ego', 'I was born ready, Coach.'], ['honest', 'Nervous. But ready.']] },
+      { say: 'Their best player will test you early. Then what?', opts: [['team', 'Make the extra pass and keep it simple.'], ['ego', 'Then I test him back.'], ['excuse', 'Hopefully the refs protect me.']] },
+    ],
+    pre_mate: [
+      { say: 'You good? You look tight.', opts: [['honest', 'A little. Talk to me out there.'], ['joke', 'Tight? I\'m a coiled spring.'], ['ego', 'I\'m fine. Just get me the ball.']] },
+      { say: 'If they double you, where\'s the ball going?', opts: [['team', 'Straight to you. Be ready.'], ['ego', 'Nowhere. I\'m splitting it.'], ['effort', 'Wherever it needs to. I\'ll find you.']] },
+    ],
+    pre_rival: [
+      { say: 'Heard you\'ve been talking. Tonight you find out.', opts: [['calm', 'Good. I came to play.'], ['needle', 'Funny, I heard you\'re overrated.'], ['humble', 'I\'m just happy to be here.']] },
+      { say: 'Try to keep up.', opts: [['brag', 'Check the box score later.'], ['joke', 'Warm up first, you look stiff.'], ['insult', 'You\'ll be crying by halftime.']] },
+    ],
     /* coach: ask for a play called for you */
     coach_play: [
       { say: 'Make it quick, {first}. What do you want?', opts: [['respect', 'Run something for me, Coach. I\'m hot.'], ['ego', 'Just give me the ball. Everybody else is cold.'], ['joke', 'Ball. Me. Bucket. Simple math.']] },

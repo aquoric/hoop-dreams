@@ -12,6 +12,20 @@ const UI = (() => {
   const saveSettings = () => { try { localStorage.setItem('hoopdreams_ui', JSON.stringify(settings)); } catch (e) { } };
 
   /* ---------- screen + background management ---------- */
+  /* fullscreen match view: the court fills the screen, everything else sits in one side panel (css: body.fs).
+     Native fullscreen when the browser allows it (needs a tap); the layout works without it too (iPhone). */
+  let nativeFs = false;
+  const isFull = () => document.body.classList.contains('fs');
+  function setFullscreen(on, remember = true) {
+    document.body.classList.toggle('fs', !!on); if (remember) try { localStorage.setItem('hd_fs', on ? '1' : '0'); } catch (e) { }
+    const de = document.documentElement;
+    if (on && !document.fullscreenElement && de.requestFullscreen) de.requestFullscreen({ navigationUI: 'hide' }).then(() => { nativeFs = true; }, () => { });
+    if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => { });
+    document.querySelectorAll('.fs-btn').forEach(b => b.classList.toggle('on', !!on));
+    setTimeout(() => dispatchEvent(new Event('resize')), 60); setTimeout(() => dispatchEvent(new Event('resize')), 400);
+  }
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && nativeFs) { nativeFs = false; if (isFull()) setFullscreen(false); } else dispatchEvent(new Event('resize')); });
+  const fsPref = () => { try { return localStorage.getItem('hd_fs'); } catch (e) { return null; } };
   function showScreen(html, cls = '') {
     const sc = $('#screen'); sc.className = 'screen scr-' + cls; sc.innerHTML = html; sc.scrollTop = 0;
     sc.classList.add('enter'); requestAnimationFrame(() => requestAnimationFrame(() => sc.classList.remove('enter')));
@@ -764,5 +778,5 @@ const UI = (() => {
     const n = $('#npName'); if (n) n.textContent = e.detail.name;
   });
 
-  return { $, $$, esc, showScreen, setBg, toast, fxToasts, levelBurst, confetti, modal, confirmBox, card, cardFromState, radar, bar, charLook, title, create, story, hub, refreshHub, renderTop, trainingModal, postGame, chapterEnd, ending, settingsModal, loadMenu, settings, fmtChange, seasonScreen, simResult, standingsHTML, bracketHTML, scheduleHTML };
+  return { setFullscreen, isFull, fsPref, $, $$, esc, showScreen, setBg, toast, fxToasts, levelBurst, confetti, modal, confirmBox, card, cardFromState, radar, bar, charLook, title, create, story, hub, refreshHub, renderTop, trainingModal, postGame, chapterEnd, ending, settingsModal, loadMenu, settings, fmtChange, seasonScreen, simResult, standingsHTML, bracketHTML, scheduleHTML };
 })();

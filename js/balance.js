@@ -89,6 +89,9 @@ const BALANCE = {
      moments: how often teammates / opponents get their own visible possessions (weights next to yours).
      star: a star "takes over" after `heatAt` straight buckets for `takeover` moments (+bonus %), and the
      coach asks you to guard him (askGuard = chance per defensive moment while he's hot). */
+  // in-game conversations (coach / ref / rival): at most this many per game, only after something meaningful
+  // (an opponent run, three misses in a row, a bad call, ankles broken, the star taking over)
+  talk: { perGame: 1 },
   others: { mate: 1.6, opp: 1.3, weaponUse: .5, star: { heatAt: 2, takeover: 3, bonus: 6, askGuard: .7 } },
   /* ---------- CLOSE CALLS (slow motion, zoom, crowd build-up + a quick reaction minigame) ----------
      chance per moment: early in the game / late in a close game (margin = "close"). max per game.

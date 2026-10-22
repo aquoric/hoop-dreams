@@ -253,9 +253,47 @@ const Arcade = (() => {
       /* ---- quick cut to an anime close-up for highlight plays (rate-limited) ---- */
       function highlight(kind, p, caption, delay = 170) {
         if (typeof Cutscene === 'undefined' || !Cutscene.highlight || G.over || G.real - G.cutAt < 7 || G.cuts >= (SEGM ? 1 : 3)) return;
-        const tm = cfg.teams[p.team], ok = p === me ? Cutscene.ready(me.look) : false; if (!ok) return;
+        const tm = cfg.teams[p.team], ok = p === me && ((FR.n >= 15 && kind !== 'winner') || Cutscene.ready(me.look)); if (!ok) return;   // replays need no portrait
         G.cutAt = G.real; G.cuts++;
-        setTimeout(() => { if (G.over) return; G.stop = 99; Cutscene.highlight({ kind, look: me.look, name: p.name, caption, colors: tm.colors, bench: teamOf(p.team).length }).then(() => { G.stop = 0; }, () => { G.stop = 0; }); }, delay);
+        setTimeout(() => { if (G.over) return;
+          if (FR.n >= 15 && kind !== 'winner') return replay(caption, p.name, tm.colors);   // the actual play, replayed from the last second and a half of frames
+          G.stop = 99; Promise.race([Cutscene.highlight({ kind, look: me.look, name: p.name, caption, colors: tm.colors, bench: teamOf(p.team).length }), new Promise(r => setTimeout(r, 6000))]).then(() => { G.stop = 0; }, () => { G.stop = 0; }); }, delay);
+      }
+      /* ---- instant replay: a ring of recent frames (30fps), played back zoomed on you — first at half speed, then slower and tilted ---- */
+      const FR = { cv: [], foc: [], n: 0, i: 0, acc: 0, max: 45 };
+      function capture(rdt) {
+        if ((FR.acc += rdt) < 1 / 30) return; FR.acc = 0;
+        let f = FR.cv[FR.i]; if (!f || f.width !== cv.width) { f = FR.cv[FR.i] = document.createElement('canvas'); f.width = cv.width; f.height = cv.height; }
+        const g = f.getContext('2d'); g.clearRect(0, 0, f.width, f.height); g.drawImage(cv, 0, 0);
+        const z = G.zoom + G.kick, fx_ = clamp(G.zf.x - G.cam, 0, VW), fy = G.zf.y, wx = me.x - G.cam, wy = me.y - me.z - 14;
+        FR.foc[FR.i] = { x: z > 1.001 ? fx_ + (wx - fx_) * z : wx, y: z > 1.001 ? fy + (wy - fy) * z : wy };
+        FR.i = (FR.i + 1) % FR.max; FR.n = Math.min(FR.max, FR.n + 1);
+      }
+      function replay(caption, name, cols) {
+        const n = FR.n, start = (FR.i - n + FR.max) % FR.max, T0 = performance.now(), slowAt = n * .62;
+        const frames = [...Array(n)].map((_, k) => (start + k) % FR.max);
+        return new Promise(res => {
+          const skip = e => { if (performance.now() - T0 > 250) { if (e && e.preventDefault) e.preventDefault(); done(); } }, vis = () => { if (document.hidden) done(); };
+          const done = () => { if (!G.rp) return; clearTimeout(G.rp.safe); root.removeEventListener('pointerdown', skip); removeEventListener('keydown', skip, true); document.removeEventListener('visibilitychange', vis); G.rp = null; FR.n = 0; root.classList.remove('rp'); res(); };
+          G.rp = { f: 0, T: 0, frames, slowAt, caption: (caption || '').toUpperCase(), name: (name || '').toUpperCase(), col: (cols || ['#f97316'])[0], cam: null, done };
+          G.rp.safe = setTimeout(done, 5000); root.classList.add('rp');   // never stuck
+          root.addEventListener('pointerdown', skip); addEventListener('keydown', skip, true); document.addEventListener('visibilitychange', vis); SFX.play('whoosh');
+        });
+      }
+      function drawReplay(rdt) {
+        const R = G.rp; R.T += rdt; const slow = R.f >= R.slowAt; R.f += rdt * 30 * (slow ? .32 : .6);
+        if (R.f >= R.frames.length - 1) { R.f = R.frames.length - 1; if ((R.hold = (R.hold || 0) + rdt) > .5) return R.done(); }
+        if (slow && !R.cut) { R.cut = 1; R.cutF = 1; SFX.play('impact'); }
+        const idx = R.frames[Math.floor(R.f)], fr = FR.cv[idx], fo = FR.foc[idx], tz = slow ? 2.2 : 1.55, rot = slow ? -.05 : 0;
+        if (!R.cam || R.cutF === 1) R.cam = { x: fo.x, y: fo.y, z: tz * (slow ? 1.1 : .95), r: rot };
+        const m = Math.min(1, rdt * 5); R.cam.x += (fo.x - R.cam.x) * m; R.cam.y += (fo.y - R.cam.y) * m; R.cam.z += (tz - R.cam.z) * Math.min(1, rdt * 2); R.cam.r += (rot - R.cam.r) * Math.min(1, rdt * 2);
+        c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#05060a'; c.fillRect(0, 0, VW, A.H);
+        c.save(); c.translate(VW / 2, A.H * .56); c.rotate(R.cam.r); c.scale(R.cam.z, R.cam.z); c.translate(-R.cam.x, -R.cam.y); c.drawImage(fr, 0, 0); c.restore();
+        c.fillStyle = '#000'; c.fillRect(0, 0, VW, 16); c.fillRect(0, A.H - 16, VW, 16);
+        if (Math.floor(R.T * 3) % 2 === 0) { c.fillStyle = '#ef4444'; c.fillRect(8, 5, 5, 5); } Pixel.text(c, slow ? 'REPLAY · SLOW-MO' : 'REPLAY', 17, 4, '#f8fafc', 1, 'left');
+        if (slow && R.caption) { R.capAt = R.capAt == null ? R.T : R.capAt; const e = Math.min(1, (R.T - R.capAt) / .2), sc = Pixel.textWidth(R.caption, 3) < VW - 24 ? 3 : 2; c.save(); c.translate(VW / 2, A.H - 46); c.scale(e, e); Pixel.text(c, R.caption, 0, 0, '#fde68a', sc, 'center', '#0a0a12'); c.restore();
+          if (R.name) { c.fillStyle = R.col; c.fillRect(VW / 2 - 60, A.H - 14, 120, 10); Pixel.text(c, R.name, VW / 2, A.H - 13, Pixel.lum(R.col) > .6 ? '#0a0a12' : '#f8fafc', 1, 'center'); } }
+        if (R.cutF > 0) { c.fillStyle = `rgba(255,255,255,${Math.min(1, R.cutF)})`; c.fillRect(0, 0, VW, A.H); R.cutF -= rdt * 5; }
       }
       /* ---- celebrations + reactions after a basket ---- */
       function celebrate(p, kind, pts) {
@@ -971,6 +1009,7 @@ const Arcade = (() => {
       const loop = now => {
         if (G.over) return;
         const rdt = Math.min(.05, (now - last) / 1000); last = now; G.real += rdt;
+        if (G.rp) { try { drawReplay(Math.min(.12, (now - (G.rp.last || now)) / 1000)); G.rp && (G.rp.last = now); } catch (e) { G.rp && G.rp.done(); } raf = requestAnimationFrame(loop); return; }
         // hit-stop: freeze the sim and the visuals for a few frames on big impacts
         const stopped = G.stop > 0; if (stopped) G.stop = Math.max(0, G.stop - rdt);
         const vdt = stopped ? 0 : rdt * (G.slowT > 0 ? Math.max(.45, PACE.slowmo) : 1); G.vt += vdt;
@@ -980,7 +1019,7 @@ const Arcade = (() => {
         if (!stopped) acc += rdt * PACE.game * (G.slowT > 0 ? PACE.slowmo : 1);
         let n = 0; while (acc >= 1 / 60 && n < 8) { update(1 / 60); acc -= 1 / 60; n++; }
         if ((lvlT -= rdt) <= 0) { lvlT = .8; SFX.crowd && SFX.crowd.level(E.hype); }
-        render(rdt, vdt); raf = requestAnimationFrame(loop);
+        render(rdt, vdt); if (vdt > 0) capture(rdt); raf = requestAnimationFrame(loop);
       };
       Pixel.ambient(VEN, E.hype); let lvlT = 0;   // the venue ambience loop (same one the match court uses — never a second layer)
 

@@ -21,6 +21,17 @@ const Match = (() => {
      so switching between the two is seamless. World units are feet: x ∈ [-25,25],
      y ∈ [0 baseline, 47 half-court], z = height. They map onto the 384×216 pixel court.
      ================================================================= */
+  /* instant-replay shots: pre = seconds before the climax angle 1 starts, cut = when angle 2 takes over (before the climax), post = after it,
+     s1/s2 = playback speed of each angle, z1/z2 = zoom, rot = angle-2 tilt (radians) */
+  const REPLAY = {
+    dunk:   { pre: 1.3, cut: .38, post: .45, s1: 1.1, s2: .42, z1: 1.6, z2: 2.6, rot: -.06 },
+    three:  { pre: 1.7, cut: .3,  post: .45, s1: 1.25, s2: .4, z1: 1.45, z2: 2.4, rot: .05 },
+    block:  { pre: 1.1, cut: .3,  post: .45, s1: 1.1, s2: .4, z1: 1.6, z2: 2.7, rot: .06 },
+    ankles: { pre: 1.2, cut: .35, post: .6, s1: 1.1, s2: .38, z1: 1.6, z2: 2.4, rot: -.05 },
+    andone: { pre: 1.3, cut: .35, post: .45, s1: 1.1, s2: .38, z1: 1.55, z2: 2.5, rot: -.05 },
+    buzzer: { pre: 1.9, cut: .3,  post: .5, s1: 1.3, s2: .38, z1: 1.4, z2: 2.3, rot: .05 },
+    winner: { pre: 1.6, cut: .32, post: .5, s1: 1.2, s2: .38, z1: 1.45, z2: 2.4, rot: -.05 },
+  };
   class Court {
     constructor(canvas, us, them, venueId) {
       this.cv = canvas; this.ctx = canvas.getContext('2d');
@@ -33,7 +44,9 @@ const Match = (() => {
       this._rs = () => this.resize(); window.addEventListener('resize', this._rs);
       this.alive = true; this.last = performance.now();
       Pixel.ambient(this.V, this.excite); this.lvlT = 0;   // one venue ambience loop (js/audio.js Crowd); its level follows the excitement
-      const loop = now => { if (!this.alive) return; const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now; this.update(dt); this.draw(this.vdt, dt); requestAnimationFrame(loop); };
+      const loop = now => { if (!this.alive) return; const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now;
+        try { if (this.rp) this.rpTick(Math.min(.12, (now - (this.rp.last || now)) / 1000), this.rp.last = now); else { this.update(dt); this.draw(this.vdt, dt); if (this.vdt > 0) this.rec(); } } catch (e) { console.error(e); if (this.rp) this.rp.done(); }
+        requestAnimationFrame(loop); };
       requestAnimationFrame(loop);
     }
     destroy() { this.alive = false; window.removeEventListener('resize', this._rs); if (typeof SFX !== 'undefined' && SFX.crowd) SFX.crowd.stop(); }
@@ -83,21 +96,22 @@ const Match = (() => {
     }
     /* ---------- drawing ---------- */
     draw(dt, rdt = dt) {
-      const c = this.ctx, R = this.R, E = R.E, V = this.V, b = this.ball;
-      E.t = this.t; E.hype = Math.max(E.hype, this.excite); if ((this.lvlT -= rdt) <= 0) { this.lvlT = .8; SFX.crowd && SFX.crowd.level(Math.max(this.excite, E.hype * .8)); } E.net.swish = Math.max(E.net.swish, Math.min(1, this.netWave)); E.rim = Math.max(E.rim, Math.min(1, this.rimBend));
+      const rp = this.rp, c = this.ctx, R = this.R, E = R.E, V = this.V, b = rp ? rp.ball : this.ball, T = rp ? rp.t : this.t;
+      E.t = T; E.hype = Math.max(E.hype, this.excite); if ((this.lvlT -= rdt) <= 0) { this.lvlT = .8; SFX.crowd && SFX.crowd.level(Math.max(this.excite, E.hype * .8)); } E.net.swish = Math.max(E.net.swish, Math.min(1, rp ? rp.net : this.netWave)); E.rim = Math.max(E.rim, Math.min(1, rp ? rp.rim : this.rimBend));
       // camera (narrow screens follow the ball)
-      if (this.VW < V.W) { const bx = b.holder ? this.X(b.holder.x) : this.X(b.x); this.cam += (clamp(bx - this.VW / 2, 0, V.W - this.VW) - this.cam) * Math.min(1, rdt * 3); }
-      const cam = Math.round(this.cam);
+      if (this.VW < V.W && !this.view) { const bx = b.holder ? this.X(b.holder.x) : this.X(b.x); this.cam += (clamp(bx - this.VW / 2, 0, V.W - this.VW) - this.cam) * Math.min(1, rdt * 3); }
+      const vw = this.view, cam = vw ? 0 : Math.round(this.cam);
       c.setTransform(1, 0, 0, 1, 0, 0);
       const zz = this.zoom + this.kick;
-      if (zz > 1.001) { const z = zz, fx = this.X(0) - cam, fy = 30; c.setTransform(z, 0, 0, z, fx * (1 - z), fy * (1 - z)); }
-      if (this.shakeAmt > .3) c.translate(Math.round(rnd(-1, 1) * this.shakeAmt * .4), Math.round(rnd(-1, 1) * this.shakeAmt * .4));
+      if (vw) { c.translate(this.VW / 2, PIX.H * .56); c.rotate(vw.rot || 0); c.scale(vw.z, vw.z); c.translate(-vw.x, -vw.y); }   // replay camera: centred on the action, zoomed, maybe tilted
+      else if (zz > 1.001) { const z = zz, fx = this.X(0) - cam, fy = 30; c.setTransform(z, 0, 0, z, fx * (1 - z), fy * (1 - z)); }
+      if (this.shakeAmt > .3 && !vw) c.translate(Math.round(rnd(-1, 1) * this.shakeAmt * .4), Math.round(rnd(-1, 1) * this.shakeAmt * .4));
       c.translate(-cam, 0);
       c.drawImage(V.bg, 0, 0);
       R.crowd();
       c.save(); c.translate(V.ox, 0); R.hoop(false); c.restore();
       const hold = b.holder;
-      const vis = this.players.filter(p => !p.hidden);
+      const vis = (rp ? rp.players : this.players).filter(p => !p.hidden);
       vis.forEach(p => {
         const s = this.spr(p), nx = this.X(p.x) - V.ox, ny = this.Y(p.y);
         if (s.px != null && dt > 0) { s.vx = (nx - s.px) / dt; s.vy = (ny - s.py) / dt; } if (dt > 0) { s.px = nx; s.py = ny; }
@@ -115,18 +129,19 @@ const Match = (() => {
       });
       c.save(); c.translate(V.ox, 0);
       if (V.def.reflect) vis.forEach(p => R.reflection(p._s));
-      const items = vis.map(p => ({ y: p._s.y, d: () => R.player(p._s, { me: p.isUser, fire: p.isUser && this.fire, tag: p.tag && !p.isUser ? p.tag : '' }) }));
-      if (b.show && !hold) items.push({ y: this.Y(b.y) + .5, d: () => R.freeBall({ x: this.X(b.x) - V.ox, y: this.Y(b.y), z: b.z * 3.2, spin: this.t * 12 }, this.fire) });
+      const items = vis.map(p => ({ y: p._s.y, d: () => R.player(p._s, { me: p.isUser, fire: p.isUser && this.fire, tag: p.tag && !p.isUser && !rp ? p.tag : '' }) }));
+      if (b.show && !hold) items.push({ y: this.Y(b.y) + .5, d: () => R.freeBall({ x: this.X(b.x) - V.ox, y: this.Y(b.y), z: b.z * 3.2, spin: T * 12 }, this.fire) });
       items.sort((a, z) => a.y - z.y).forEach(i => i.d());
       vis.forEach(p => { if (!(p.auraT > 0) || dt <= 0) return; const s2 = p._s; for (let k = 0; k < 3; k++) E.fx.push({ x: s2.x + rnd(-6, 6), y: s2.y - s2.z - rnd(0, 30), vx: rnd(-10, 10), vy: -rnd(20, 50), life: .4, col: k ? p.auraCol : '#ffffff', sz: 2, g: -.4 }); if (Math.random() < .12) R.ring(s2.x, s2.y, p.auraCol, 70, .35, 1, .35); });   // weapon aura
       R.hoop(true);
       const hang = vis.find(p => p.anim && p.anim.type === 'dunk' && p.anim.t > .62 && p.anim.t < .95); if (hang) R.player(hang._s, { me: hang.isUser });
       c.restore();
       R.fx(dt);
-      this.pops.forEach(p => R.text(p.text, p.x, p.y, p.c, p.sc, 'center', '#0a0a12'));
+      if (!vw) this.pops.forEach(p => R.text(p.text, p.x, p.y, p.c, p.sc, 'center', '#0a0a12'));
       R.weather(dt); R.lights();
       c.setTransform(1, 0, 0, 1, 0, 0);
-      c.drawImage(V.vg, cam, 0, this.VW, PIX.H, 0, 0, this.VW, PIX.H);
+      c.drawImage(V.vg, vw ? clamp(Math.round(vw.x - this.VW / 2), 0, Math.max(0, V.W - this.VW)) : cam, 0, this.VW, PIX.H, 0, 0, this.VW, PIX.H);
+      if (vw) return;
       if (this.timeScale < .6 && this.zoom > 1.1) { c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(0, 0, this.VW, 12); c.fillRect(0, PIX.H - 12, this.VW, 12); }   // letterbox in slow motion
       if (this.flashA > 0.02) { c.fillStyle = `rgba(${this.flashCol},${Math.min(.85, this.flashA)})`; c.fillRect(0, 0, this.VW, PIX.H); }
     }
@@ -174,11 +189,91 @@ const Match = (() => {
        A few per game: at least 6s apart, max 6 per game (o.force skips the spacing for huddles / face-offs). */
     async mini(kind, caption, o = {}) {
       const u = this.user(); if (!u || typeof Cutscene === 'undefined' || !Cutscene.highlight || !this.alive) return false;
-      const look = o.look || u.look; if (!Cutscene.ready(look) || (o.look2 && !Cutscene.ready(o.look2))) return false;
+      const look = o.look || u.look, canRp = REPLAY[kind] && this.buf && this.buf.length > 20;
+      if (!canRp && (!Cutscene.ready(look) || (o.look2 && !Cutscene.ready(o.look2)))) return false;
       if (!o.force && (this.t - this.cutAt < 6 || this.cuts >= 6)) return false;
-      this.cutAt = this.t; this.cuts = (this.cuts || 0) + 1; this.stopT = 99;
-      const ok = await Cutscene.highlight(Object.assign({ kind, look, name: o.name || (Game.state ? `${Game.state.player.first} ${Game.state.player.last}` : u.name), caption, colors: o.colors || this.us.colors }, o));
-      this.stopT = 0; return ok;
+      this.cutAt = this.t; this.cuts = (this.cuts || 0) + 1;
+      const name = o.name || (Game.state ? `${Game.state.player.first} ${Game.state.player.last}` : u.name);
+      // plays that just happened on the court are REPLAYED from the court's own recording (right player, colours, shot and result);
+      // the rest (huddle, face-off, weapon, run) are anime cards. Either way a safety timer always hands control back.
+      if (canRp) return this.replay(kind, Object.assign({ caption, name, focus: o.focus || u }, o));
+      this.stopT = 99;
+      try { return await Promise.race([Cutscene.highlight(Object.assign({ kind, look, name, caption, colors: o.colors || this.us.colors }, o)), new Promise(r => setTimeout(() => r(false), 6000))]); }
+      catch (e) { return false; } finally { this.stopT = 0; }
+    }
+    /* ---------- instant replay ----------
+       rec() keeps the last few seconds of the court (positions, poses, ball, net) every frame. replay() plays the key moment back:
+       angle 1 follows the play at speed, then a white cut to angle 2 — tight, tilted and in slow motion — on the climax. */
+    rec() {
+      const B = this.buf || (this.buf = []), b = this.ball;
+      B.push({ t: this.t, p: this.players.map(p => ({ p, x: p.x, y: p.y, z: p.z || 0, a: p.anim ? Object.assign({}, p.anim) : null, pose: p.pose, hid: p.hidden, fx: p.faceX, mv: p.moving })),
+        b: { x: b.x, y: b.y, z: b.z, holder: b.holder, show: b.show, dribble: b.dribble }, net: this.netWave, rim: this.rimBend });
+      while (B.length > 2 && B[0].t < this.t - 4.5) B.shift();
+    }
+    replay(kind, o) {
+      const B = this.buf, R = REPLAY[kind], u = o.focus, rim = { x: this.X(0), y: PIX.hoop.y - PIX.hoop.z };
+      const ballAt = f => f.b.holder ? { x: this.X(f.b.holder.x), y: this.Y(f.b.holder.y) - 20 } : { x: this.X(f.b.x), y: this.Y(f.b.y) - f.b.z * 3.2 };
+      const me = f => f.p.find(e => e.p === u);
+      // find the climax: ball at the rim (shots, dunks), the block, or the defender hitting the floor
+      let ci = -1;
+      if (kind === 'block') ci = B.findIndex(f => { const e = me(f); return e && (e.a && e.a.type === 'block' || e.pose === 'block'); });
+      else if (kind === 'ankles') ci = B.findIndex(f => f.p.some(e => e.p !== u && e.a && (e.a.type === 'stumble' || e.a.type === 'sit')));
+      else if (kind === 'dunk') ci = B.findIndex(f => { const e = me(f); return e && e.a && e.a.type === 'dunk' && e.a.t > .55; });
+      if (ci < 0) { for (let i = B.length - 1; i >= 0; i--) { const f = B[i]; if (f.b.holder || !f.b.show) continue; const q = ballAt(f); if (Math.hypot(q.x - rim.x, q.y - rim.y) < 14) { ci = i; break; } } }   // the latest time the ball reached the rim
+      if (ci < 0) ci = Math.floor(B.length * .75);
+      const t0 = B[0].t, tE = B[B.length - 1].t, tc = B[ci].t;
+      const A = { from: Math.max(t0, tc - R.pre), to: Math.max(t0, tc - R.cut) }, Bb = { from: Math.max(t0, tc - R.cut - .12), to: Math.min(tE, tc + R.post) };
+      const focus2 = kind === 'block' || kind === 'ankles' ? null : kind === 'three' || kind === 'buzzer' || kind === 'winner' ? 'ball' : rim;   // angle 2: on you, on the ball's flight, or at the rim
+      this.R.E.fx.length = 0;
+      const ghosts = new Map(), ghost = p => { if (!p) return null; let g = ghosts.get(p); if (!g) { g = Object.create(p); g._s = null; g.auraT = 0; ghosts.set(p, g); } return g; };   // replay copies: the live players are never touched
+      return new Promise(res => {
+        const wrap = this.cv.parentElement, T0 = performance.now();
+        const skip = e => { if (performance.now() - T0 > 250) { if (e && e.preventDefault) e.preventDefault(); rp.done(); } };
+        const hide = () => { if (document.hidden) rp.done(); };
+        const rp = this.rp = { kind, o, pass: A.to - A.from > .15 ? 0 : 1, T: 0, cutF: 0, done: () => {
+          if (rp.over) return; rp.over = true; clearTimeout(rp.safe); wrap.removeEventListener('pointerdown', skip); removeEventListener('keydown', skip, true); document.removeEventListener('visibilitychange', hide);
+          this.rp = null; this.view = null; this.R.E.fx.length = 0; this.players.forEach(p => { if (p._s) p._s.px = null; }); res(true);
+        } };
+        rp.seg = [A, Bb]; rp.time = rp.seg[rp.pass].from; rp.focus2 = focus2; rp.ghost = ghost; rp.ball = {}; rp.players = [];
+        wrap.addEventListener('pointerdown', skip); addEventListener('keydown', skip, true); document.addEventListener('visibilitychange', hide);
+        rp.safe = setTimeout(rp.done, ((A.to - A.from) / R.s1 + (Bb.to - Bb.from) / R.s2 + 4) * 1000);   // never stuck: control always comes back
+        SFX.play('whoosh');
+      });
+    }
+    rpTick(dt) {
+      const rp = this.rp, R = REPLAY[rp.kind], seg = rp.seg[rp.pass], B = this.buf, sp = rp.pass ? R.s2 : R.s1;
+      rp.T += dt; rp.time += dt * sp;
+      if (rp.time >= seg.to) {
+        if (rp.pass === 0) { rp.pass = 1; rp.time = rp.seg[1].from; rp.cutF = 1; rp.cam = null; SFX.play('impact'); rp.players.forEach(p => { if (p._s) p._s.px = null; }); }
+        else if ((rp.hold = (rp.hold || 0) + dt) > .45) return rp.done();
+        else rp.time = seg.to;
+      }
+      if (rp.pass === 1 && !rp.hit && rp.time >= seg.to - R.post) { rp.hit = true; SFX.play(rp.kind === 'block' ? 'slap' : rp.kind === 'ankles' ? 'squeak' : rp.kind === 'dunk' || rp.kind === 'andone' ? 'impact' : 'net'); rp.flash = .5; }
+      // the recorded frame at rp.time (positions interpolated, poses from the nearest frame)
+      let i = 0; while (i < B.length - 2 && B[i + 1].t <= rp.time) i++;
+      const f = B[i], g = B[i + 1] || f, k = g.t > f.t ? clamp((rp.time - f.t) / (g.t - f.t), 0, 1) : 0;
+      rp.players = f.p.map(e => { const e2 = g.p.find(q => q.p === e.p) || e, a = e.a && e2.a && e.a.type === e2.a.type ? Object.assign({}, e.a, { t: lerp(e.a.t || 0, e2.a.t || 0, k) }) : e.a && Object.assign({}, e.a);
+        return Object.assign(rp.ghost(e.p), { x: lerp(e.x, e2.x, k), y: lerp(e.y, e2.y, k), z: lerp(e.z, e2.z, k), anim: a, pose: e.pose, hidden: e.hid, faceX: e.fx, moving: e.mv }); });
+      Object.assign(rp.ball, { x: lerp(f.b.x, g.b.x, k), y: lerp(f.b.y, g.b.y, k), z: lerp(f.b.z, g.b.z, k), holder: rp.ghost(f.b.holder), show: f.b.show, dribble: f.b.dribble });
+      rp.t = lerp(f.t, g.t, k); rp.net = f.net; rp.rim = f.rim;
+      // camera: angle 1 follows player + ball; angle 2 sits tight (and tilted) on the climax
+      const rim = { x: this.X(0), y: PIX.hoop.y - PIX.hoop.z }, u = rp.ghost(rp.o.focus), ux = this.X(u.x), uy = this.Y(u.y) - (u.z || 0) * 3.2 - 18, bl = rp.ball.holder ? { x: ux, y: uy } : { x: this.X(rp.ball.x), y: this.Y(rp.ball.y) - rp.ball.z * 3.2 };
+      const tgt = rp.pass === 0 ? { x: (ux * 2 + bl.x) / 3, y: (uy * 2 + bl.y) / 3, z: R.z1, rot: 0 } : rp.focus2 === 'ball' ? { x: bl.x * .7 + rim.x * .3, y: bl.y * .7 + rim.y * .3, z: R.z2, rot: R.rot } : { x: rp.focus2 ? (rp.focus2.x * .55 + ux * .45) : ux, y: rp.focus2 ? (rp.focus2.y * .5 + uy * .5) : uy, z: R.z2, rot: R.rot };
+      if (!rp.cam) rp.cam = Object.assign({}, tgt, { z: tgt.z * (rp.pass ? 1.12 : .92) });
+      const m = Math.min(1, dt * (rp.pass ? 3 : 5)); rp.cam.x += (tgt.x - rp.cam.x) * m; rp.cam.y += (tgt.y - rp.cam.y) * m; rp.cam.z += (tgt.z - rp.cam.z) * Math.min(1, dt * 2); rp.cam.rot += (tgt.rot - rp.cam.rot) * Math.min(1, dt * 2);
+      this.view = rp.cam;
+      this.draw(dt * sp, dt);
+      // replay chrome: letterbox, REPLAY tag, caption + name, the white cut between angles
+      const c = this.ctx, W = this.VW, H = PIX.H; c.setTransform(1, 0, 0, 1, 0, 0);
+      c.fillStyle = '#000'; c.fillRect(0, 0, W, 16); c.fillRect(0, H - 16, W, 16);
+      if (Math.floor(rp.T * 3) % 2 === 0) { c.fillStyle = '#ef4444'; c.fillRect(8, 5, 5, 5); } Pixel.text(c, rp.pass ? 'REPLAY · SLOW-MO' : 'REPLAY', 17, 4, '#f8fafc', 1, 'left');
+      const cap = (rp.o.caption || '').toUpperCase(), col = (rp.o.colors || this.us.colors)[0];
+      if (rp.pass === 1 && rp.capAt == null) rp.capAt = rp.T;
+      if (rp.pass === 1 && cap) { const e = EASE.out(clamp((rp.T - rp.capAt) / .2, 0, 1)), sc = Pixel.textWidth(cap, 3) < W - 24 ? 3 : 2;
+        c.save(); c.translate(W / 2, H - 46); c.scale(e, e); Pixel.text(c, cap, 0, 0, '#fde68a', sc, 'center', '#0a0a12'); c.restore();
+        if (rp.o.name) { c.fillStyle = col; c.fillRect(W / 2 - 60, H - 14, 120, 10); Pixel.text(c, rp.o.name.toUpperCase(), W / 2, H - 13, Pixel.lum(col) > .6 ? '#0a0a12' : '#f8fafc', 1, 'center'); } }
+      if (rp.cutF > 0) { c.fillStyle = `rgba(255,255,255,${Math.min(1, rp.cutF)})`; c.fillRect(0, 0, W, H); rp.cutF -= dt * 5; }
+      if (rp.flash > 0) { c.fillStyle = `rgba(255,255,255,${rp.flash * .6})`; c.fillRect(0, 0, W, H); rp.flash -= dt * 3; }
     }
     /* timed pose that plays out on its own (celebrations, landings) */
     act(p, type, T, extra) { if (!p) return; const a = Object.assign({ type, t: 0, T, tick: true, auto: true }, extra || {}); p.anim = a; return a; }
@@ -753,7 +848,7 @@ const Match = (() => {
           <div class="sb-team them" style="--tc:${cfg.them.colors[0]}"><span class="sb-score" id="sbThem">0</span><span class="sb-abbr">${cfg.them.abbr}</span>${logoThem}</div>
           <div class="sb-flag" id="sbFlag"></div>
         </div>
-        <div class="match-title"><b>${escH(cfg.title || 'Game')}</b>${cfg.sub ? ' · ' + escH(cfg.sub) : ''}<span class="mom-count" id="momCount"></span></div>
+        <div class="match-title"><b>${escH(cfg.title || 'Game')}</b>${cfg.sub ? ' · ' + escH(cfg.sub) : ''}<span class="mom-count" id="momCount"></span><button class="fs-btn" id="fsBtn" title="Fullscreen" aria-label="Toggle fullscreen">⛶</button></div>
         <div class="match-main">
           <div class="court-wrap" id="courtWrap"><canvas id="court"></canvas><div class="vignette" id="vig"></div><div class="court-banner" id="banner"></div><div class="mg-layer" id="mg"></div></div>
           <aside class="pbp glass">
@@ -766,6 +861,10 @@ const Match = (() => {
       </div>`, 'match');
     SFX.music('game'); UI.setBg('matchbg', cfg.us.abbr);
     const $ = id => document.getElementById(id);
+    // fullscreen: remembered from last time, otherwise offered (non-blocking) at tip-off
+    $('fsBtn').onclick = () => UI.setFullscreen(!UI.isFull()); $('fsBtn').classList.toggle('on', UI.isFull());
+    const offerFs = () => { if (UI.fsPref() === '1') { if (!UI.isFull()) UI.setFullscreen(true); return; } if (UI.isFull() || !$('courtWrap')) return; const of = document.createElement('div'); of.className = 'fs-offer'; of.innerHTML = '<b>PLAY FULLSCREEN?</b><button class="btn primary sm" data-f="1">⛶ Fullscreen</button><button class="btn ghost sm" data-f="0">Not now</button>';
+      $('courtWrap').appendChild(of); const close = () => { of.classList.add('out'); setTimeout(() => of.remove(), 300); }; of.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.f === '1') UI.setFullscreen(true); close(); }; setTimeout(close, 7000); };
     const court = new Court($('court'), cfg.us, cfg.them, cfg.venueId && VENUES[cfg.venueId] ? cfg.venueId : Venues.forMatch(cfg));
     document.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { document.querySelectorAll('[data-pv]').forEach(x => x.classList.toggle('on', x === b)); $('pbp').hidden = b.dataset.pv !== 'pbp'; $('boxLive').hidden = b.dataset.pv !== 'box'; if (b.dataset.pv === 'box') renderLiveBox(); });
 
@@ -1295,19 +1394,20 @@ const Match = (() => {
     const coachId = cfg.level === 'street' ? (PICK ? null : 'lou') : s.career.hs === 'lincoln' ? 'brennan' : s.career.hs === 'westbrook' ? 'graves' : 'coach';
     const refId = cfg.level === 'street' ? null : pick(['ref_dawkins', 'ref_vance', 'ref_ortiz']);
     const rivalId = star.name === 'Kai Sterling' ? 'kai' : pick(['hothead', 'iceman', 'showman']);
-    const talkLook = id => { const P = TK && TK.personalities[id]; if (!P) return null; if (P.kind === 'rival') return STAR.look; if (P.char && STORY.characters[P.char]) return UI.charLook(P.char); return Art.lookFromSeed(P.name || id, P.look || {}); };
-    const talkName = id => { const P = TK.personalities[id]; return P.kind === 'rival' ? STAR.full : P.char && STORY.characters[P.char] ? STORY.characters[P.char].name : P.name || 'Coach'; };
+    const TMATE = () => US.filter(p => !p.isUser).sort((a, b) => (b.rating || 0) - (a.rating || 0))[0], mateId = pick(['mate_vet', 'mate_hype']);
+    const talkLook = id => { const P = TK && TK.personalities[id]; if (!P) return null; if (P.kind === 'rival') return STAR.look; if (P.kind === 'mate') return TMATE() ? TMATE().look : Art.lookFromSeed(id, P.look || {}); if (P.char && STORY.characters[P.char]) return UI.charLook(P.char); return Art.lookFromSeed(P.name || id, P.look || {}); };
+    const talkName = id => { const P = TK.personalities[id]; return P.kind === 'rival' ? STAR.full : P.kind === 'mate' ? (TMATE() ? TMATE().full || TMATE().name : 'Teammate') : P.char && STORY.characters[P.char] ? STORY.characters[P.char].name : P.name || 'Coach'; };
     /* ask for a conversation at the next dead ball (with probability p) */
-    function queueTalk(type, p = 1, topic) { if (!TK || st.talkQ || st.done || st.talkN >= (PICK ? 2 : 3) || Math.random() > p) return; if (type === 'coach' && !coachId) return; if (type === 'ref' && !refId) return; st.talkQ = { type, topic }; if (type === 'coach' && typeof Cutscene !== 'undefined') Cutscene.prep(talkLook(coachId)); }
-    async function talk(type, topic) {
-      const id = type === 'coach' ? coachId : type === 'ref' ? refId : rivalId, P = TK.personalities[id]; if (!P) return;
-      st.talkN++; st.talkAt = st.i; cnt('talks');
-      const script = TK.scripts[type === 'coach' ? 'coach_' + (topic || pick(['play', 'minutes'])) : type === 'ref' ? 'ref_call' : pick(['rival_trash', 'rival_trash2'])];
-      const nEx = clamp(script.length - (Math.random() < .35 ? 1 : 0), 2, 4), ego = P.kind === 'rival';
+    function queueTalk(type, p = 1, topic) { if (!TK || st.talkQ || st.done || st.talkN >= ((BALANCE.talk && BALANCE.talk.perGame) ?? 1) || Math.random() > p) return; if (type === 'coach' && !coachId) return; if (type === 'ref' && !refId) return; st.talkQ = { type, topic }; if (type === 'coach' && typeof Cutscene !== 'undefined') Cutscene.prep(talkLook(coachId)); }
+    async function talk(type, topic, pre) {   // pre = the short pre-game talk (doesn't count toward the in-game limit)
+      const id = type === 'coach' ? coachId : type === 'ref' ? refId : type === 'mate' ? mateId : rivalId, P = TK.personalities[id]; if (!P) return;
+      if (pre) cnt('pretalks'); else { st.talkN++; st.talkAt = st.i; cnt('talks'); }
+      const script = pre ? TK.scripts['pre_' + type] : TK.scripts[type === 'coach' ? 'coach_' + (topic || pick(['play', 'minutes'])) : type === 'ref' ? 'ref_call' : pick(['rival_trash', 'rival_trash2'])];
+      const nEx = pre ? script.length : clamp(script.length - (Math.random() < .35 ? 1 : 0), 2, 4), ego = P.kind === 'rival';
       let g = ego ? 100 : P.start, backfires = 0, ended = false;
       const look = talkLook(id), name = talkName(id), first = properName(s.player.first), fillT = t => t.replace(/\{first\}/g, first).replace(/\{last\}/g, myName).replace(/\{num\}/g, s.player.num);
       const face = async expr => { const svg = Art.avatar(Object.assign({}, look, { expr }), { mode: 'portrait' }); const cv = await Pixel.pixelate(svg, 68, 84); const box = document.querySelector('.tk-face'); if (box) { const c2 = document.createElement('canvas'); c2.width = 68; c2.height = 84; c2.getContext('2d').drawImage(cv, 0, 0); box.innerHTML = ''; box.appendChild(c2); } };
-      const head = () => `<div class="tk-head"><div class="tk-face"></div><div class="tk-who"><b>${escH(name)}</b><small>${escH(P.trait)}</small><div class="tk-gauge ${ego ? 'ego' : ''}"><span>${ego ? 'EGO' : 'PATIENCE'}</span><div class="tk-bar"><i style="width:${g}%"></i></div><em class="tk-delta"></em></div></div></div>`;
+      const head = () => `<div class="tk-head"><div class="tk-face"></div><div class="tk-who"><b>${escH(name)}</b><small>${escH(P.trait)}</small><div class="tk-gauge ${ego ? 'ego' : ''}"><span>${ego ? 'EGO' : P.kind === 'mate' ? 'TRUST' : 'PATIENCE'}</span><div class="tk-bar"><i style="width:${g}%"></i></div><em class="tk-delta"></em></div></div></div>`;
       const p = $('panel'); SFX.crowd.duck(true);
       for (let k = 0; k < nEx && !ended; k++) {
         const ex = script[k], opts = ex.opts.slice().sort(() => Math.random() - .5);
@@ -1326,6 +1426,13 @@ const Match = (() => {
       idle();
       /* ---------- outcomes ---------- */
       SFX.crowd.duck(false);
+      if (pre) {   // small pre-game effects
+        if (type === 'rival') { if (g <= 60) { st.rattled = 1; pbp(`😤 ${escH(STAR.short)} looked rattled before tip-off.`, 'good'); } else if (backfires >= 2) { st.shaken = 1; pbp(`${escH(STAR.short)} got the last word before tip-off.`, 'bad'); } else pbp(`${escH(STAR.short)} smirks and jogs off.`); }
+        else if (!ended && g >= 60) { st.nextBonus = { label: type === 'mate' ? 'Chemistry' : 'Game plan', v: type === 'mate' ? 3 : 4 }; pbp(type === 'mate' ? `🤝 ${escH(name)} is locked in with you. (+3% next play)` : `📣 ${escH(name)} likes your answer. (+4% next play)`, 'good'); }
+        else if (g <= 20) { s.meta.morale = Math.max(0, s.meta.morale - 2); pbp(`${escH(name)} walks away shaking his head.`, 'bad'); }
+        else pbp(`${escH(name)}: "Let's just play."`);
+        return;
+      }
       if (type === 'coach') {
         const win = !ended && g >= 60;
         if (win && topic === 'play') { st.playCalled = true; st.nextBonus = { label: 'Play called for you', v: 8 }; pbp(`📣 ${escH(name)} calls your number. Next trip runs through you (+8%).`, 'good hot'); }
@@ -1762,6 +1869,21 @@ const Match = (() => {
     /* Perfect Copy: defensive stops stack an offense bonus */
     async function withMirror(fn) { const ok = await fn(); if (ok && Engine.hasSpecial(s, 'mirror') && st.mirror < 12) { st.mirror += 3; pbp(`🪞 <b>Perfect Copy</b>: you copied their move. Offense +${st.mirror}%`, 'hot'); } return ok; }
 
+    /* ---------- PRE-GAME — big games get a cinematic (travel / arrival / tunnel / face-off) and one short talk ---------- */
+    const pgTier = Math.min(4, (cfg.importance || 1) + (oppR >= usR + 3 ? 1 : 0) + (rivalId === 'kai' ? 1 : 0) + (cfg.venue === 'away' && (cfg.importance || 1) >= 2 ? 1 : 0));
+    if (pgTier >= 2 && typeof Cutscene !== 'undefined' && Cutscene.pregame && !cfg.noIntro) {
+      const VD = court.V.def, kind = PICK || cfg.level === 'street' ? 'pickup' : cfg.venue === 'away' ? 'away' : 'home', vName = (VENUES[court.venueId] || {}).name || '';
+      const top = STAR.stats ? Object.entries(STAR.stats).filter(([, v]) => typeof v === 'number').sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => [k.slice(0, 3).toUpperCase(), Math.round(v)]) : [];
+      const ctx = { team: cfg.us, them: cfg.them, usAbbr: cfg.us.abbr, themAbbr: cfg.them.abbr, themName: cfg.them.name, venue: court.venueId, city: cfg.them.city, night: VD.sky === 'night' || VD.style === 'arena' || VD.style === 'gym',
+        homeCols: kind === 'away' ? cfg.them.colors : cfg.us.colors, homeScene: VD.style === 'arena' ? 'arena' : 'gym',
+        looks: { star: Object.assign({}, STAR.look, { jersey: cfg.them.colors[0], trim: cfg.them.colors[1], outfit: 'jersey' }), coach: coachId ? talkLook(coachId) : null, mate: TMATE() ? TMATE().look : null }, names: { star: STAR.full, coach: coachId ? talkName(coachId) : 'Coach', mate: TMATE() ? TMATE().full || TMATE().name : 'Teammate' } };
+      cnt('pregames'); await Cutscene.pregame({ kind, tier: pgTier, flight: kind === 'away' && /college|pro/.test(cfg.level || ''), city: cfg.them.city, place: vName, starName: STAR.full, starSub: `${cfg.them.name}'s best player`, starStats: top }, ctx);
+      SFX.music('game'); Pixel.ambient(court.V, court.excite);
+      if (TK) { const who = kind === 'pickup' ? (Math.random() < .6 ? 'rival' : 'mate') : kind === 'away' ? (rivalId === 'kai' || oppR >= usR + 3 ? 'rival' : 'coach') : (Math.random() < .5 || !coachId ? 'mate' : 'coach');
+        await talk(who === 'coach' && !coachId ? 'mate' : who === 'mate' && !TMATE() ? 'rival' : who, null, true); }
+    }
+    offerFs();
+
     /* ---------- GAME LOOP ---------- */
     updBug(); formation('us');
     await banner(`<div class="tip">${logoUs}<span>VS</span>${logoThem}</div><small>${escH(cfg.us.name)} vs ${escH(cfg.them.name)}</small>TIP-OFF`, 'tip', 1800);
@@ -1775,7 +1897,7 @@ const Match = (() => {
       if (!PICK && last && Math.abs(st.us - st.them) <= 10 && Math.random() < .7) { const target = Math.floor(rnd(-3, 3)); const d = st.us - st.them - target; if (d > 0) st.them += d; else st.us -= d; }
       clk = clockFor(i); if (last) clk.rem = Math.min(clk.rem, rnd(4, 18));
       updBug();
-      if (clk.per !== prevPer) { SFX.play('buzzer'); await banner(`END OF ${L.label === 'H' ? '1ST HALF' : 'Q' + prevPer}`, '', 1000); prevPer = clk.per; pbp(`— ${L.label}${clk.per} —`, 'sys'); queueTalk('coach', .55); }
+      if (clk.per !== prevPer) { SFX.play('buzzer'); await banner(`END OF ${L.label === 'H' ? '1ST HALF' : 'Q' + prevPer}`, '', 1000); prevPer = clk.per; pbp(`— ${L.label}${clk.per} —`, 'sys'); }
       if (st.talkQ && st.talkAt < i) {   // dead ball: a quick conversation (huddle or face-off first)
         const q = st.talkQ; st.talkQ = null; formation('us');
         if (q.type === 'coach') { const cl = talkLook(coachId); await court.mini('huddle', 'TIMEOUT', { look: cl, name: talkName(coachId), force: true }); }
