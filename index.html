@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07090f">
+  <title>Hoop Dreams — 16-Bit Basketball Career RPG</title>
+  <meta name="description" content="Go from an unknown 16-year-old on a cracked playground court to the GOAT. A free 16-bit basketball career RPG with story choices, minigames and arcade play — right in your browser.">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
+  <!-- Social preview (WhatsApp, Instagram, Discord, iMessage…) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Hoop Dreams">
+  <meta property="og:title" content="Hoop Dreams — 16-Bit Basketball Career RPG">
+  <meta property="og:description" content="From nobody to the GOAT. Story choices, minigames and 16-bit arcade basketball. Free in your browser.">
+  <meta property="og:url" content="https://aquoric.github.io/hoop-dreams/">
+  <meta property="og:image" content="https://aquoric.github.io/hoop-dreams/assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Hoop Dreams: a 16-bit street court at night, a player dunking over a defender">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Hoop Dreams — 16-Bit Basketball Career RPG">
+  <meta name="twitter:description" content="From nobody to the GOAT. Free in your browser.">
+  <meta name="twitter:image" content="https://aquoric.github.io/hoop-dreams/assets/og-image.png">
+  <!-- Fonts are optional: the game falls back to system fonts if offline. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <div id="bg"></div>
+    <div id="screen" class="screen"></div>
+    <div class="corner">
+      <button class="icon-btn" id="muteBtn" title="Mute / unmute">🔊</button>
+      <button class="icon-btn" id="setBtn" title="Settings">⚙</button>
+    </div>
+    <div id="modals"></div>
+    <div id="toasts"></div>
+    <div id="fx"></div>
+  </div>
+  <noscript><p style="color:#fff;padding:2rem">Hoop Dreams needs JavaScript enabled.</p></noscript>
+
+  <!-- Game content (edit these to add teams, players and story) -->
+  <script src="js/data-game.js"></script>
+  <script src="js/data-leagues.js"></script>
+  <script src="js/data-story.js"></script>
+  <script src="js/data-story-ch2.js"></script>
+  <script src="js/data-venues.js"></script>
+  <!-- Engine -->
+  <script src="js/art.js"></script>
+  <script src="js/pixel.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/balance.js"></script>
+  <script src="js/match.js"></script>
+  <script src="js/season.js"></script>
+  <script src="js/arcade.js"></script>
+  <script src="js/cutscene.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+# 🏀 Hoop Dreams — 16-Bit Basketball Career RPG
+
+**▶ [Play now](https://aquoric.github.io/hoop-dreams/)** — free, in your browser, on desktop or phone. No download, no account.
+
+![Hoop Dreams](assets/og-image.png)
+
+Start as an unknown 16-year-old on a cracked playground court and try to become the GOAT. Make story choices, play key moments with quick minigames, and take over in real-time 16-bit arcade play on fast breaks, loose balls and final possessions. Build your player, earn badges, get recruited, and see where your career ends up.
+
+> All teams, players, leagues and schools in this game are **fictional parodies**. Any resemblance to real people or teams is for fun only. No real logos or likenesses are used.
+
+## Controls
+
+| | Desktop | Phone / tablet |
+|---|---|---|
+| **Story** | Click or <kbd>Space</kbd> to advance · choices: click or <kbd>1</kbd>–<kbd>5</kbd> | Tap to advance · tap a choice |
+| **Decisions in games** | Click an option or press <kbd>1</kbd>–<kbd>4</kbd> · hover to see what affects the % | Tap an option · long-press to see what affects the % |
+| **Minigames** | <kbd>Space</kbd> / click to time it · arrows or <kbd>WASD</kbd> for dribble combos and defense | Tap to time it · swipe or tap the on-screen arrows |
+| **Arcade play** | Move <kbd>WASD</kbd> / arrows · shoot or block <kbd>J</kbd> / <kbd>Space</kbd> (hold, release at the top of the jump) · pass or steal <kbd>K</kbd> · dribble move <kbd>L</kbd> / <kbd>Shift</kbd> | Joystick (left) · **SHOOT**, **PASS** and **MOVE** buttons (right). Turning your phone sideways gives a bigger court. |
+
+## Your saves
+
+The game autosaves after every step. **Saves live in your browser on that device**, so a career on your phone won't appear on your laptop (and clearing your browser data deletes it). To move a career to another device or share it with a friend, open **⚙ Settings → Export save file**, send the file, and on the other device use **Load → Import**.
+
+## Run it yourself
+
+Download the code and double-click **`index.html`**. There's no install, no build step and no server needed. Every graphic is drawn in code, so it works offline too (fonts fall back to system fonts).
+
+## How to play
+
+| Where | What you do |
+|---|---|
+| **Story** | Click or press <kbd>Space</kbd> to advance. Pick choices with the mouse or <kbd>1</kbd>–<kbd>5</kbd>. Choices tagged with a stat and % are **stat checks**: they can succeed or fail. Some choices can end your career. |
+| **Games** | Each game is 8–15 key **moments** on an animated court. In most moments you **get the ball and choose what to do** (catch & shoot, pull-up, drive, post up, pass, or your Weapon), then **play that option's minigame**. On defense you choose an approach (press, stay back, go for the steal, help & block, contest), then play it. A few quick decision-only moments keep the pace up. Every option shows a live success % (green/yellow/red). **Hover or long-press** an option to see what's affecting it. |
+| **Arcade segments** | Every game is played with choices and minigames, and switches into real-time 16-bit arcade play for single possessions **at least 3 times** (3–5 in a full match, 3–4 in a pickup game), spread across the game. Each trigger has its own banner: **FAST BREAK!** (after a steal, block or defensive rebound), **LOOSE BALL!** (both teams dive for it — whoever wins it plays the possession), **SCRAMBLE!** (put-back battle off a miss), **BROKEN PLAY!** (shot clock running out), **BEAT THE BUZZER!** (last possession of a quarter/half) and **FINAL POSSESSION!** (the last possession of a close game). Each segment ends on a score, miss, turnover, foul or defense set, and the score, box score, fatigue and play-by-play update. Pickups (hub Pickup Run, story playground games, the Kai 1-on-1) keep their small-sided format (3v3 or 1v1, first to the target). Controls: WASD/arrows move · **J/SPACE** shoot (hold, release at the top of the jump) or block · **K** pass/steal · **L/SHIFT** dribble move (on defense: slide; slide + K = shove). Touch: joystick + SHOOT / PASS / MOVE. |
+| **Courts** | 61 courts in the same 16-bit style, each with its own look, crowd, lighting and ambient sound: six street courts (night, day park, the cage, rooftop, beach at sunset, rainy night with puddle reflections), a gym for every high school, a community center, an AAU showcase hall, a college fieldhouse, a tournament dome, a home arena for all 30 NBL teams (team colors + logo at center court), the draft combine, summer league, All-Star weekend, the Finals, eight overseas arenas (Madrid, Istanbul, Athens, Belgrade, Paris, Tokyo, Sydney, Beijing) with local chants, and a practice facility for training. The game picks the venue from the story, opponent and home/away. Courts you play on unlock in the hub's **Courts** tab, where you choose the court for pickup runs. |
+| **Cutscenes** | Cinematic scenes at key moments (opening, the rival, getting scouted, making varsity, game-winners in big games, state title, injuries, career-ending paths). Tap or SPACE skips a shot, *Skip* ends it. Rewatch them in the hub's **Cutscenes** tab. |
+| **Minigames** | **Shot Meter**: tap at the green. **Free Throws**: tap when the reticle is centered. **Dribble Combo**: arrows/WASD/swipe. **Dunk Timing**: tap when the rings meet. **Lock-In D**: mirror the move (◀ ▲ ▶). **Box Out**: tap in the zone. **Passing Lane**: tap the open teammate (or 1–4). |
+| **Streaks** | 3 successes in a row = **ON FIRE** (bonus %, flames). Successes charge your **Weapon** (your rolled signature move). Close games end in **Clutch Time**. |
+| **Hub** | Between story beats: **Train** (minigame drills raise attributes), **Rest**, spend **Skill Points** in Upgrade (radar chart + height-based caps), check **Badges**, buy gear in the **Shop** (shows on your avatar), read your **Social** feed, view **Career** stats and **Achievements**. |
+| **Seasons** | In high school you play full seasons. **🔑 Key games** must be played as full matches; any other game can be played or **simmed** for a short summary. The Season tab shows standings, your schedule and a live **playoff bracket**. |
+| **Recruiting** | From Chapter 2 you have a **star rating** (1–5★) and national rank that move with your Overall, reputation, scoring and big moments. Colleges send offers once you reach their level (Recruiting tab). |
+| **Saves** | Autosaves after every step. ⚙ Settings → 3 manual slots, **Export/Import** a save file, audio volumes, text speed, restart career. Saves are stored in the browser on each device. |
+
+## What's in this build
+
+- **Character creation**: name, hometown, number, difficulty (Pro — the default — or Hall of Fame), position (PG–C), height, wingspan, and a full avatar builder with a live trading-card preview.
+  - **Wingspan** is chosen relative to height (3" shorter to 8" longer). Long arms help defense, rebounding, blocks, steals and finishing; very long arms make handles and pure shooting a bit harder.
+  - **Rolls**: your **Archetype** and your **Weapon** are rolled separately, with rarity odds Common 42% · Rare 30% · Epic 17% · Legendary 8% · Mythic 3%. You get 5 / 3 rolls for each (Pro / Hall of Fame) and keep the last one you land.
+  - **13 archetypes**, inspired by Kuroko no Basket techniques (e.g. Phantom Sixth Man, Full-Court Sniper, Perfect Mirror, Formless Ace, The Emperor). Each has stat bonuses plus a **passive** that changes games, such as Misdirection (+12% on everything early), Perfect Copy (stacking bonus from defensive stops), Right of Postponement (a second chance on failed post moves) or Emperor Eye (longer timing windows and more ankle breaks).
+  - **16 weapons**, e.g. Ignite Pass, Vanishing Drive, Phantom Shot, Meteor Jam, Thor's Hammer, Formless Shot, and The Zone (+12% on everything for the rest of the game). Each has its own animation, success rate and charge cost.
+- **Stats and progression**: 16 attributes, position-weighted Overall, XP and levels, skill points, 16 badges with Bronze/Silver/Gold/Hall of Fame tiers, hidden meta stats (reputation, fans, confidence, fatigue, chemistry, money, relationships), and 20 achievements.
+- **Match engine**: a 16-bit court (shared with arcade play) with animated players, ball arcs, swish/rim/dunk animations, screen shake, slow-motion zooms, flames, confetti, a retro scorebug, live box score, play-by-play, and 8 minigames.
+- **Chapter 1: Concrete Dreams (the playground)**: meet mentor **Lou Banks**, rival **Kai Sterling**, best friend **Tariq**, your mom and your sister **Nia**. Three games, the Halsey Summer Jam, a scout, a party that can go very wrong, and the choice between Westbrook Academy and Lincoln High.
+- **Chapter 2: Varsity Blues (high school)**: 105 story nodes with separate **Lincoln High** and **Westbrook Academy** paths that rejoin for the summer and senior year.
+  - **Arc**: tryouts, a coach who doubts you (Brennan or Graves), earning minutes, a locker-room fight, and rivalry games against Kai, with his father Silk in the stands.
+  - **Seasons**: junior season with the City Playoffs, the Peach Slam AAU circuit, and senior season with the State Tournament. You play key games and can sim the rest.
+  - **Relationships and recruiting**: a viral mixtape, Nia's birthday vs. the Elite 100 Camp, Mom's injury, Tariq failing chemistry, a booster with an envelope, recruiting stars, college offers, and Signing Day.
+  - **Where it ends**: you pick a fictional university, or skip college for Europe or the Grind League. That choice sets up Chapter 3.
+  - **Early endings**: two new ways to end your career (a "sneaker flip" with Cousin Marcus, and painkillers on a broken foot).
+- **Season system** (`js/season.js`): a reusable schedule, simulated league results, standings, playoff brackets, simulated stat lines, and a coach-trust role (Starter / Sixth Man / Bench). It's built to be reused for college, pro and overseas seasons.
+- **Audio**: every sound and music loop is synthesized with the Web Audio API (🔊 button to mute).
+
+*Coming in later builds: College/Overseas/G-League routes (Chapter 3), the Draft, the 30-team pro league, overseas leagues, legacy endings.*
+
+## For tinkerers: editing the game
+
+All content lives in plain, commented JavaScript objects. Edit them in any text editor and refresh the page.
+
+| File | What's inside |
+|---|---|
+| `js/balance.js` | **Every success % in the game** plus all tuning: the stats each action uses, the defender stats against it, base values, situation modifiers, diminishing returns, minigame influence, **difficulty** (`BALANCE.difficulty`) and **arcade** speeds / dribble moves / fast-break odds (`BALANCE.arcade`) |
+| `js/arcade.js` | Arcade engine: court geometry and hype lines (`ARCADE`), game rules, segment setups, AI. Speeds, moves and segment odds are tuned in `js/balance.js` |
+| `js/pixel.js` | The shared 16-bit renderer (sprites + skeleton animation, ball, hoop, crowds, lighting, weather, bitmap font) used by the match court, arcade, training and cutscenes |
+| `js/data-venues.js` | **Every court** (`VENUES`): style, sky, backdrop, fence, floor, walls, team colors, theme, crowd, lights, weather, ambient sound. Add a court by adding an entry |
+| `js/cutscene.js` | Cutscene scripts (`CUTSCENES`) and the player |
+| `js/data-game.js` | Attributes, positions (Overall weights, height ranges), height and wingspan caps, **rarity odds and roll counts**, **archetypes** (with passives), **weapons**, **badges**, difficulty, XP tuning, training drills, achievements, **shop items** |
+| `js/data-leagues.js` | Teams used in story games and seasons (`LOCAL_TEAMS`: playground crews, Metro Prep League high schools, AAU teams) with a `rating` for sims, fictional `COLLEGES` (prestige, coach, minutes/exposure/development), the 30 `NBL_TEAMS` and the `OVERSEAS_CLUBS` |
+| `js/data-story-ch2.js` | Chapter 2 (high school): new characters, season definitions, endings |
+| `js/season.js` | Reusable season engine: schedule, sims, standings, playoffs |
+| `js/data-story.js` | **Characters** (portraits are generated from their `look`), **story chapters**, play-by-play commentary, social-feed accounts and templates, post-game reactions, endings |
+| `js/art.js` | Procedural art: avatars, team logos, badge icons, scene backgrounds |
+| `js/engine.js` | Stats, Overall, XP, effects, checks, save/load |
+| `js/match.js` | Court renderer, minigames, match flow |
+| `js/ui.js` / `js/main.js` | Screens and the career director |
+
+## Success % balance
+
+All percentages come from `Balance.pct()` in `js/balance.js`:
+1. Your relevant stats are blended.
+2. The matching defender's relevant stats are subtracted.
+3. Diminishing returns apply above 70.
+4. Situation modifiers are added: open or contested, deep range, shot clock, fatigue, confidence, home crowd, and Clutch only late in close games.
+5. Small archetype, badge and wingspan bonuses are added.
+6. The result is clamped to 5–95%.
+
+Minigames then move the result by up to ±(skill/2). Difficulty changes the defenders and minigame windows, not the formula.
+
+### Difficulty
+
+Only **Pro** (default) and **Hall of Fame**. Old saves on the removed Rookie difficulty load as Pro.
+
+| | Pro | Hall of Fame |
+|---|---|---|
+| Defender rating shift | −2 | +6 |
+| Minigame windows | ×1.08 | ×0.8 |
+| Story stat checks | +2% | −7% |
+| Arcade AI reaction | 0.62 s | 0.40 s |
+| Simulated: your FG / 3P | 48% / 35% | 41% / 28% |
+| Simulated: opponents' FG vs you | 46% | 54% |
+
+### Arcade tuning (`BALANCE.arcade`)
+
+- `pace.game` is a master speed knob (1 = default, 0.85 = 15% slower). Run speed, pass speed, shot hang time, jump height, dribble rhythm, AI reaction, the shot clock and the fast-break clock each have their own value.
+- **Dribble move** (replaces turbo): Hesitation (any handles), Crossover (40 Handling), Between the Legs (52), Behind the Back (63), Spin (72). Some archetypes unlock moves earlier. Each move gives a short speed burst; beating or freezing your man uses `Balance.pct('move')` (your Handling vs their Perimeter D), with a rare ankle-breaker. A cooldown stops spamming — pressing during it, or moving with low handles, can lose the ball. Moves cost stamina.
+- **Arcade segments** (`BALANCE.arcade.segments`): `min` 3 per game, `match` target 3–5, `pickup` 3–4, `max` 6. Natural triggers (`chance`): steal 85%, block 60%, defensive rebound 45% (teammate ×0.7), put-back scramble 35%, end-of-quarter buzzer 45% — fast breaks also scale with your team's pace. Segments stay on an even spread through the game; if a stretch has none, the game creates one from `mix` (fast break, loose ball, broken play, scramble). `clocks` sets the seconds for each type.
+- **Hall of Fame easing** (`BALANCE.difficulty.hof.arcadeEase`): at Overall 45 the arcade AI is only 45% of the way from Pro to Hall of Fame and your shots get +5%; both fade out by Overall 66.
+
+Simulated results (about 47,000 shots across all positions, archetypes and Overalls 45–95, each player facing defenders at their own level):
+
+| Measure | Target | Simulated |
+|---|---|---|
+| Best-fit option | 50–65% | 57% |
+| Average option | 40–50% | 43% |
+| Bad fit (e.g. a center's pull-up three) | 10–25% | 15% |
+| Field goals | 45–50% | 46% |
+| Threes, average player | 33–38% | 34% |
+| Threes, elite shooters | 40%+ | 42% |
+| Free throws | — | 69% |
+
+## Progression curve
+
+Overall grows from three sources: **skill points** (from XP; upgrade costs rise at 60/75/87), **training** (0–3 attribute points per session), and **natural development** at the end of each career stage. Development closes part of the gap to that stage's target, scaled by how well you played the stage (wins, game grades, training). Targets for a *good* run live in `PROGRESSION.CURVE` in `js/data-game.js`:
+
+| Stage | Target Overall | Status |
+|---|---|---|
+| End of Chapter 1 (age 16) | ~48 | tested: bot runs land 44–48 |
+| End of high school (age 18) | ~58 | tested: bot runs land 56–58 |
+| End of college / overseas / Grind League | ~68 | defined, for Chapter 3 |
+| End of rookie season | ~74 | defined |
+| Prime | 85–95 | defined |
+| 99 | GOAT-level runs only | defined |
+
+### Adding a season
+
+A story node with `type: 'season'` runs a whole season. See the comment at the top of `js/season.js` and the examples in `js/data-story-ch2.js`: a schedule (one opponent per week, `key: true` for must-play games, optional `pre`/`post` story nodes), `interrupts` (story beats before a given week), and a `playoff` format. Season story nodes return to the season with `next: '@season'`.
+
+### Adding a story event
+
+Story nodes are documented at the top of `js/data-story.js`. A minimal example:
+
+```js
+my_event: { scene: 'playground',
+  lines: [
+    ['tariq', 'Yo {first}, wanna run 1-on-1 for twenty bucks?', 'smile'],
+  ],
+  choices: [
+    { t: 'Bet.', check: { a: 'handle', dc: 45 }, fx: { money: 20, rel: { tariq: 3 } }, next: 'next_node', fail: 'lost_bet', failFx: { money: -20 } },
+    { t: 'Nah, saving my legs.', fx: { fatigue: -10 }, next: 'next_node' },
+  ] },
+```
+
+Node types: dialogue (default), `match`, `hub`, `branch`, `ending`, `chapterEnd`. Effects (`fx`) can change attributes, XP, reputation, fans, money, confidence, fatigue, relationships, flags, injuries, and add social-feed posts.
+
+### Adding a team
+
+```js
+LOCAL_TEAMS.eastside = { name: 'Eastside Kings', abbr: 'EKG', colors: ['#7c3aed', '#facc15', '#111827'],
+  logo: { shape: 'shield', icon: 'crown' },   // shapes: shield circle roundel hex diamond · icons: see Art GLYPHS
+  roster: ['Star Guy', 'Role Guy', 'Big Man', 'Shooter'], star: { name: 'Star Guy', perD: 50, intD: 45 } };
+```
+
+## Credits
+
+- Code, art, story and audio: original, generated procedurally for this project. No photos and no external images are used.
+- Fonts: [Bebas Neue](https://fonts.google.com/specimen/Bebas+Neue), [Oswald](https://fonts.google.com/specimen/Oswald), [Inter](https://fonts.google.com/specimen/Inter), [Silkscreen](https://fonts.google.com/specimen/Silkscreen) and [VT323](https://fonts.google.com/specimen/VT323) via Google Fonts (SIL Open Font License), with offline fallbacks.
+- All teams, players and leagues are fictional or parody names. No real logos or likenesses.

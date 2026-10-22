@@ -1,0 +1,25 @@
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / tool settings (local only)
+.claude/
+.vscode/
+.idea/
+
+# Test and temporary files
+*.log
+*.tmp
+*.bak
+tmp/
+scratch/
+__*.json
+test*/
+*-test.*
+
+# Exported save files (players' own careers)
+hoopdreams-*.json
+
+# Dependencies (none are needed, just in case)
+node_modules/
