@@ -92,6 +92,17 @@ const BALANCE = {
   // in-game conversations (coach / ref / rival): at most this many per game, only after something meaningful
   // (an opponent run, three misses in a row, a bad call, ankles broken, the star taking over)
   talk: { perGame: 1 },
+  /* ---------- LAYUP DRIVES: read → (gather) → release ----------
+     blowBy: the defender shows a tell (lean / feet / reach / hips) toward the side he overplays — attack the other side.
+       window: seconds to pick a side (Ball Handling + Speed move it from low to high end, × difficulty window)
+       tell:   tell size 0..1 (Handling + Speed raise it; the defender's Perimeter D shrinks it by perD × how far above 50 he is)
+       fakeStar / fake: chance a star / anyone shows a fake tell first. cutOff: what a wrong or late read turns into.
+     gather: chance per layup (+contested when cut off or contested, +help when the help defender is waiting),
+       beat = seconds per step, tol = timing tolerance, clean/sloppy = layup window multiplier, travel = chance a bad gather is a travel */
+  layup: {
+    blowBy: { window: [.55, 1.05], tell: [.4, 1], perD: .9, fakeStar: .35, fake: .08, cutOff: { contested: .55, charge: .2, steal: .25 } },
+    gather: { chance: .22, contested: .3, help: .15, beat: .34, tol: .12, clean: 1.35, sloppy: .75, travel: .45 },
+  },
   others: { mate: 1.6, opp: 1.3, weaponUse: .5, star: { heatAt: 2, takeover: 3, bonus: 6, askGuard: .7 } },
   /* ---------- CLOSE CALLS (slow motion, zoom, crowd build-up + a quick reaction minigame) ----------
      chance per moment: early in the game / late in a close game (margin = "close"). max per game.

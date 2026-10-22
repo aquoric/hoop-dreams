@@ -66,7 +66,11 @@ Download the code and double-click **`index.html`**. There's no install, no buil
   - **Where it ends**: you pick a fictional university, or skip college for Europe or the Grind League. That choice sets up Chapter 3.
   - **Early endings**: two new ways to end your career (a "sneaker flip" with Cousin Marcus, and painkillers on a broken foot).
 - **Season system** (`js/season.js`): a reusable schedule, simulated league results, standings, playoff brackets, simulated stat lines, and a coach-trust role (Starter / Sixth Man / Bench). It's built to be reused for college, pro and overseas seasons.
-- **Audio**: every sound and music loop is synthesized with the Web Audio API (🔊 button to mute).
+- **Game day**: big games (away trips, rivals, playoffs, story games) open with a skippable pre-game sequence (bus or flight, arriving in the city, walking in past their fans; or the locker room, tunnel walk and intros; or sizing up a pickup run), a face-off with their star and one short pre-game talk. During the game you get at most one conversation, and only after something that matters.
+- **Instant replays**: dunks, deep threes, blocks, broken ankles, and-ones and buzzer-beaters replay the actual play from two angles, the second in slow motion.
+- **Fullscreen** (⛶ in the match bar, offered at tip-off): the court fills the screen and the scorebug, choices, play-by-play, box score and gauges share one side panel. On portrait phones everything stacks.
+- **Layup drives**: read your defender's tell (lean, feet, reach or hips) and attack the other side for a BLOW BY, or get CUT OFF (tough finish, charge or steal). Sometimes you also hit a left-right gather step before the layup release. Windows and odds are in `BALANCE.layup`.
+- **Audio**: music and effects are synthesized with the Web Audio API; the crowd uses real recordings (one venue loop, capped reactions). 🔊 mutes everything.
 
 *Coming in later builds: College/Overseas/G-League routes (Chapter 3), the Draft, the 30-team pro league, overseas leagues, legacy endings.*
 

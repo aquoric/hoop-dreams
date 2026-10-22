@@ -213,7 +213,8 @@ const SFX = (() => {
       out.gain.setValueAtTime(0, ctx.currentTime); out.gain.linearRampToValueAtTime(lvlGain(k), ctx.currentTime + FADE); out.connect(crowdBus);
       let next = ctx.currentTime + .02, alive = true; const srcs = new Set();
       const sched = () => { while (alive && next < ctx.currentTime + 3) { const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = b; s.connect(g); g.connect(out);
-        g.gain.setValueCurveAtTime(up, next, xf); g.gain.setValueCurveAtTime(down, next + len - xf, xf);
+        try { g.gain.setValueCurveAtTime(up, next, xf); g.gain.setValueCurveAtTime(down, next + len - xf, xf); }
+        catch (e) { g.gain.cancelScheduledValues(0); g.gain.setValueAtTime(0, next); g.gain.linearRampToValueAtTime(1, next + xf); g.gain.setValueAtTime(1, next + len - xf); g.gain.linearRampToValueAtTime(0, next + len); }   // some browsers refuse touching curves: plain ramps
         s.start(next, skip, len); srcs.add(s); s.onended = () => srcs.delete(s); next += len - xf; } };
       sched(); const iv = setInterval(sched, 700);
       return { k, out, stop(f = FADE) { alive = false; clearInterval(iv); const t = ctx.currentTime; out.gain.cancelScheduledValues(t); out.gain.setValueAtTime(out.gain.value, t); out.gain.linearRampToValueAtTime(0, t + f); srcs.forEach(s => { try { s.stop(t + f + .05); } catch (e) { } }); setTimeout(() => { try { out.disconnect(); } catch (e) { } }, (f + .3) * 1000); } };

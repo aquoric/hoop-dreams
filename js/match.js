@@ -684,6 +684,91 @@ const Match = (() => {
       });
     },
 
+    /* BLOW-BY — the defender gives away which side he overplays (lean / feet / reach / hips); attack the OTHER side.
+       o: { window (s), tell 0..1 (size), fake (chance of a fake tell first), cols: [them], mine: [us] } → { read: 'right'|'wrong'|'late', side, quality } */
+    blowBy(layer, o = {}) {
+      const W = o.window || .8, amt = 1 + Math.round(clamp(o.tell == null ? .7 : o.tell, 0, 1) * 2), kind = pick(['lean', 'feet', 'reach', 'hips']);
+      const over = Math.random() < .5 ? -1 : 1, faked = Math.random() < (o.fake || 0), T_FAKE = faked ? .4 : 0, T_TELL = .45 + T_FAKE;   // over = side he overplays (-1 left / 1 right)
+      const [d0, d1] = o.cols || ['#1e3a8a', '#e5e7eb'], [m0] = o.mine || ['#f97316'];
+      const sh = mgShell(layer, o.title || 'BLOW-BY', 'Read his tell — attack the OTHER side. ◀ ▶ / A D, swipe, or tap', 'mg-blow');
+      sh.body.innerHTML = `<canvas class="pxc" width="160" height="112" style="width:300px;max-width:100%;aspect-ratio:160/112"></canvas><div class="timer"><i></i></div>
+        <div class="dpad two"><button data-d="L">◀ LEFT</button><button data-d="R">RIGHT ▶</button></div>`;
+      const cv = sh.body.querySelector('canvas'), c = cv.getContext('2d'), bar = sh.body.querySelector('.timer i'); c.imageSmoothingEnabled = false;
+      const P = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), w, h); };
+      return new Promise(res => {
+        const t0 = performance.now() + 250; let done = false, choice = null, chosenAt = 0, sx = 0;
+        const side = t => t < .45 ? 0 : faked && t < T_TELL ? -over : over;   // what the tell shows right now
+        const input = d => { if (done || choice != null) return; const t = (performance.now() - t0) / 1000; if (t < .45) return;   // no tell yet: ignore mashing
+          choice = d === 'L' ? -1 : 1; chosenAt = t; SFX.play('squeak'); };
+        const offK = dirInput(d => (d === 'L' || d === 'R') && input(d));
+        sh.body.querySelectorAll('.dpad button').forEach(b => b.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); input(b.dataset.d); }));
+        const pdown = e => { sx = e.clientX; }, pup = e => { const dx = e.clientX - sx; if (Math.abs(dx) > 30) input(dx > 0 ? 'R' : 'L'); };
+        sh.el.addEventListener('pointerdown', pdown); sh.el.addEventListener('pointerup', pup);
+        const finish = async (read, q) => { done = true; offK(); sh.el.removeEventListener('pointerdown', pdown); sh.el.removeEventListener('pointerup', pup);
+          SFX.play(read === 'right' ? 'whoosh' : 'bad'); await sh.close(read === 'right' ? 'BLOW BY!' : read === 'late' ? 'TOO SLOW — CUT OFF!' : 'CUT OFF!', read === 'right'); res({ read, side: choice, quality: q, faked, kind }); };
+        const draw = now => {
+          if (done) return; const t = (now - t0) / 1000, tl = side(t);
+          // read window counts from when the REAL tell shows
+          const left = choice != null ? 0 : t < T_TELL ? 1 : 1 - (t - T_TELL) / W; bar.style.width = clamp(left, 0, 1) * 100 + '%';
+          if (choice == null && t > T_TELL + W) { choice = 0; chosenAt = t; }
+          c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#c88e52'; c.fillRect(0, 0, 160, 112); for (let y = 0; y < 112; y += 4) P(0, y, 160, 1, '#b97f45');
+          P(50, 0, 60, 112, Pixel.shade(d0, -.1)); c.globalAlpha = .6; P(50, 0, 60, 112, '#c88e52'); c.globalAlpha = 1; P(50, 0, 1, 112, '#fef3c7'); P(109, 0, 1, 112, '#fef3c7');
+          // after the choice: a short burst past him (right) or he slides over (wrong)
+          const a = choice != null ? clamp((t - chosenAt) / .35, 0, 1) : 0, right = choice && choice === -over;
+          const dx = choice != null && !right ? (choice || over) * 6 * a : 0;
+          // DEFENDER (front view, 2× — over your shoulder) — the tell
+          c.save(); c.setTransform(2, 0, 0, 2, -80, -36);
+          const bx = 80 + dx + (kind === 'lean' ? tl * amt : 0), hx = 80 + dx + (kind === 'hips' ? tl * amt : 0), y0 = 20 + Math.round(Math.sin(t * 6) * .6);
+          P(bx - 4, y0, 8, 8, '#a86b43'); P(bx - 4, y0, 8, 2, '#1f2937'); P(bx - 2, y0 + 4, 1, 1, '#0a0a12'); P(bx + 1, y0 + 4, 1, 1, '#0a0a12');   // head
+          P(bx - 7, y0 + 9, 14, 13, d0); P(bx - 7, y0 + 9, 14, 2, d1);                          // jersey
+          P(hx - 7, y0 + 22, 14, 6, Pixel.shade(d0, -.25)); if (kind === 'hips' && tl) P(hx - 7 + (tl > 0 ? 9 : 0), y0 + 22, 5, 2, d1);   // shorts / hips
+          const reach = kind === 'reach' && tl ? 4 + amt * 2 : 0;
+          [-1, 1].forEach(sd => { const ext = sd === tl ? reach : 0; P(bx + sd * 7 + (sd < 0 ? -3 - ext : 0), y0 + 10 + (ext ? 2 : 0), 3 + ext, ext ? 3 : 9, '#a86b43'); });   // arms
+          [-1, 1].forEach(sd => { const fwd = kind === 'feet' && sd === tl ? amt * 2 : 0, out = kind === 'feet' && sd === tl ? amt : 0; P(hx + sd * 4 - 2 + sd * out, y0 + 28, 4, 9 + fwd, '#a86b43'); P(hx + sd * 4 - 3 + sd * out, y0 + 36 + fwd, 6, 3, '#f8fafc'); });
+          c.restore();
+          // YOU (back view, near the camera, a little left) with the ball
+          const yx = 62 + (choice != null ? (choice || 0) * (right ? 34 : 14) * a : 0), yy = 88 - (right ? a * 20 : 0);
+          P(yx - 9, yy, 18, 18, m0); P(yx - 5, yy - 9, 10, 9, '#4a2a19'); P(yx - 13, yy + 2, 4, 12, '#a86b43'); P(yx + 9, yy + 2, 4, 12, '#a86b43');
+          const bb = Math.abs(Math.sin(t * 9)) * 5; P(yx + 11, yy + 12 + bb, 6, 6, '#e8651b'); P(yx + 11, yy + 14 + bb, 6, 1, '#0a0a12');
+          if (right && a > 0) for (let i = 0; i < 6; i++) P(yx - choice * (12 + i * 6), yy + 2 + i * 3, 9, 1, 'rgba(255,255,255,.75)');
+          Pixel.text(c, t < .45 ? 'READ HIM…' : choice == null ? 'GO!' : '', 4, 3, '#111827', 1, 'left');
+          if (choice != null && t - chosenAt > .4) return finish(choice === 0 ? 'late' : right ? 'right' : 'wrong', right ? clamp(1 - (chosenAt - T_TELL) / W * .45, .5, 1) : 0);
+          requestAnimationFrame(draw);
+        };
+        requestAnimationFrame(draw);
+      });
+    },
+    /* GATHER STEP — two footprints: LEFT then RIGHT on the beat. Clean = bigger layup window, sloppy = smaller, a mess = maybe a travel.
+       o: { beat (s), tol (s) } → { clean, sloppy, travel, errs } */
+    gatherStep(layer, o = {}) {
+      const beat = o.beat || .34, tol = o.tol || .12;
+      const sh = mgShell(layer, o.title || 'GATHER STEP', 'LEFT foot, then RIGHT foot — on the beat. ◀ then ▶ / A then D, or tap the steps', 'mg-gather');
+      sh.body.innerHTML = `<canvas class="pxc" width="160" height="64" style="width:320px;max-width:100%;aspect-ratio:5/2"></canvas><div class="dpad two"><button data-d="L">LEFT STEP</button><button data-d="R">RIGHT STEP</button></div>`;
+      const cv = sh.body.querySelector('canvas'), c = cv.getContext('2d'); c.imageSmoothingEnabled = false;
+      const P = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), w, h); };
+      return new Promise(res => {
+        const t0 = performance.now() + 450, want = ['L', 'R'], at = [beat, beat * 2], got = []; let done = false;
+        const input = d => { if (done || got.length >= 2) return; const t = (performance.now() - t0) / 1000; if (t < -.15) return; got.push({ d, t }); SFX.play(d === want[got.length - 1] ? 'squeak' : 'bad'); if (got.length === 2) setTimeout(end, 200); };
+        const offK = dirInput(d => (d === 'L' || d === 'R') && input(d));
+        sh.body.querySelectorAll('.dpad button').forEach(b => b.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); input(b.dataset.d); }));
+        const end = async () => { if (done) return; done = true; offK();
+          const errs = [0, 1].map(i => { const g = got[i]; return !g || g.d !== want[i] ? 9 : Math.abs(g.t - at[i]); });
+          const clean = errs.every(e => e <= tol), mess = errs.some(e => e > tol * 2.5), sloppy = !clean && !mess;
+          SFX.play(clean ? 'good' : 'bad'); await sh.close(clean ? 'CLEAN GATHER' : mess ? 'SLOPPY FEET!' : 'OFF-BEAT', clean); res({ clean, sloppy, travel: mess, errs }); };
+        const draw = now => {
+          if (done) return; const t = (now - t0) / 1000; if (t > beat * 2 + tol * 3 + .3) return end();
+          c.fillStyle = '#c88e52'; c.fillRect(0, 0, 160, 64); for (let y = 0; y < 64; y += 4) P(0, y, 160, 1, '#b97f45');
+          [0, 1].forEach(i => { const x = 50 + i * 44, y = i ? 18 : 30, g = got[i], hit = g && g.d === want[i] && Math.abs(g.t - at[i]) <= tol, near = Math.abs(t - at[i]) <= tol;
+            const col = g ? (hit ? '#4ade80' : '#f87171') : near ? '#facc15' : '#334155'; P(x, y, 9, 14, col); P(x + (i ? 6 : -2), y - 4, 4, 4, col); P(x + (i ? -2 : 6), y - 4, 4, 4, col);
+            Pixel.text(c, want[i], x + 4, y + 17, '#111827', 1, 'center');
+            const r = 5 + Math.max(0, at[i] - t) * 40; if (!g && t < at[i] + tol) { c.strokeStyle = '#ffffff'; c.lineWidth = 1; c.beginPath(); c.arc(x + 4, y + 7, r, 0, 7); c.stroke(); } });
+          Pixel.text(c, t < 0 ? 'READY' : 'STEP!', 80, 3, '#111827', 1, 'center');
+          requestAnimationFrame(draw);
+        };
+        requestAnimationFrame(draw);
+      });
+    },
+
     /* 5. DEFENSE REACTION — read the attacker's move and mirror it */
     defenseReact(layer, o = {}) {
       const win = o.window || 600;
@@ -1128,7 +1213,36 @@ const Match = (() => {
         const stat = o.action === 'pull3' ? ME.three : ME.mid;
         const r2 = await MG.shotMeter($('mg'), { title: o.label.toUpperCase(), green: green(stat) * MGX('green'), dur: .95, sub: `${o.action === 'pull3' ? 'Three-Point' : 'Mid-Range'} ${stat} · Handles ${ME.handle}` });
         q = r1.quality * .35 + meterQ(r2) * .65; perfect = r2.perfect; kind = o.action === 'pull3' ? 'three' : 'mid';
-      } else if (o.k === 'layup' || o.k === 'dunk') {
+      } else if (o.k === 'layup') {
+        // 1) BLOW-BY read → 2) sometimes a GATHER STEP → 3) the layup release (js/balance.js BALANCE.layup)
+        const LB = BALANCE.layup, BB = LB.blowBy, D = opp(U), hs = (Balance.eff(ME.handle) + Balance.eff(ME.speed)) / 2 / 99, pdK = Math.max(0, ((DEF.perD || oppR) + diffShift - 50) / 49);
+        busy(setup, '🎮 Read your man');
+        const r1 = await MG.blowBy($('mg'), { window: lerp(BB.window[0], BB.window[1], hs) * WIN() * MGX('comboTime'), tell: clamp(lerp(BB.tell[0], BB.tell[1], hs) - pdK * BB.perD * .5, .1, 1),
+          fake: (cfg.them && cfg.them.star) || st.takeover > 0 ? BB.fakeStar : BB.fake, cols: cfg.them.colors, mine: cfg.us.colors });
+        let contest = (o.extra && o.extra.contest) || 'normal';
+        if (r1.read === 'right') { contest = 'open'; cnt('blowbys'); court.pop('BLOW BY!', U.x, U.y, 8, '#4ade80', 30); pbp(`💨 ${myName} reads ${escH(D ? D.short : 'him')} and blows by.`, 'good'); }
+        else {
+          const w = BB.cutOff, r = Math.random() * (w.contested + w.charge + w.steal), out = r < w.contested ? 'contested' : r < w.contested + w.charge && r1.read === 'wrong' ? 'charge' : r < w.contested + w.charge ? 'contested' : 'steal';
+          court.pop('CUT OFF!', U.x, U.y, 8, '#f87171', 30);
+          if (out === 'charge') { idle(); st.box.to++; cnt('chargesOn'); SFX.play('whistle'); await court.drive(U, D ? D.x : 0, (D ? D.y : 10) + 1.5, .35); if (D) court.act(D, 'sit', .9); await banner('<small>OFFENSIVE FOUL</small>CHARGE!', 'loss', 1000); pbp(`${myName} runs right into ${escH(D ? D.short : 'the defender')}. Charge.`, 'bad'); fail(); return false; }
+          if (out === 'steal') { idle(); st.box.to++; if (D && D.box) D.box.stl++; if (D) await court.steal(D, U); pbp(`${escH(D ? D.short : 'The defender')} cuts you off and pokes it loose.`, 'bad'); fail(); return false; }
+          contest = 'heavy'; pbp(`${escH(D ? D.short : 'The defender')} cuts you off. Tough finish ahead.`, 'bad');
+        }
+        // GATHER STEP — now and then, more often in traffic
+        let gk = 1; const gch = LB.gather.chance + (contest === 'heavy' || contest === 'contested' ? LB.gather.contested : 0) + (sit === 'post' || o.extra && o.extra.help ? LB.gather.help : 0);
+        if (Math.random() < gch) {
+          busy(setup, '🎮 Gather step'); cnt('gathers');
+          const g = await MG.gatherStep($('mg'), { beat: LB.gather.beat, tol: LB.gather.tol * WIN() });
+          if (g.travel && Math.random() < LB.gather.travel) { idle(); st.box.to++; cnt('travels'); SFX.play('whistle'); await banner('<small>VIOLATION</small>TRAVELING', 'loss', 1000); pbp(`${myName} shuffles the feet on the gather. Travel.`, 'bad'); fail(); return false; }
+          gk = g.clean ? LB.gather.clean : g.sloppy || g.travel ? LB.gather.sloppy : 1;
+        }
+        if (contest !== ((o.extra && o.extra.contest) || 'normal')) o = Object.assign({}, o, { pct: calc(o.action, Object.assign({}, o.extra, { contest })).pct });
+        busy(setup, '🎮 Finish');
+        const ck = { open: 1.2, normal: 1, contested: .8, heavy: .65 }[contest];
+        const r2 = await MG.layupStep($('mg'), { win: (.035 + Balance.eff(ME.finish) / 99 * .06) * WIN() * ck * gk, beat: .36 - Balance.eff(ME.speed) / 99 * .06, sub: `Finishing ${ME.finish}${ck < 1 ? ' · cut off' : ck > 1 ? ' · open lane' : ''}${gk > 1 ? ' · clean gather' : gk < 1 ? ' · sloppy gather' : ''}` });
+        q = r1.quality * .4 + r2.quality * .6; perfect = !!r2.perfect; kind = 'layup';
+        cnt('fastbreaks', sit === 'break' ? 1 : 0);
+      } else if (o.k === 'dunk') {
         busy(setup, `🎮 Beat your man`);
         const r1 = await MG.dribbleCombo($('mg'), { title: 'BEAT YOUR MAN', len: 4, time: (.7 + ME.handle / 99 * .6) * WIN() * MGX('comboTime') });
         if (r1.quality >= (Engine.hasSpecial(s, 'ankles') ? .6 : 1)) { cnt('crosses'); pbp(say('ankles'), 'good'); await court.mini('ankles', 'ANKLES!', { name2: star.name, colors2: cfg.them.colors }); queueTalk('rival', .35); }

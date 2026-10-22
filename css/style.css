@@ -982,3 +982,7 @@ body.fs[data-screen=match] .corner .icon-btn { width: 30px; height: 30px; font-s
 }
 /* arcade instant replay: hide the live name tags / pop text over the replayed frames */
 .arc.rp .arc-tags, .arc.rp .arc-pop { visibility: hidden; }
+/* layup drive: blow-by read + gather step — two big side buttons (phones) */
+.dpad.two { grid-template-columns: 1fr 1fr; width: min(320px, 100%); margin-left: auto; margin-right: auto; }
+.dpad.two button { font-size: .72rem; letter-spacing: .06em; height: 46px; }
+.mg-blow .timer, .mg-gather .timer { margin-top: 6px; }
