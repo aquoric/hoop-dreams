@@ -176,13 +176,26 @@ const BALANCE = {
        If a stretch of the game has no segment yet, the game creates one from `mix` (a steal, loose ball, broken play…).
        chance: odds that a natural event turns into a segment (fast breaks also × your team's pace, Speed + archetype).
        clocks: seconds on the clock for each segment type ([min, max] = random in range). */
+    /* ARCADE SEGMENTS inside matches: at least `min` per full match, a target picked from `match`, never more than `max`.
+       They're spread over the whole game (each stretch of moments owes its share) and full matches get `extraMoments`
+       more moments so the choices + minigames stay the main way of playing. `mix` = created segments (weights drop each
+       time a kind is used, so they don't repeat); end-of-quarter possessions and the clutch final possession come on top. */
     segments: {
-      min: 3, match: [3, 5], pickup: [3, 4], max: 6,
+      min: 5, match: [6, 8], pickup: [3, 4], max: 9, extraMoments: 2,
       chance: { steal: .85, block: .6, dreb: .45, mateDreb: .7, putback: .35, buzzer: .45 },
-      mix: { fastbreak: 3, loose: 2.5, broken: 2, putback: 2 },
+      mix: { fastbreak: 3, loose: 2.5, broken: 2.2, putback: 2.2 },
       clocks: { fastbreak: 8, loose: 8, broken: [5, 7], putback: 5, buzzer: [4, 8], final: [6, 12] },
     },
     foul: 12,                                // % a contested layup / dunk draws a foul
+    /* CONTESTS — on defense, JUMP (the shoot/block button) near a shooter to contest. contest = closeness × timing × stat × (AI skill):
+       range / rimRange: px from the shooter where a jump still bothers him (jumpers / layups + dunks); window: s off the ideal moment
+       (your jump's peak right as he releases) before the timing bonus is gone; stand: a defender who doesn't jump still gets this much.
+       Stats: Perimeter D for jump shots, Interior D + Vertical at the rim. cut: how much a perfect contest takes off his %.
+       blockAt / blockK: great contests at the rim turn into blocks (dunks half as often); jumperBlock: rare blocked jumpers.
+       fakeStun: jumping before he even starts his shot = faked out (stunned on landing). foulSpeed / foul: crashing into him = a foul.
+       labels: SMOTHERED! at smother+, CONTESTED! at contest+, WIDE OPEN when nobody is within `open` px. */
+    contest: { range: 30, rimRange: 24, window: .28, stand: .14, cut: { jumper: .55, layup: .45, dunk: .3 }, blockAt: .58, blockK: 1.3, jumperBlock: .22,
+               fakeStun: .5, foulSpeed: 58, foul: .3, labels: { smother: .55, contest: .2, open: 32 } },
     /* LOOSE BALLS + SCRAMBLES: AI players react after `react` seconds (like a person), predict the landing spot with `aim` px of error,
        and dive when within `aiDive` px. Your dive (J / SPACE / GRAB): `dive` s burst at × `diveSpeed`, grab reach `reach` (normal `grab`).
        Who comes up with it: BALANCE.actions.scramble (Speed + Vertical + Strength), × diveBonus while diving, closer = better. */

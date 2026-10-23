@@ -117,7 +117,7 @@ const Arcade = (() => {
           <p><b>Pass</b> K — toward the joystick direction, or to the open man. Without the ball, K calls for it.</p>
           <p><b>Dribble move</b> L / SHIFT (MOVE). Stick away from where you face = crossover-type move, no stick = hesitation, stick forward with a defender in front = spin. Each move gives a burst of speed and a chance to beat or freeze your man. There's a short cooldown — spamming it can cost you the ball.</p>
           <p><b>Loose balls</b> run to the yellow ◎ (where it comes down) and press J / SPACE (GRAB) to dive for it. Speed, Vertical and Strength decide close calls.</p>
-          <p><b>Defense</b> J = jump to block · K = steal · L = defensive slide (slide then K = shove)</p>
+          <p><b>Defense — JUMP to contest</b> J / SPACE (JUMP button) near a shooter. Be close and jump as he lets it go: CONTESTED! / SMOTHERED! cut his chances (Perimeter D on jumpers, Interior D + Vertical at the rim), and a great jump at the rim is a block. Jump before he starts his shot and you get FAKED OUT; crash into him and it's a FOUL. · K = steal · L = slide (slide then K = shove)</p>
           <p><b>⚔ Weapon</b> E (or ⚔) — fires the weapon that fits the moment (shot, drive, steal, block…). A short aura boosts that play. Teammates with an <b>OPEN</b> tag are calling for the ball.</p>
           <p class="arc-moves" id="arcMoves"></p>
           <button class="btn glow" data-a="gotit">Got it — let's play</button></div></div>`;
@@ -216,7 +216,7 @@ const Arcade = (() => {
       function shotChance(p) {
         const dh = toHoop(p), three = isThree(p), def = nearestDef(p), fresh = G.time - p.catchT < .9;
         const action = dh < A.layupRange ? (canDunk(p) && dh < A.dunkRange && p.st.dunk >= 45 ? 'dunk' : 'layup') : three ? (fresh ? 'catch3' : 'pull3') : (fresh ? 'catchMid' : 'pullMid');
-        const ctx = { def: def ? def.st : null, diff: p.team === me.team ? diff : '_none', contest: contestFor(p), deep: three && dh > A.three.rx * 1.25, fatigue: 100 - p.stamina, bonus: bonusOf(p, action) };
+        const ctx = { def: def ? def.st : null, diff: p.team === me.team ? diff : '_none', contest: contestFor(p) === 'open' ? 'open' : 'normal', deep: three && dh > A.three.rx * 1.25, fatigue: 100 - p.stamina, bonus: bonusOf(p, action) };
         return { action, three, dh, pct: Balance.pct(action, p.st, ctx).pct };
       }
       const pctOf = (action, p, def, extra = {}) => Balance.pct(action, p.st, Object.assign({ def: def ? def.st : null, diff: p.team === me.team ? diff : '_none', fatigue: 100 - p.stamina, bonus: bonusOf(p, action) }, extra)).pct;
@@ -345,6 +345,35 @@ const Arcade = (() => {
         if (err < win * .35) { tag('PERFECT', p, '#86efac'); SFX.play('good'); return 1; }   // green comes only if it goes in
         return clamp(1 - err / (win * 3), 0, 1);
       }
+      /* ---- CONTESTS: jumping is how you contest (the shoot/block button) — closeness × timing × stat (BALANCE.arcade.contest) ---- */
+      const CT = () => CF().contest;
+      function contest(s, kind) {   // kind: 'shot' | 'layup' | 'dunk' → { C 0..1, by, near, block, foul }
+        const K = CT(), rim = kind !== 'shot', R = rim ? K.rimRange : K.range; let best = { C: 0, by: null }, near = 999;
+        players.forEach(q => {
+          if (q.team === s.team || q.stun > 0) return; const d = dist(q, s); near = Math.min(near, d);
+          const prox = clamp(1 - (d - 6) / (R - 6), 0, 1); if (!prox) return;
+          const jumping = q.act && q.act.type === 'block' && !q.act.faked;
+          const timing = jumping ? clamp(1 - Math.abs(q.act.t - (q.act.apex || .25)) / K.window, .25, 1) : K.stand;   // best: your peak as he lets it go
+          const stat = rim ? ((q.st.intD || 50) + (q.st.vert || 50)) / 2 : (q.st.perD || 50), sk = .55 + .45 * Balance.eff(stat) / 99, ai = q === me ? 1 : .7 + aiFor(q).block * .3;
+          const C = prox * timing * sk * ai; if (C > best.C) best = { C, by: q, jumping, d, speed: Math.hypot(q.vx || 0, q.vy || 0) };
+        });
+        const out = Object.assign({ near }, best);
+        if (best.by && best.jumping) {
+          const bp = pctOf('block', best.by, s) / 50;
+          if (rim && best.C >= K.blockAt && Math.random() < (best.C - K.blockAt + .25) * K.blockK * bp * (kind === 'dunk' ? .5 : 1)) out.block = true;
+          else if (!rim && best.C >= .8 && Math.random() < K.jumperBlock * bp) out.block = true;
+          if (!out.block && best.d < 11 && best.speed > K.foulSpeed && Math.random() < K.foul) out.foul = true;   // crashed into him
+        }
+        return out;
+      }
+      const cutBy = (ct, kind) => 1 - (ct.C || 0) * CT().cut[kind === 'shot' ? 'jumper' : kind];
+      function showContest(s, ct) {
+        const L = CT().labels;
+        if (ct.C >= L.smother) tag('SMOTHERED!', s, '#f87171'); else if (ct.C >= L.contest) tag('CONTESTED!', s, '#fdba74'); else if (ct.near > L.open) tag('WIDE OPEN', s, '#86efac');
+        if (ct.by && ct.jumping && ct.C >= L.contest) { SFX.play('slap', .5); RD.ring(s.x, s.y - s.z - 26, ct.C >= L.smother ? '#f87171' : '#fdba74', 60, .25); }
+        if (ct.foul) { tag('FOUL!', ct.by, '#fca5a5'); SFX.play('whistle'); }
+        if (s === me || ct.by === me) G.lastContest = { C: ct.C, label: ct.C >= L.smother ? 'smothered' : ct.C >= L.contest ? 'contested' : ct.near > L.open ? 'open' : 'normal' };
+      }
       function armBlockers(s) { players.forEach(q => { if (q.team !== s.team) q.blockOn = null; }); }
       function blockCheck(shooter, kind) {   // a defender who jumped at the right time can block it
         let blocker = null;
@@ -365,14 +394,15 @@ const Arcade = (() => {
         logLine(`${q.name} blocks ${shooter.name}!`);
       }
       function launch(p, sc, q) {
-        const blk = blockCheck(p, 'shot'); if (blk) { p.box.fga++; if (sc.three) p.box.tpa++; G.lastShooter = p; return blocked(blk, p); }
-        const pct = Balance.apply(sc.action, sc.pct, q), made = Math.random() * 100 < pct;
+        const ct = contest(p, 'shot'); if (ct.block) { p.box.fga++; if (sc.three) p.box.tpa++; G.lastShooter = p; return blocked(ct.by, p); }
+        showContest(p, ct);
+        const pct = Balance.apply(sc.action, sc.pct, q) * cutBy(ct, 'shot'), made = Math.random() * 100 < pct;
         const res = made ? (q > .8 || Math.random() < .55 ? 'swish' : 'rimin') : (q < .15 && sc.dh > 70 && Math.random() < .5 ? 'airball' : Math.random() < .55 ? 'rimout' : 'back');
         const hand = p.hand || { x: p.x + p.face * 3, y: p.y - p.z - 32 };
         ball.owner = null; ball.state = 'shot';
         const from = { x: p.x + p.face * 2, y: p.y, z: p.z + 32 }, H = A.hoop;
         const to = res === 'airball' ? { x: H.x + rnd(-8, 8), y: H.y + 10, z: H.z - 9 } : res === 'rimout' ? { x: H.x + rnd(-3, 3), y: H.y + 3, z: H.z + 1 } : res === 'back' ? { x: H.x + rnd(-2, 2), y: H.y - 3, z: H.z + 2 } : { x: H.x, y: H.y, z: H.z + 1 };
-        ball.shot = { by: p, from, to, t: 0, T: PACE.shotFlight(sc.dh), made, res, three: sc.three, action: sc.action, peak: 18 + sc.dh * .16, pct, green: p === me && q >= 1 };
+        ball.shot = { by: p, from, to, t: 0, T: PACE.shotFlight(sc.dh), made, res, three: sc.three, action: sc.action, peak: 18 + sc.dh * .16, pct, green: p === me && q >= 1, foul: ct.foul };
         if ((SEGM && SEG.untilClock && G.clock < 2.2) || (!SEGM && made && G.score[p.team] + (sc.three ? 3 : 2) >= target)) { G.slowT = 1.2; G.zoomT = 1; G.winShot = !SEGM && made; SFX.play('heartbeat'); }
         Object.assign(ball, { x: from.x, y: from.y, z: from.z }); void hand;
         p.box.fga++; if (sc.three) p.box.tpa++; G.lastShooter = p;
@@ -473,7 +503,12 @@ const Arcade = (() => {
         if (!canAct(p) || p.z > 0) return;
         if (p !== me) aiWeapon(p, 'block');
         const chase = BREAK && p.role === 'trail';
-        p.act = { type: 'block', t: 0, chase }; p.vz = PACE.jump(p.st.vert) * 1.05; p.z = .1;
+        p.act = { type: 'block', t: 0, chase }; p.vz = PACE.jump(p.st.vert) * 1.05; p.z = .1; p.act.apex = p.vz / PACE.gravity;
+        const h = ball.owner && ball.owner.team !== p.team && ball.state === 'held' ? ball.owner : null;
+        if (h && dist(p, h) < 26 && !(h.act && ['shoot', 'layup', 'dunk'].includes(h.act.type))) {   // he hasn't started his shot: you bit on the fake
+          p.act.faked = true; tag('FAKED OUT!', p, '#fca5a5'); if (p === me) SFX.play('bad');
+          setTimeout(() => { if (!G.over) p.stun = Math.max(p.stun, CT().fakeStun); }, 420 / PACE.game);
+        }
         const sh = ball.owner && ball.owner.team !== p.team ? ball.owner : null; if (sh) p.face = sh.x >= p.x ? 1 : -1;
         const S = ball.shot;   // ball already in the air (early) — swat it
         if (S && ball.state === 'shot' && S.by.team !== p.team && S.t < S.T * .3 && dist(p, S.by) < 18) {
@@ -743,7 +778,7 @@ const Arcade = (() => {
             if (p.goal) { const dx = p.goal.x - p.x, dy = p.goal.y - p.y, l = Math.hypot(dx, dy); if (l > 3) { ix = dx / l; iy = dy / l; if (l < 12) { ix *= l / 12; iy *= l / 12; } } }
             // defenders jump at shooters
             const s = players.find(q => q.team !== p.team && q.act && ['shoot', 'layup', 'dunk'].includes(q.act.type) && !q.act.released);
-            if (s && p.z === 0 && canAct(p) && dist(p, s) < 18 && !p.blockTry) { p.blockTry = s.act; if (Math.random() < aiFor(p).block * (p.role === 'trail' ? 1.3 : 1)) { const delay = s.act.type === 'shoot' ? Math.max(0, PACE.gather - s.act.t) + .05 : .08; setTimeout(() => !G.over && tryBlock(p), delay * 1000 / PACE.game); } }
+            if (s && p.z === 0 && canAct(p) && dist(p, s) < 18 && !p.blockTry) { p.blockTry = s.act; if (Math.random() < aiFor(p).block * (p.role === 'trail' ? 1.3 : 1)) { const err = (1 - aiFor(p).block) * .22, delay = Math.max(0, (s.act.type === 'shoot' ? Math.max(0, PACE.gather - s.act.t) + .05 : .08) + rnd(-err * .5, err)); setTimeout(() => !G.over && tryBlock(p), delay * 1000 / PACE.game); } }
             if (!s) p.blockTry = null;
           }
           if (p.act) tickAct(p, dt);
@@ -809,10 +844,11 @@ const Arcade = (() => {
             const relAt = a.apex ? Math.min(a.apex, .5) : .5;
             if (!a.released && ball.owner === p && a.t >= relAt) {
               a.released = true;
-              const blk = blockCheck(p, 'layup'); p.box.fga++; G.lastShooter = p;
-              if (blk) return blocked(blk, p);
+              const ct = contest(p, 'layup'); p.box.fga++; G.lastShooter = p;
+              if (ct.block) return blocked(ct.by, p);
+              showContest(p, ct); if (ct.foul) a.foul = true;
               const q = p === me ? (a.relT != null ? releaseQuality(p, Math.abs(a.relT - relAt), p.st.finish, 1.6) : .5) : clamp(aiFor(p).shotQ + rnd(-.2, .2), 0, 1);
-              const made = Math.random() * 100 < Balance.apply('layup', a.sc.pct, q);
+              const made = Math.random() * 100 < Balance.apply('layup', a.sc.pct, q) * cutBy(ct, 'layup');
               ball.owner = null; ball.state = 'shot';
               const from = { x: p.x + p.face * 3, y: p.y, z: p.z + 34 };
               ball.shot = { by: p, from, to: { x: H.x, y: H.y, z: H.z + 1 }, t: 0, T: .34, made, res: made ? (Math.random() < .5 ? 'rimin' : 'swish') : 'rimout', three: false, action: 'layup', peak: 6, foul: a.foul, green: p === me && q >= 1 };
@@ -829,11 +865,11 @@ const Arcade = (() => {
               if (!a.rise) { a.rise = { x: p.x, y: p.y }; if (a.big) { G.slowT = .9; G.zoomT = 1; } }
               const u = (a.t - .22) / .42, e = 1 - Math.pow(1 - u, 2);
               p.x = lerp(a.rise.x, H.x - p.face * 4, e); p.y = lerp(a.rise.y, H.y + 3, e); p.z = Math.sin(u * Math.PI * .5) * (H.z - 10);
-              if (!a.chk && u > .4) { a.chk = true; const blk = blockCheck(p, 'dunk'); if (blk) { p.box.fga++; G.lastShooter = p; a.stuffed = true; blocked(blk, p); p.act = { type: 'jump', t: 0 }; p.vz = 0; return; } }
+              if (!a.chk && u > .4) { a.chk = true; const ct = a.ct = contest(p, 'dunk'); if (ct.block) { p.box.fga++; G.lastShooter = p; a.stuffed = true; blocked(ct.by, p); p.act = { type: 'jump', t: 0 }; p.vz = 0; return; } showContest(p, ct); if (ct.foul) a.foul = true; }
             } else if (!a.slammed) {
               a.slammed = true; p.box.fga++; G.lastShooter = p;
               const q = p === me ? (a.relT != null ? releaseQuality(p, Math.abs(a.relT - .6), p.st.dunk, 2) : .55) : clamp(aiFor(p).shotQ + .1 + rnd(-.15, .15), 0, 1);
-              a.made = Math.random() * 100 < Balance.apply('dunk', a.sc.pct, q); if (a.made && p === me && q >= 1) greenFX();
+              a.made = Math.random() * 100 < Balance.apply('dunk', a.sc.pct, q) * cutBy(a.ct || {}, 'dunk'); if (a.made && p === me && q >= 1) greenFX();
               G.slowT = 0; impact(a.big ? .2 : .14, a.big ? 11 : 8, .35, a.big ? .1 : .06); E.rim = 1; E.net.swish = 1; RD.sweat(p.x, p.y - p.z - 26, 6);
               if (a.made) {
                 const shatter = p.st.dunk >= 75 && Math.random() < .04;
@@ -1008,7 +1044,7 @@ const Arcade = (() => {
         $('abStam').style.width = me.stamina + '%'; $('abStam').classList.toggle('low', me.stamina < 25);
         const mv = $('abMove'), ready = me.cool <= 0; mv.classList.toggle('cd', !ready); mv.querySelector('b').textContent = ready ? (ball.owner === me ? 'READY' : G.off === me.team ? 'CUT' : 'SLIDE') : '…';
         const wb = $('abWpn'), wr = wReady(me), wa = me.wpn && me.wpn.t > 0; wb.classList.toggle('cd', !wr && !wa); wb.classList.toggle('on', wa); wb.querySelector('b').textContent = !me.weapons.length ? '—' : wa ? WEAPONS[me.wpn.id].name.toUpperCase() : wr ? 'READY' : 'USED'; $('tbWpn').classList.toggle('ready', wr); $('tbWpn').classList.toggle('on', wa);
-        const sb = root.querySelector('[data-b=shoot]'), grab = ball.state === 'loose', sl = grab ? ['GRAB', 'DIVE'] : ball.owner === me ? ['SHOOT', 'LAYUP'] : ['SHOOT', 'BLOCK']; if (sb.firstChild.textContent !== sl[0]) { sb.firstChild.textContent = sl[0]; sb.querySelector('small').textContent = sl[1]; } sb.classList.toggle('grab', grab);
+        const sb = root.querySelector('[data-b=shoot]'), grab = ball.state === 'loose', sl = grab ? ['GRAB', 'DIVE'] : ball.owner === me ? ['SHOOT', 'LAYUP'] : ['JUMP', 'CONTEST · BLOCK']; if (sb.firstChild.textContent !== sl[0]) { sb.firstChild.textContent = sl[0]; sb.querySelector('small').textContent = sl[1]; } sb.classList.toggle('grab', grab);
         const tb = $('tbMove'); tb.style.setProperty('--cd', ready ? 0 : me.cool / CF().moves.cooldown); const ctxt = ball.owner === me ? ['MOVE', 'DRIBBLE'] : G.off === me.team ? ['CUT', 'OFF BALL'] : ['SLIDE', 'DEFENSE']; if (tb.firstChild.textContent !== ctxt[0]) { tb.firstChild.textContent = ctxt[0]; tb.querySelector('small').textContent = ctxt[1]; }
         const clk = $('ahClock'); clk.textContent = G.pending ? '' : SEGM ? (G.off < 0 ? 'LOOSE BALL' : `${SEG.clockLabel || 'CLOCK'} ${Math.max(0, G.clock).toFixed(1)}`) : `TO ${target} · ${Math.max(0, Math.ceil(G.clock))}`; clk.classList.toggle('low', G.clock < 3);
       }

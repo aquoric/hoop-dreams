@@ -144,7 +144,7 @@ const Game = {
     let court = s.pickupCourt && Venues.unlocked(s).includes(s.pickupCourt) ? s.pickupCourt : 'street_night';
     const fresh = ['cage', 'rooftop', 'beach', 'rain_night'].filter(id => !Venues.unlocked(s).includes(id));
     if (fresh.length && Math.random() < .3) { court = Engine.pick(fresh); UI.toast(`📍 The run moved tonight: <b>${VENUES[court].name}</b>`, 'ach', 3500); }
-    const r = await Match.play({ us: Object.assign({}, home, { id: 'yourrun', name: 'Your Run', abbr: 'YOU' }), them: this.team('pickup_crew'), oppRating: o - 1, mateRating: o - 3, moments: 7, level: 'street', size, target, venueId: court, title: 'Pickup Run', sub: `${VENUES[court].name} · ${size}v${size}, first to ${target}` });
+    const r = await Match.play({ us: Object.assign({}, home, { id: 'yourrun', name: 'Your Run', abbr: 'YOU' }), them: this.team('pickup_crew'), oppRating: o - 1, mateRating: o - 3, moments: 7, level: 'street', size, target, fullArcade: true, venueId: court, title: 'Pickup Run', sub: `${VENUES[court].name} · ${size}v${size}, first to ${target}` });
     this.unlockVenue(r.venueId);
     s.hub.ap--;
     const k = Engine.pick(['three', 'finish', 'handle', 'perD', 'reb']);
@@ -203,7 +203,7 @@ const Game = {
       level: node.level, importance: node.importance || 1, title: node.title, sub: node.sub,
     };
     cfg.venueId = Venues.forMatch(cfg, node);
-    if (node.pickup) Object.assign(cfg, { size: node.pickup.size || 3, target: node.pickup.target || 21, sub: `${cfg.sub ? cfg.sub + ' · ' : ''}${node.pickup.size || 3}v${node.pickup.size || 3}, first to ${node.pickup.target || 21}` });
+    if (node.pickup) Object.assign(cfg, { fullArcade: true, size: node.pickup.size || 3, target: node.pickup.target || 21, sub: `${cfg.sub ? cfg.sub + ' · ' : ''}${node.pickup.size || 3}v${node.pickup.size || 3}, first to ${node.pickup.target || 21}` });
     const r = await Match.play(cfg);
     this.unlockVenue(r.venueId);
     await this.bigMoment(r);

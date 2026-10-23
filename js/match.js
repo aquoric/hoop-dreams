@@ -1043,7 +1043,8 @@ const Match = (() => {
     /* cfg.target = "first to N" pickup game (normal mode); cfg.size = players per side (3 = 3v3, 1 = 1v1) */
     const L = cfg.target ? Object.assign({}, LEVELS[cfg.level] || LEVELS.street, { pts: cfg.target * 1.7, bg: 0 }) : (LEVELS[cfg.level] || LEVELS.street);
     const size = Math.max(1, Math.min(5, cfg.size || 5));
-    const n = cfg.moments || 9, oppR = cfg.oppRating || 45, diffShift = BALANCE.defense[s.difficulty] || 0;
+    const FULL = !!cfg.fullArcade && typeof Arcade !== 'undefined' && !!Arcade.play;   // pickups: the whole game is played live in arcade mode
+    const n = (cfg.moments || 9) + (!cfg.target && !FULL && size >= 5 ? (BALANCE.arcade.segments.extraMoments || 0) : 0), oppR = cfg.oppRating || 45, diffShift = BALANCE.defense[s.difficulty] || 0;
     const myOvr = Engine.ovr(s), usR = cfg.usRating || (size === 1 ? myOvr : Math.round(myOvr * .45 + (cfg.mateRating || 42) * .55));
     const star = (cfg.them && cfg.them.star) || { name: (cfg.them.roster || ['Their best'])[0], perD: oppR, intD: oppR };
     const C = STORY.commentary, ME = Balance.userStats(s), myName = properName(s.player.last);
@@ -2190,7 +2191,7 @@ const Match = (() => {
     async function withMirror(fn) { const ok = await fn(); if (ok && Engine.hasSpecial(s, 'mirror') && st.mirror < 12) { st.mirror += 3; pbp(`🪞 <b>Perfect Copy</b>: you copied their move. Offense +${st.mirror}%`, 'hot'); } return ok; }
 
     /* ---------- PRE-GAME — big games get a cinematic (travel / arrival / tunnel / face-off) and one short talk ---------- */
-    const pgTier = Math.min(4, (cfg.importance || 1) + (oppR >= usR + 3 ? 1 : 0) + (rivalId === 'kai' ? 1 : 0) + (cfg.venue === 'away' && (cfg.importance || 1) >= 2 ? 1 : 0));
+    const pgTier = Math.max(FULL ? 2 : 0, Math.min(4, (cfg.importance || 1) + (oppR >= usR + 3 ? 1 : 0) + (rivalId === 'kai' ? 1 : 0) + (cfg.venue === 'away' && (cfg.importance || 1) >= 2 ? 1 : 0)));
     if (pgTier >= 2 && typeof Cutscene !== 'undefined' && Cutscene.pregame && !cfg.noIntro) {
       const VD = court.V.def, kind = PICK || cfg.level === 'street' ? 'pickup' : cfg.venue === 'away' ? 'away' : 'home', vName = (VENUES[court.venueId] || {}).name || '';
       const top = STAR.stats ? Object.entries(STAR.stats).filter(([, v]) => typeof v === 'number').sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => [k.slice(0, 3).toUpperCase(), Math.round(v)]) : [];
@@ -2239,12 +2240,33 @@ const Match = (() => {
       } catch (e) { console.error('recover', e); }
     }
 
+    /* ---------- FULL ARCADE GAME (pickups + the Kai 1-on-1): tip-off to the final basket, live ---------- */
+    async function fullArcadeGame() {
+      st.inSeg = true; cnt('arcadeGames');
+      const toPl = p => p.isUser ? Object.assign(Arcade.userPlayer(), { stamina: 100 - st.fatigue })
+        : { name: p.full || p.name, stats: p.stats, look: p.look, num: p.num, weapons: (p.weapons || []).filter(id => WEAPONS[id]).map(id => ({ id, rank: 1 })), star: p === STAR };
+      let r = null;
+      try { r = await Arcade.play({ teams: [{ name: cfg.us.name, abbr: cfg.us.abbr, colors: cfg.us.colors, players: US.map(toPl) }, { name: cfg.them.name, abbr: cfg.them.abbr, colors: cfg.them.colors, players: TH.map(toPl) }],
+        target: cfg.target || 21, venue: court.venueId, title: cfg.title || 'PICKUP', sub: cfg.sub || '', difficulty: s.difficulty }); } catch (e) { console.error('arcade game', e); }
+      document.querySelectorAll('.arc').forEach(el => el.remove()); document.body.classList.remove('arc-open'); st.inSeg = false;
+      if (!r || !r.score) { const w = Math.random() < .5; r = { score: w ? [cfg.target || 21, (cfg.target || 21) - 4] : [(cfg.target || 21) - 4, cfg.target || 21], box: {}, all: [] }; }   // the game couldn't run: neutral result
+      st.us = r.score[0]; st.them = r.score[1]; st.done = r.forfeit ? 'them' : st.us > st.them ? 'us' : 'them';
+      const b = r.box || {}; ['pts', 'reb', 'ast', 'stl', 'blk', 'fgm', 'fga', 'tpm', 'tpa', 'to', 'ftm', 'fta'].forEach(k => st.box[k] = (st.box[k] || 0) + (b[k] || 0));
+      (r.all || []).forEach(x => { if (x.isUser) return; const p = (x.team === 0 ? US : TH).find(q => (q.full || q.name) === x.name); if (p && p.box) ['pts', 'reb', 'ast', 'stl', 'blk', 'fgm', 'fga', 'tpm', 'tpa', 'to'].forEach(k => p.box[k] += (x.box && x.box[k]) || 0); });
+      st.att += (b.fga || 0) + (b.stl || 0) + (b.blk || 0); st.succ += (b.fgm || 0) + (b.stl || 0) + (b.blk || 0);
+      if (b.tpm) cnt('threes', b.tpm); if (b.stl) cnt('steals', b.stl); if (b.blk) cnt('blocks', b.blk); if (b.reb) cnt('rebounds', b.reb); if (b.ast) cnt('assists', b.ast); if (r.ankles) cnt('crosses', r.ankles);
+      pbp(`🕹 <b>${st.us}–${st.them}.</b> ${st.done === 'us' ? 'You take the run.' : r.forfeit ? 'You walked off the court.' : 'They hold the court.'}`, st.done === 'us' ? 'good hot' : 'bad');
+      if (r.fire) st.highlights.push('Caught fire'); if (r.shatter) st.highlights.push('Shattered the backboard');
+      updBug();
+    }
+    if (FULL) await guardMoment(fullArcadeGame, 'arcade game');
+
     /* ---------- GAME LOOP ---------- */
     updBug(); formation('us');
-    await banner(`<div class="tip">${logoUs}<span>VS</span>${logoThem}</div><small>${escH(cfg.us.name)} vs ${escH(cfg.them.name)}</small>TIP-OFF`, 'tip', 1800);
-    SFX.play('whistle'); pbp(`<b>Tip-off!</b> ${escH(cfg.us.name)} vs ${escH(cfg.them.name)}.`, 'sys');
+    if (!FULL) await banner(`<div class="tip">${logoUs}<span>VS</span>${logoThem}</div><small>${escH(cfg.us.name)} vs ${escH(cfg.them.name)}</small>TIP-OFF`, 'tip', 1800);
+    if (!FULL) { SFX.play('whistle'); pbp(`<b>Tip-off!</b> ${escH(cfg.us.name)} vs ${escH(cfg.them.name)}.`, 'sys'); }
     let prevPer = 1;
-    for (let i = 0; i < n && !st.done; i++) {
+    for (let i = 0; i < n && !st.done && !FULL; i++) {
       st.i = i; $('momCount').textContent = `Moment ${i + 1}/${n}`;
       st.oppSig += .5;   // their star's weapon charges as the game goes (and faster with every bucket)
       const last = i === n - 1;
@@ -2328,7 +2350,7 @@ const Match = (() => {
     await banner(win ? `<small>FINAL</small>${st.us} – ${st.them}<em>VICTORY</em>` : `<small>FINAL</small>${st.us} – ${st.them}<em class="l">DEFEAT</em>`, win ? 'win' : 'loss', 2200);
 
     /* ---------- background production (stats from off-screen possessions) ---------- */
-    const bg = L.bg * (st.minutes ? 1.4 : 1), o = myOvr;
+    const bg = FULL ? 0 : L.bg * (st.minutes ? 1.4 : 1), o = myOvr;
     const made2 = Math.round(rnd(.2, .65) * (o / 10) * bg * 2);
     const extra = { pts: made2 * 2, reb: Math.round(rnd(.3, 1.2) * (ME.reb / 18) * bg), ast: Math.round(rnd(.3, 1.2) * (ME.pass / 20) * bg) };
     st.box.pts += extra.pts; st.box.reb += extra.reb; st.box.ast += extra.ast; st.box.fgm += made2; st.box.fga += made2 + Math.round(made2 * rnd(.4, 1.1));
