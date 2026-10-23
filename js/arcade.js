@@ -351,10 +351,10 @@ const Arcade = (() => {
         const K = CT(), rim = kind !== 'shot', R = rim ? K.rimRange : K.range; let best = { C: 0, by: null }, near = 999;
         players.forEach(q => {
           if (q.team === s.team || q.stun > 0) return; const d = dist(q, s); near = Math.min(near, d);
-          const prox = clamp(1 - (d - 6) / (R - 6), 0, 1); if (!prox) return;
+          const prox = clamp(1 - (d - 8) / (R - 8), 0, 1); if (!prox) return;
           const jumping = q.act && q.act.type === 'block' && !q.act.faked;
           const timing = jumping ? clamp(1 - Math.abs(q.act.t - (q.act.apex || .25)) / K.window, .25, 1) : K.stand;   // best: your peak as he lets it go
-          const stat = rim ? ((q.st.intD || 50) + (q.st.vert || 50)) / 2 : (q.st.perD || 50), sk = .55 + .45 * Balance.eff(stat) / 99, ai = q === me ? 1 : .7 + aiFor(q).block * .3;
+          const stat = rim ? ((q.st.intD || 50) + (q.st.vert || 50)) / 2 : (q.st.perD || 50), sk = .7 + .3 * Balance.eff(stat) / 99, ai = q === me ? 1 : .8 + aiFor(q).block * .2;
           const C = prox * timing * sk * ai; if (C > best.C) best = { C, by: q, jumping, d, speed: Math.hypot(q.vx || 0, q.vy || 0) };
         });
         const out = Object.assign({ near }, best);
@@ -778,7 +778,7 @@ const Arcade = (() => {
             if (p.goal) { const dx = p.goal.x - p.x, dy = p.goal.y - p.y, l = Math.hypot(dx, dy); if (l > 3) { ix = dx / l; iy = dy / l; if (l < 12) { ix *= l / 12; iy *= l / 12; } } }
             // defenders jump at shooters
             const s = players.find(q => q.team !== p.team && q.act && ['shoot', 'layup', 'dunk'].includes(q.act.type) && !q.act.released);
-            if (s && p.z === 0 && canAct(p) && dist(p, s) < 18 && !p.blockTry) { p.blockTry = s.act; if (Math.random() < aiFor(p).block * (p.role === 'trail' ? 1.3 : 1)) { const err = (1 - aiFor(p).block) * .22, delay = Math.max(0, (s.act.type === 'shoot' ? Math.max(0, PACE.gather - s.act.t) + .05 : .08) + rnd(-err * .5, err)); setTimeout(() => !G.over && tryBlock(p), delay * 1000 / PACE.game); } }
+            if (s && p.z === 0 && canAct(p) && dist(p, s) < 18 && !p.blockTry) { p.blockTry = s.act; if (Math.random() < Math.min(.95, aiFor(p).block + CT().aiJump) * (p.role === 'trail' ? 1.3 : 1)) { const err = (1 - aiFor(p).block) * .22, delay = Math.max(0, (s.act.type === 'shoot' ? Math.max(0, PACE.gather - s.act.t) + .05 : .08) + rnd(-err * .5, err)); setTimeout(() => !G.over && tryBlock(p), delay * 1000 / PACE.game); } }
             if (!s) p.blockTry = null;
           }
           if (p.act) tickAct(p, dt);

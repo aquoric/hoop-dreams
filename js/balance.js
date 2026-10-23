@@ -193,9 +193,10 @@ const BALANCE = {
        Stats: Perimeter D for jump shots, Interior D + Vertical at the rim. cut: how much a perfect contest takes off his %.
        blockAt / blockK: great contests at the rim turn into blocks (dunks half as often); jumperBlock: rare blocked jumpers.
        fakeStun: jumping before he even starts his shot = faked out (stunned on landing). foulSpeed / foul: crashing into him = a foul.
+       aiJump: how much more often an AI defender close to a shooter jumps to contest (on top of his block skill).
        labels: SMOTHERED! at smother+, CONTESTED! at contest+, WIDE OPEN when nobody is within `open` px. */
-    contest: { range: 30, rimRange: 24, window: .28, stand: .14, cut: { jumper: .55, layup: .45, dunk: .3 }, blockAt: .58, blockK: 1.3, jumperBlock: .22,
-               fakeStun: .5, foulSpeed: 58, foul: .3, labels: { smother: .55, contest: .2, open: 32 } },
+    contest: { range: 34, rimRange: 27, window: .36, stand: .3, aiJump: .35, cut: { jumper: .55, layup: .45, dunk: .3 }, blockAt: .58, blockK: 1.3, jumperBlock: .22,
+               fakeStun: .5, foulSpeed: 58, foul: .3, labels: { smother: .5, contest: .16, open: 32 } },
     /* LOOSE BALLS + SCRAMBLES: AI players react after `react` seconds (like a person), predict the landing spot with `aim` px of error,
        and dive when within `aiDive` px. Your dive (J / SPACE / GRAB): `dive` s burst at × `diveSpeed`, grab reach `reach` (normal `grab`).
        Who comes up with it: BALANCE.actions.scramble (Speed + Vertical + Strength), × diveBonus while diving, closer = better. */
