@@ -368,7 +368,7 @@ const Pixel = (() => {
       p.hand = { x: K.arms[1].hand[0], y: K.arms[1].hand[1] }; p.headY = K.head[1];
       const sw = Math.max(6, 13 - z * .12 - (po.hop || 0) * .4);
       px(p.x - sw / 2, p.y - 1, sw, 3, 'rgba(0,0,0,.38)'); px(p.x - sw / 2 + 2, p.y - 2, sw - 4, 5, 'rgba(0,0,0,.18)');
-      if (o.me) { c.strokeStyle = o.fire ? '#f97316' : '#facc15'; c.lineWidth = 1; c.beginPath(); c.ellipse(Math.round(p.x) + .5, Math.round(p.y) + .5, 9, 3.5, 0, 0, 7); c.stroke(); }
+      if (o.me) { c.strokeStyle = o.ring || (o.fire ? '#f97316' : '#facc15'); c.lineWidth = 1; c.beginPath(); c.ellipse(Math.round(p.x) + .5, Math.round(p.y) + .5, 9, 3.5, 0, 0, 7); c.stroke(); }
       else if (o.mate) { c.strokeStyle = p.col + 'aa'; c.lineWidth = 1; c.beginPath(); c.ellipse(Math.round(p.x) + .5, Math.round(p.y) + .5, 8, 3, 0, 0, 7); c.stroke(); }
       const held = () => { const [x, y, bs] = ballAt(p, K); ball(x, y, p.fire, p.hasBall ? (p.dribT || 0) * 6 : 0, bs || 0); px(x - 2, p.y, 4, 1, 'rgba(0,0,0,.3)'); };
       if (po.ball && po.layer === 'back') held();

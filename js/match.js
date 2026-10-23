@@ -1293,12 +1293,14 @@ const Match = (() => {
       const wsv = ({ intD: .6, steal: .4, perD: .4, str: .3, dunk: .3, reb: .4 }[key] || 0) * APE; if (Math.abs(wsv) >= .5) out.push({ label: 'Wingspan', v: Math.round(wsv) });
       return out;
     }
-    const calc = (action, x = {}) => Balance.pct(action, ME, Object.assign({ def: DEF, diff: s.difficulty, fatigue: st.fatigue, morale: s.meta.morale, venue: cfg.venue || 'home', clutch: st.clutch, fire: st.fire, bonus: bonuses(action) }, x));
+    const LONG = Engine.weapons(s).some(w => BALANCE.distance.range.weapons.includes(w.id));   // a deep-range weapon extends your range
+    const calc = (action, x = {}) => Balance.pct(action, ME, Object.assign({ longRange: LONG, def: DEF, diff: s.difficulty, fatigue: st.fatigue, morale: s.meta.morale, venue: cfg.venue || 'home', clutch: st.clutch, fire: st.fire, bonus: bonuses(action) }, x));
     /* their shot vs your defense (difficulty makes them better shooters) */
     const theirPct = (action, contest, by = THEM) => Balance.pct(action, by, { def: ME, contest, bonus: diffShift ? [{ label: 'Difficulty', v: Math.round(diffShift * .6) }] : [] }).pct;
     /* minigame quality helpers */
     const meterQ = r => r.perfect ? 1 : r.good ? .62 + r.quality * .28 : r.quality * .45;
-    const green = stat => (.06 + Balance.eff(stat) / 99 * .14) * WIN();
+    const green = (stat, dist) => (.06 + Balance.eff(stat) / 99 * .14) * WIN() * Balance.greenAt(dist);   // the perfect zone shrinks with distance
+    const FT = a => BALANCE.distance.byAction[a];
 
     /* ---------- decision panel (options show % + breakdown on hover / long-press) ---------- */
     /* waiting on the player (a choice or a reply): not a stall; its listeners are released if the moment is reset */
@@ -1429,7 +1431,7 @@ const Match = (() => {
         const mateWithBall = MATES().length ? pick(MATES()) : STAR; court.ball.holder = mateWithBall; await court.pass(mateWithBall, U);
         busy(setup, `🎮 ${o.label}`);
         const stat = o.action === 'catch3' ? ME.three : ME.mid;
-        const r = await MG.shotMeter($('mg'), { title: o.label.toUpperCase(), green: green(stat) * MGX('green') + (st.fire ? .03 : 0), dur: st.clutch ? .9 : 1.05, sub: `${o.action === 'catch3' ? 'Three-Point' : 'Mid-Range'} ${stat} · base ${o.pct}%` });
+        const r = await MG.shotMeter($('mg'), { title: o.label.toUpperCase(), green: green(stat, FT(o.action)) * MGX('green') + (st.fire ? .03 : 0), dur: st.clutch ? .9 : 1.05, sub: `${o.action === 'catch3' ? 'Three-Point' : 'Mid-Range'} ${stat} · base ${o.pct}%` });
         q = meterQ(r); perfect = r.perfect; if (perfect) { cnt('perfects'); st.perfects++; }
         kind = o.action === 'catch3' ? 'three' : 'mid';
       } else if (o.k === 'pull') {
@@ -1438,7 +1440,7 @@ const Match = (() => {
         if (r1.quality >= (Engine.hasSpecial(s, 'ankles') ? .6 : 1)) { cnt('crosses'); court.pop('ANKLES!', STAR.x, STAR.y, 7, '#f472b6', 30); pbp(say('ankles'), 'good'); await court.mini('ankles', 'ANKLES!', { name2: star.name, colors2: cfg.them.colors }); queueTalk('rival', .35); }
         busy(setup, `🎮 Rise up`);
         const stat = o.action === 'pull3' ? ME.three : ME.mid;
-        const r2 = await MG.shotMeter($('mg'), { title: o.label.toUpperCase(), green: green(stat) * MGX('green'), dur: .95, sub: `${o.action === 'pull3' ? 'Three-Point' : 'Mid-Range'} ${stat} · Handles ${ME.handle}` });
+        const r2 = await MG.shotMeter($('mg'), { title: o.label.toUpperCase(), green: green(stat, FT(o.action)) * MGX('green'), dur: .95, sub: `${o.action === 'pull3' ? 'Three-Point' : 'Mid-Range'} ${stat} · Handles ${ME.handle}` });
         q = r1.quality * .35 + meterQ(r2) * .65; perfect = r2.perfect; kind = o.action === 'pull3' ? 'three' : 'mid';
       } else if (o.k === 'layup') {
         // 1) BLOW-BY read → 2) sometimes a GATHER STEP → 3) the layup release (js/balance.js BALANCE.layup)
@@ -1488,7 +1490,7 @@ const Match = (() => {
         busy(setup, o.k === 'hook' ? '🎮 Hook shot' : '🎮 Fadeaway');
         let r2q;
         if (o.k === 'hook') { const r2 = await MG.dunkChain($('mg'), { title: 'HOOK SHOT', rings: 1, labels: ['RELEASE'], tol: (7 + ME.finish / 99 * 9) * WIN(), speed: 80 }); r2q = r2.quality; }
-        else { const r2 = await MG.shotMeter($('mg'), { title: 'FADEAWAY', green: green(ME.mid) * MGX('green'), dur: 1, sub: `Mid-Range ${ME.mid}` }); r2q = meterQ(r2); }
+        else { const r2 = await MG.shotMeter($('mg'), { title: 'FADEAWAY', green: green(ME.mid, FT('fade')) * MGX('green'), dur: 1, sub: `Mid-Range ${ME.mid}` }); r2q = meterQ(r2); }
         q = r1.quality * .4 + r2q * .6; kind = o.k;
       }
       idle();
@@ -1641,7 +1643,7 @@ const Match = (() => {
       if (ch.k === 'spot' && roll(34)) {   // kick-out to you
         pbp(`${escH(m.short)} draws the help and kicks it out to ${myName}!`); await court.pass(m, U);
         const c = calc('catch3', { contest: 'open' }); busy(`<b>Kick-out from ${escH(m.short)}!</b>`, '🎮 Catch & shoot');
-        const r = await MG.shotMeter($('mg'), { title: 'CATCH & SHOOT', green: green(ME.three) * MGX('green'), dur: 1, sub: `Three-Point ${ME.three} · base ${c.pct}%` }); idle();
+        const r = await MG.shotMeter($('mg'), { title: 'CATCH & SHOOT', green: green(ME.three, FT('catch3')) * MGX('green'), dur: 1, sub: `Three-Point ${ME.three} · base ${c.pct}%` }); idle();
         const fin = Balance.apply('catch3', c.pct, meterQ(r)), made = await myShot('three', roll(fin), { perfect: r.perfect });
         if (made) { m.box.ast++; pbp(`${myName} buries it off ${escH(m.short)}'s kick-out. <i class="pct-note">${fin}%</i>`, 'good'); success(); } else { pbp(`${myName} can't knock down the kick-out. <i class="pct-note">${fin}%</i>`); fail(); await boardAfterMiss(true); }
         return made;
@@ -1941,7 +1943,7 @@ const Match = (() => {
           formation('us', SPOTS.top); court.ball.holder = U; U.y = 33; clk.rem = Math.min(clk.rem, 2.4); updBug();
           const c = calc('pull3', { contest: 'contested', shotClock: true, deep: true });
           busy(`<b>3… 2… 1… ${myName} lets it fly from deep!</b> <span class="pct">${c.pct}%</span>`, '🎮 Beat the horn');
-          const r = await MG.shotMeter($('mg'), { title: 'BEAT THE HORN', green: green(ME.three) * MGX('green'), dur: .75, sub: 'Release before the red light' }); idle();
+          const r = await MG.shotMeter($('mg'), { title: 'BEAT THE HORN', green: green(ME.three, BALANCE.distance.deepFt) * MGX('green'), dur: .75, sub: 'Release before the red light' }); idle();
           const q = meterQ(r), late = q < CL.tooLate, fin = Balance.apply('pull3', c.pct, q), inBasket = roll(fin);
           st.box.fga++; st.box.tpa++; SFX.play('buzzer'); court.flashA = .3; court.flashCol = '239,68,68';
           await court.shoot(U, inBasket ? 'swish' : 'miss', { slowmo: true, arc: 12 });
@@ -2042,7 +2044,7 @@ const Match = (() => {
       const t = sg.type, title = '⚔ ' + sg.name.toUpperCase();
       busy(setup, `🎮 ${sg.name}`);
       let r;
-      if (t === 'three' || t === 'mid' || t === 'zone') { r = await MG.shotMeter($('mg'), { title, green: Math.min(.4, green(t === 'three' ? ME.three : ME.mid) * 1.5 * MGX('green')), dur: .95, sub: sg.desc }); return meterQ(r); }
+      if (t === 'three' || t === 'mid' || t === 'zone') { r = await MG.shotMeter($('mg'), { title, green: Math.min(.4, green(t === 'three' ? ME.three : ME.mid, FT(t === 'three' ? 'catch3' : 'catchMid')) * 1.5 * MGX('green')), dur: .95, sub: sg.desc }); return meterQ(r); }
       if (t === 'drive') { r = await MG.dribbleCombo($('mg'), { title, len: 5, time: (.8 + ME.handle / 99 * .6) * WIN() * 1.2 }); return r.quality; }
       if (t === 'dunk') { r = await MG.dunkChain($('mg'), { title, tol: (8 + ME.dunk / 99 * 10) * WIN() * 1.2, speed: 95 }); return r.quality; }
       if (t === 'pass') { r = await MG.passLane($('mg'), { title, window: (600 + ME.pass / 99 * 700) * WIN() * 1.3 }); return r.success ? r.quality : 0; }

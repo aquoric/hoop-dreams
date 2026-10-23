@@ -51,6 +51,26 @@ const BALANCE = {
     move:     { name: 'Dribble move',     off: { handle: .8, speed: .2 },        def: { perD: .8, speed: .2 },      base: 38, k: .8, skill: 0 },   // arcade: beat your defender
   },
 
+  /* SHOT DISTANCE — how far from the rim (feet) sets the starting % of every shot: choices, minigames and arcade, for you and everyone.
+     curve:     [feet, %] for an AVERAGE shooter (50 shooting vs a 50 defender) who is OPEN; in between it's interpolated.
+                rim ~63 · short mid ~46 · long mid ~40 · corner three ~38 · three ~35 · deep three ~25 · logo ~13 · halfcourt ~3
+     range:     beyond `from` ft, good shooters are judged from closer: (shooting stat − 50) × perPoint ft (−2 … max);
+                a deep-range weapon (Logo Three, Sky-High Three) adds weaponFt more. Past fadeFrom ft that help and the
+                shooter-vs-defender edge shrink, so logo range stays hard even for great shooters.
+     heave / heaveMax: from `heave` ft out (halfcourt and beyond) a shot is capped at heaveMax % for everyone.
+     openBonus: the 'open' bonus for shots (lightly guarded = curve − openBonus; contests take more on top).
+     adj:       per shot type vs a catch-and-shoot (pull-ups are harder, dunks easier).
+     byAction:  the usual distance of each shot in choices mode; deepFt for deep heaves (buzzer, "from the logo").
+     green:     the perfect / green window shrinks with distance: × green[0] at the rim down to × green[1] from halfcourt. */
+  distance: {
+    curve: [[0, 64], [4, 60], [8, 50], [12, 46], [16, 42], [20, 40], [22, 38], [23.75, 35], [27, 25], [30, 19], [35, 13], [40, 7], [44, 3], [60, 2]],
+    range: { from: 20, perPoint: .1, max: 4.5, weaponFt: 4, weapons: ['logo_three', 'sky_three'], fadeFrom: 25, fadeTo: 44 },   // fade: past fadeFrom ft, range help + skill shrink toward fadeTo
+    heave: 44, heaveMax: 4, openBonus: 6,
+    adj: { catch3: 0, pull3: -3, catchMid: 0, pullMid: -2, fade: -3, hook: -2, layup: 0, dunk: 8 },
+    byAction: { layup: 2, dunk: 0, hook: 6, fade: 13, catchMid: 15, pullMid: 17, catch3: 23, pull3: 24 }, deepFt: 30,
+    green: [1.15, .18, 1.6],   // window × at the rim, × from halfcourt, curve shape (higher = stays wide longer)
+  },
+
   /* Situation modifiers (added to the %) */
   mods: {
     open: 10, contested: -8, heavy: -16,          // defender distance
@@ -121,9 +141,9 @@ const BALANCE = {
               help = how often a help defender rotates to the rim. Your AI teammates always use Pro. */
   difficulty: {
     pro: { defense: -2, window: 1.08, checks: 2,  xp: 1.0,  opp: -1,
-           arcade: { react: .62, steal: .2,  shotQ: .5,  block: .38, shootAt: 45, moves: .22, help: .38 } },
+           arcade: { react: .62, steal: .2,  shotQ: .5,  block: .38, shootAt: 40, moves: .22, help: .38 } },
     hof: { defense: 6,  window: .8,   checks: -7, xp: .85,  opp: 4,
-           arcade: { react: .4,  steal: .3,  shotQ: .63, block: .5,  shootAt: 42, moves: .42, help: .6 },
+           arcade: { react: .4,  steal: .3,  shotQ: .63, block: .5,  shootAt: 38, moves: .42, help: .6 },
            /* early-career easing in arcade play: at Overall ≤ ovr[0] the AI is only `ai` of the way from Pro to
               Hall of Fame and your shots get +shot%; both fade out by Overall ovr[1] */
            arcadeEase: { ovr: [45, 66], ai: .45, shot: 5 } },
@@ -243,11 +263,22 @@ const Balance = (() => {
       parts.push({ label: `${(NAMES[ms] || { n: ms }).n} ${Math.round(off[ms])}`, v: null });
       parts.push({ label: `vs ${(NAMES[ds] || { n: ds }).n} ${Math.round(ctx.def[ds] + dShift)}`, v: Math.round((mine - theirs) * A.k) });
     }
+    // shots start from the distance curve (BALANCE.distance) instead of a flat base
+    const D = BALANCE.distance, SHOT = !!(D && D.adj[action] != null && !A.abs);
+    const dist = SHOT ? (ctx.dist != null ? ctx.dist : ctx.deep ? D.deepFt : D.byAction[action]) : null;
+    if (SHOT) {
+      let de = dist;
+      const fade = clamp((D.range.fadeTo - dist) / (D.range.fadeTo - D.range.fadeFrom), 0, 1);   // range help and shooting skill matter less and less way out
+      if (dist > D.range.from) { const st = (A.three ? off.three : off.mid) || 50; de = Math.max(D.range.from, dist - (clamp((st - 50) * D.range.perPoint, -2, D.range.max) + (ctx.longRange ? D.range.weaponFt : 0)) * Math.max(fade, .45)); }
+      const skill = p - A.base;
+      p = curveAt(D.curve, de) + D.adj[action] - D.openBonus + skill * (dist > D.range.fadeFrom ? .4 + .6 * fade : 1);
+      parts.splice(1, 0, { label: `${Math.round(dist)} ft${de < dist - .5 ? ` (range of ${Math.round(de)})` : ''}`, v: null });
+    }
     const add = (label, v) => { if (v) { p += v; parts.push({ label, v: Math.round(v) }); } };
-    if (ctx.contest === 'open') add('Open', M.open);
+    if (ctx.contest === 'open') add('Open', SHOT ? D.openBonus : M.open);
     if (ctx.contest === 'contested') add('Contested', M.contested);
     if (ctx.contest === 'heavy') add('Heavily contested', M.heavy);
-    if (ctx.deep) add('Deep range', M.deep);
+    if (ctx.deep && !SHOT) add('Deep range', M.deep);
     if (ctx.shotClock) add('Shot clock', M.shotClock);
     if (ctx.fatigue) add('Tired', M.fatigue * ctx.fatigue / 100);
     if (ctx.morale != null) add(ctx.morale >= 50 ? 'Confident' : 'Shaky', M.morale * (ctx.morale - 50) / 50);
@@ -255,18 +286,24 @@ const Balance = (() => {
     if (ctx.clutch) add('Clutch', M.clutch * ((off.clutch || 50) - 50) / 10);
     if (ctx.fire) add('On fire', M.fire);
     (ctx.bonus || []).forEach(b => add(b.label, b.v));
-    return { pct: Math.round(clamp(p, BALANCE.minPct, BALANCE.maxPct)), parts };
+    if (SHOT && dist >= D.heave) p = Math.min(p, D.heaveMax + (ctx.longRange ? 1 : 0));   // halfcourt and beyond: barely ever
+    return { pct: Math.round(clamp(p, SHOT && dist >= 27 ? 1 : BALANCE.minPct, BALANCE.maxPct)), parts, dist };
   }
+  function curveAt(C, x) { if (x <= C[0][0]) return C[0][1]; for (let i = 1; i < C.length; i++) if (x <= C[i][0]) { const [a, pa] = C[i - 1], [b, pb] = C[i]; return pa + (pb - pa) * (x - a) / (b - a); } return C[C.length - 1][1]; }
+  /* the perfect window at this distance (× of the normal one) */
+  function greenAt(dist) { const D = BALANCE.distance, G = D.green; if (dist == null) return 1; return clamp(G[0] - (G[0] - G[1]) * Math.pow(clamp(dist / D.heave, 0, 1), G[2] || 1), G[1], G[0]); }
   /* Minigame performance moves the result. quality 0..1 (0.5 = neutral). */
-  function apply(action, base, quality) {
-    const A = BALANCE.actions[action] || { skill: 30 };
-    return Math.round(clamp(base + ((quality == null ? .5 : quality) - .5) * A.skill, BALANCE.minPct, BALANCE.maxPct));
+  function apply(action, base, quality, dist) {
+    const A = BALANCE.actions[action] || { skill: 30 }, D = BALANCE.distance, far = dist != null && dist >= 27;
+    const p = base + ((quality == null ? .5 : quality) - .5) * A.skill * (far ? .6 : 1);   // timing matters less on heaves…
+    if (dist != null && dist >= D.heave) return Math.round(clamp(p, 1, D.heaveMax * 2));    // …and halfcourt stays a prayer
+    return Math.round(clamp(p, far ? 1 : BALANCE.minPct, BALANCE.maxPct));
   }
   function roll(p) { return Math.random() * 100 < p; }
   /* "Three-Point 72 · vs Perimeter D 58 +10% · Contested −8%" */
   function describe(parts) { return parts.map(x => x.v == null ? x.label : `${x.label} ${x.v > 0 ? '+' : '−'}${Math.abs(x.v)}%`).join(' · '); }
 
-  return { pct, apply, roll, profile, userStats, available, describe, eff, blend };
+  return { pct, apply, roll, profile, userStats, available, describe, eff, blend, curveAt, greenAt };
 })();
 
 /* ---------- named players: stats with a style + their weapons ---------- */
