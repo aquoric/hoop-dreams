@@ -60,13 +60,17 @@ const Game = {
     // cinematic cutscene when entering this node (once per visit, unskippable)
     if (node.cutscene && s.story.cs !== nid && typeof Cutscene !== 'undefined') {
       s.story.cs = nid; this.save();
-      return Cutscene.play(node.cutscene, this.csCtx(s.story.node)).then(() => this.runNode());
+      const cctx = this.csCtx(s.story.node); if (node.csTeam && LOCAL_TEAMS[node.csTeam]) cctx.team = { colors: LOCAL_TEAMS[node.csTeam].colors };
+      return Cutscene.play(node.cutscene, cctx).then(() => this.runNode());
     }
     switch (node.type) {
       case 'match': return this.playMatch(node, ch);
       case 'hub': return this.openHub(node, ch);
       case 'season': return this.runSeason(node, ch);
       case 'collegeChoice': return this.collegeChoice(node, ch);
+      case 'drill': return USA.drill(this, node);      // national team camp (js/usa.js)
+      case 'board': return USA.board(this, node);
+      case 'talk': return USA.talk(this, node);
       case 'branch': {
         const b = node.branches.find(x => Engine.check(s, x.if));
         return this.goto(s.story.chapter, b ? b.next : node.else);
@@ -120,6 +124,14 @@ const Game = {
     if (fx.recruitOpen && !s.recruit) { s.recruit = { stars: 1, rank: 9999, score: 0, offers: [], ppg: 0 }; this.updateRecruit(true); }
     if (fx.recruit) this.updateRecruit();
     if (fx.offers) this.checkOffers(fx.offers === 'final');
+    /* national team arc (js/data-usa.js) */
+    if (fx.campStart) { s.usa = { pts: 0, start: Engine.ovr(s), day: 1, cut: [], prev: {} }; if (s.recruit && s.recruit.stars >= 5) s.usa.pts += 2; }
+    if (fx.camp && s.usa) { s.usa.pts += fx.camp; changes.push({ label: 'Camp points', v: fx.camp }); }
+    if (fx.count) for (const k in fx.count) s.counters[k] = (s.counters[k] || 0) + fx.count[k];
+    if (fx.draftStock) { s.meta.draftStock = (s.meta.draftStock || 0) + fx.draftStock; changes.push({ label: 'Draft stock', v: fx.draftStock }); }
+    if (fx.overseas) { s.meta.overseas = (s.meta.overseas || 0) + fx.overseas; changes.push({ label: 'Overseas interest', v: fx.overseas }); }
+    if (fx.medal) { (s.career.medals || (s.career.medals = [])).push({ event: 'World Youth Championship', medal: fx.medal, age: s.player.age }); changes.push({ label: { gold: '🥇 Gold medal', silver: '🥈 Silver medal', bronze: '🥉 Bronze medal' }[fx.medal], v: 1, special: 'grow' }); }
+    if (fx.gear && SHOP_BY_ID[fx.gear] && !s.inventory.owned.includes(fx.gear)) { s.inventory.owned.push(fx.gear); UI.toast(`🎽 Unlocked: <b>${SHOP_BY_ID[fx.gear].name}</b> — equip it in the Shop`, 'ach', 4200); }
     if (Engine.ovr(s) !== before) this.recordOvr('Story');
     Engine.badgeDiff(bb, s).forEach(x => UI.toast(`${Art.badge(x.b, x.tier, 30)} Badge: <b>${x.b.name}</b> ${BADGE_TIERS[x.tier]}`, 'ach', 4000));
     this.checkAch();
@@ -203,12 +215,18 @@ const Game = {
       level: node.level, importance: node.importance || 1, title: node.title, sub: node.sub,
     };
     cfg.venueId = Venues.forMatch(cfg, node);
+    const o0 = Engine.ovr(s);   // ratings relative to you (national team arc) + home / away
+    if (node.ratingRel != null) cfg.oppRating = o0 + node.ratingRel;
+    if (node.mateRel != null) cfg.mateRating = o0 + node.mateRel;
+    if (node.venueSide) cfg.venue = node.venueSide;
     if (node.pickup) Object.assign(cfg, { fullArcade: true, size: node.pickup.size || 3, target: node.pickup.target || 21, sub: `${cfg.sub ? cfg.sub + ' · ' : ''}${node.pickup.size || 3}v${node.pickup.size || 3}, first to ${node.pickup.target || 21}` });
     const r = await Match.play(cfg);
     this.unlockVenue(r.venueId);
     await this.bigMoment(r);
     const summary = this.applyMatch(r, node);
     if (node.gradeFlag && r.gradeScore >= node.gradeFlag.min) s.flags[node.gradeFlag.flag] = true;
+    if (node.camp && s.usa) { const cp = (USA_CAMP.grade[r.grade[0]] || 0) + (r.win ? USA_CAMP.win : 0); s.usa.pts += cp; UI.toast(`🇺🇸 Camp points <b>${cp >= 0 ? '+' : ''}${cp}</b> (grade ${r.grade})`, cp >= 0 ? 'good' : 'bad', 3200); }
+    const rfx = r.win ? node.winFx : node.loseFx; if (rfx) UI.fxToasts(this.applyFx(rfx));
     this.checkAch();
     // move the story pointer now so a reload never replays the game
     s.story = { chapter: s.story.chapter, node: r.win ? node.win : node.lose, fxApplied: null };

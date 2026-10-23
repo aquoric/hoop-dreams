@@ -576,9 +576,9 @@ const UI = (() => {
       shop: () => {
         const cats = [...new Set(SHOP.map(i => i.cat))];
         return `<div class="shop-grid"><div class="shop-prev glass panel">${Art.avatar(Engine.look(s), { mode: 'full' })}<b>${Engine.fmtMoney(s.meta.money)}</b><span class="muted">Equipped gear shows on your avatar everywhere.</span></div><div class="shop-items">
-          ${cats.map(cat => `<h4>${cat}</h4><div class="items">${SHOP.filter(i => i.cat === cat).map(it => {
+          ${cats.filter(cat => SHOP.some(i => i.cat === cat && (!i.unlock || s.inventory.owned.includes(i.id)))).map(cat => `<h4>${cat}</h4><div class="items">${SHOP.filter(i => i.cat === cat && (!i.unlock || s.inventory.owned.includes(i.id))).map(it => {
             const own = s.inventory.owned.includes(it.id), eq = it.slot && s.inventory.equipped[it.slot] === it.id;
-            const sw = it.look ? (it.look.headband || it.look.sleeve || it.look.wrist || it.look.shoeColor || (it.look.goggles ? '#93c5fd' : it.look.chain ? '#facc15' : '#64748b')) : '#22c55e';
+            const sw = it.look ? (it.look.jersey || it.look.headband || it.look.sleeve || it.look.wrist || it.look.shoeColor || (it.look.goggles ? '#93c5fd' : it.look.chain ? '#facc15' : '#64748b')) : '#22c55e';
             const btn = it.consumable ? `<button class="btn sm" data-buy="${it.id}" ${s.meta.money < it.price ? 'disabled' : ''}>Buy ${Engine.fmtMoney(it.price)}</button>` : own ? `<button class="btn sm ${eq ? 'ghost' : ''}" data-eq="${it.id}">${eq ? 'Unequip' : 'Equip'}</button>` : `<button class="btn sm" data-buy="${it.id}" ${s.meta.money < it.price ? 'disabled' : ''}>Buy ${Engine.fmtMoney(it.price)}</button>`;
             return `<div class="item glass ${eq ? 'eq' : ''}"><i class="swatch" style="background:${sw}"></i><div><b>${it.name}</b><small>${it.desc || (it.boost ? Object.entries(it.boost).map(([k, v]) => `+${v} ${ATTR_BY_KEY[k].n}`).join(', ') : 'Cosmetic')}</small></div>${btn}</div>`;
           }).join('')}</div>`).join('')}</div></div>`;
@@ -602,7 +602,7 @@ const UI = (() => {
           ${Object.entries(G).map(([g, ids]) => `<h4 class="courts-h">${esc(g)}</h4><div class="courts">${ids.map(id => { const v = VENUES[id], ok = un.includes(id);
             return `<div class="court-card glass ${ok ? '' : 'locked'} ${id === cur ? 'sel' : ''}"><canvas class="ccv" data-venue="${ok ? id : ''}" width="192" height="108"></canvas><div><b>${ok ? esc(v.name) : '???'}</b><small>${ok ? esc(v.desc || '') : 'Play here to unlock'}</small>${ok ? `<button class="btn sm ${id === cur ? 'ghost' : ''}" data-court="${id}" ${id === cur ? 'disabled' : ''}>${id === cur ? '✓ Pickup court' : 'Use for pickup'}</button>` : ''}</div></div>`; }).join('')}</div>`).join('')}`;
       },
-      trophies: () => `<div class="ach-grid">${ACHIEVEMENTS.map(a => `<div class="ach glass ${s.achievements[a.id] ? 'got' : ''}"><div class="ach-ico">${s.achievements[a.id] ? '🏆' : '🔒'}</div><div><b>${a.name}</b><span>${a.desc}</span></div></div>`).join('')}</div>`,
+      trophies: () => `${(s.career.medals || []).length ? `<div class="medals glass panel"><b>MEDALS</b>${s.career.medals.map(m => `<span class="medal ${m.medal}"><i>${{ gold: '🥇', silver: '🥈', bronze: '🥉' }[m.medal]}</i>${esc(m.event)}<small>age ${m.age || '—'}</small></span>`).join('')}</div>` : ''}<div class="ach-grid">${ACHIEVEMENTS.map(a => `<div class="ach glass ${s.achievements[a.id] ? 'got' : ''}"><div class="ach-ico">${s.achievements[a.id] ? '🏆' : '🔒'}</div><div><b>${a.name}</b><span>${a.desc}</span></div></div>`).join('')}</div>`,
     };
     body.innerHTML = T[hubTab]();
     // bindings

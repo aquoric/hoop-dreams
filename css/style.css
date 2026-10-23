@@ -1115,3 +1115,39 @@ body.fs[data-screen=match] .corner .icon-btn { width: 30px; height: 30px; font-s
 .dv-say { top: 3%; font-size: clamp(.8rem, 2.3vw, 1.3rem); }
 .dv-say.low { top: auto; bottom: 7%; left: auto; right: 4%; text-align: right; }
 .dv-key.c { left: auto; right: 16%; top: 6%; translate: none; }   /* beside the rim, not on top of you */
+
+/* ---------- NATIONAL TEAM CAMP: the board ("on the bubble"), cut days, drill hall, medals ---------- */
+.usa-board { max-width: 720px; margin: 0 auto; height: calc(100dvh - 40px); margin-top: 20px; display: flex; flex-direction: column; padding: 14px 16px; gap: 10px; }
+.ub-head b { display: block; font-family: var(--px); font-size: clamp(.8rem, 2vw, 1.1rem); color: #facc15; letter-spacing: .12em; }
+.ub-head small { font-family: var(--pxb); font-size: 1.15rem; color: #cbd5e1; }
+.ub-list { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 3px; }
+.ub-row { display: grid; grid-template-columns: 34px 1fr 52px 56px; align-items: center; gap: 8px; padding: 5px 10px; background: #0b0f1c; border: 2px solid #1e293b; font-family: var(--pxb); font-size: 1.15rem; transition: background .3s, opacity .3s; }
+.ub-row.me { border-color: #facc15; background: #1c1708; }
+.ub-rank { font-family: var(--px); font-size: .62rem; color: #94a3b8; } .ub-sc { text-align: right; color: #e2e8f0; }
+.ub-mv { font-family: var(--px); font-size: .55rem; color: #64748b; text-align: center; } .ub-mv.up { color: #4ade80; } .ub-mv.down { color: #f87171; }
+.ub-row.cut { background: #3b0a0a; border-color: #7f1d1d; opacity: .6; text-decoration: line-through; }
+.ub-row.cut .ub-name::after { content: ' — RELEASED'; color: #f87171; font-family: var(--px); font-size: .5rem; text-decoration: none; }
+.ub-row.safe { border-color: #166534; } .ub-row.safe.me { border-color: #4ade80; background: #052e16; }
+.ub-line { margin: 4px 0; border-top: 3px dashed #f87171; font-family: var(--px); font-size: .5rem; color: #f87171; text-align: center; padding-top: 2px; letter-spacing: .2em; }
+.ub-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ub-read { font-family: var(--px); font-size: clamp(.7rem, 1.8vw, .95rem); color: #f8fafc; min-height: 1.4em; }
+.ub-read .ok { color: #4ade80; } .ub-read .no { color: #f87171; }
+.usa-drill { height: 100dvh; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.ud-head { padding: 10px 14px; } .ud-head b { font-family: var(--px); font-size: .95rem; color: #facc15; letter-spacing: .1em; margin-right: 12px; } .ud-head small { font-family: var(--pxb); font-size: 1.1rem; color: #cbd5e1; }
+.ud-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(240px, 26vw, 340px); gap: 10px; }
+.ud-stage { position: relative; min-height: 0; border: 3px solid #1e293b; box-shadow: 0 0 0 2px #000; background: linear-gradient(#0b1220 0 38%, #b97f45 38%), #0b1220; overflow: hidden; }
+.ud-stage .mg-layer { position: absolute; inset: 0; }
+.ud-card { position: absolute; inset: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; background: rgba(5, 7, 13, .78); }
+.ud-card[hidden] { display: none; }
+.ud-card small { font-family: var(--px); font-size: .6rem; color: #94a3b8; letter-spacing: .14em; } .ud-card b { font-family: var(--px); font-size: clamp(1rem, 2.6vw, 1.6rem); color: #f8fafc; }
+.ud-card span { font-family: var(--pxb); font-size: 1.2rem; color: #cbd5e1; } .ud-card b.g { color: #4ade80; } .ud-card b.b { color: #f87171; }
+.ud-side { padding: 10px 12px; overflow: auto; } .ud-side h4 { margin: 0 0 6px; font-family: var(--px); font-size: .62rem; color: #94a3b8; letter-spacing: .14em; }
+.ud-r { border-top: 2px dotted #1e293b; padding: 6px 0; font-family: var(--pxb); font-size: 1.05rem; }
+.ud-r b { display: block; font-family: var(--px); font-size: .55rem; color: #facc15; } .ud-r i { font-style: normal; } .ud-r .g { color: #4ade80; } .ud-r .b { color: #f87171; } .ud-r em { font-style: normal; }
+.ud-r ol { margin: 4px 0 0; padding-left: 18px; color: #94a3b8; } .ud-r li.me { color: #facc15; }
+@media (max-width: 760px) { .ud-main { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; } .ud-side { max-height: 30dvh; } }
+.medals { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 12px; }
+.medals > b { font-family: var(--px); font-size: .7rem; color: #facc15; letter-spacing: .14em; margin-right: 6px; }
+.medal { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 2px solid #1e293b; background: #0b0f1c; font-family: var(--pxb); font-size: 1.1rem; }
+.medal i { font-style: normal; font-size: 1.4rem; } .medal small { color: #94a3b8; } .medal.gold { border-color: #facc15; } .medal.silver { border-color: #cbd5e1; } .medal.bronze { border-color: #b45309; }
+.usa-talkbg { height: 100dvh; }

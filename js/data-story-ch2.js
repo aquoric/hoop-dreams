@@ -387,7 +387,9 @@ STORY.chapters.highschool = {
         ['mom', 'What does that mean, baby? Stars?', 'smile'],
         ['nia', 'It means colleges are going to start calling, Mom. Real ones.'],
         ['narrator', 'You check the Recruiting tab in your hub: some programs already sent offers, others are "still watching."'],
-      ], next: 'c2_nia_bday' },
+      ], next: 'c2_usa_early' },
+    /* top-ranked recruits get the national team call this summer (js/data-usa.js) */
+    c2_usa_early: { type: 'branch', branches: [{ if: { maxRank: 25, notFlag: 'usa_camp' }, next: 'usa:early_offer' }, { if: { minStars: 5, notFlag: 'usa_camp' }, next: 'usa:early_offer' }], else: 'c2_nia_bday' },
     c2_nia_bday: { scene: 'home',
       lines: [
         ['narrator', 'Problem: the Elite 100 Camp — the top hundred juniors in the country, every major college coach in the gym — is the same weekend as Nia\'s thirteenth birthday.'],
@@ -807,7 +809,9 @@ STORY.chapters.highschool = {
         ['mom', 'First one in our family, the very first. Your grandmother would\'ve…', 'sad'],
         ['nia', 'Mom. MOM — we said no crying until the car.', 'smile'],
         ['narrator', 'That night you go back to Halsey Street, alone, and shoot until they cut the lights. Some things don\'t change.'],
-      ], next: 'ch_end' },
+      ], next: 'c2_usa_check' },
+    /* the summer after high school: the national team arc (or a second shot after an early cut) */
+    c2_usa_check: { type: 'branch', branches: [{ if: { flag: 'usa_made' }, next: 'ch_end' }, { if: { flag: 'usa_cut' }, next: 'usa:second_chance' }], else: 'usa:invite_check' },
 
     ch_end: { type: 'chapterEnd', nextChapter: 'college', nextTitle: 'Chapter 3 — The Next Level', fx: { develop: 'highschool' },
       teaser: 'College, overseas, or the Grind League — then the Draft. (Not in this build yet — your save is ready to carry over.)',

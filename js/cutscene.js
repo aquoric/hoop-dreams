@@ -211,6 +211,8 @@ const CUTSCENES = {
       title: { text: '{ending}', sub: 'Your career is over', style: 'rise', at: 900 } },
   ] },
 };
+/* chapters in other files add theirs here (e.g. js/data-usa.js) */
+if (typeof window !== 'undefined' && window.EXTRA_CUTSCENES) Object.assign(CUTSCENES, window.EXTRA_CUTSCENES);
 
 const Cutscene = (() => {
   const H = 216, WW = 640, OUT = '#0a0a12';

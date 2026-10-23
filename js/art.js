@@ -429,6 +429,38 @@ const Art = (() => {
       <path d="M0 570 H1600 V900 H0 Z" fill="url(#${g}f)"/>${courtLines(570, '#fff', .55)}
       <path class="beam b1" d="M260 0 L340 0 L660 900 L40 900 Z" fill="url(#${g}b)"/><path class="beam b2" d="M1260 0 L1340 0 L1560 900 L940 900 Z" fill="url(#${g}b)"/>`;
     },
+    dorm(r) { // national team camp dorm: bunk beds, a window, jerseys on hooks
+      const g = uid('g'); let stars = ''; for (let i = 0; i < 60; i++) stars += `<rect x="${(980 + r() * 420).toFixed(0)}" y="${(110 + r() * 220).toFixed(0)}" width="3" height="3" fill="#e2e8f0" opacity="${(.4 + r() * .6).toFixed(2)}"/>`;
+      return `<defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1e1b4b"/><stop offset="1" stop-color="#0f172a"/></linearGradient></defs>
+        <rect width="1600" height="900" fill="url(#${g})"/><rect x="960" y="90" width="460" height="260" fill="#0b1020" stroke="#334155" stroke-width="14"/>${stars}<rect x="1183" y="90" width="14" height="260" fill="#334155"/>
+        <rect x="120" y="250" width="560" height="26" fill="#475569"/><rect x="120" y="500" width="560" height="26" fill="#475569"/><rect x="120" y="230" width="22" height="520" fill="#334155"/><rect x="658" y="230" width="22" height="520" fill="#334155"/>
+        <rect x="150" y="210" width="500" height="44" fill="#1e3a8a"/><rect x="150" y="460" width="500" height="44" fill="#991b1b"/><rect x="170" y="190" width="120" height="30" rx="10" fill="#e2e8f0"/><rect x="170" y="440" width="120" height="30" rx="10" fill="#e2e8f0"/>
+        ${[0, 1, 2].map(i => `<rect x="${800 + i * 70}" y="420" width="10" height="20" fill="#94a3b8"/><path d="M${775 + i * 70} 440h60l-8 90h-44z" fill="${['#1e3a8a', '#dc2626', '#f8fafc'][i]}"/>`).join('')}
+        <rect y="760" width="1600" height="140" fill="#1f2937"/><rect y="760" width="1600" height="8" fill="#111827"/><rect x="1150" y="600" width="300" height="160" fill="#78350f"/><rect x="1170" y="580" width="90" height="26" fill="#f97316"/>`;
+    },
+    airport(r) { // terminal window, a plane at the gate, departure board
+      const g = uid('g');
+      return `<defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fb923c"/><stop offset=".5" stop-color="#7c2d92"/><stop offset="1" stop-color="#1e1b4b"/></linearGradient></defs>
+        <rect width="1600" height="900" fill="#0f172a"/><rect x="0" y="60" width="1600" height="480" fill="url(#${g})"/>${[...Array(9)].map((_, i) => `<rect x="${i * 200}" y="60" width="14" height="480" fill="#1e293b"/>`).join('')}
+        <rect x="380" y="330" width="760" height="70" rx="35" fill="#f8fafc"/><path d="M1120 340l120-110h40l-60 120z" fill="#1e3a8a"/><rect x="560" y="390" width="320" height="22" fill="#cbd5e1"/>${[...Array(14)].map((_, i) => `<rect x="${430 + i * 48}" y="352" width="18" height="14" rx="4" fill="#1e3a8a"/>`).join('')}<rect x="380" y="372" width="760" height="8" fill="#dc2626"/>
+        <rect y="540" width="1600" height="360" fill="#1f2937"/><rect x="80" y="600" width="520" height="190" fill="#020617" stroke="#334155" stroke-width="8"/>${['RIGA      14:05 BOARDING', 'MADRID    15:40 ON TIME', 'TOKYO     16:10 DELAYED', 'SYDNEY    18:25 ON TIME'].map((t, i) => `<text x="100" y="${645 + i * 40}" font-family="monospace" font-size="26" fill="${i ? '#facc15' : '#4ade80'}">${t}</text>`).join('')}`;
+    },
+    abroad(r) { // a European old town at night: spires, warm windows, cobblestones
+      const g = uid('g'); let win = ''; for (let i = 0; i < 90; i++) win += `<rect x="${(r() * 1600).toFixed(0)}" y="${(380 + r() * 260).toFixed(0)}" width="12" height="16" fill="#fbbf24" opacity="${(.5 + r() * .5).toFixed(2)}"/>`;
+      return `<defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1026"/><stop offset=".7" stop-color="#312e81"/><stop offset="1" stop-color="#7c2d12"/></linearGradient></defs>
+        <rect width="1600" height="900" fill="url(#${g})"/><circle cx="1320" cy="150" r="56" fill="#f8fafc" opacity=".9"/>
+        <path d="M0 640V420l80-40 80 40v-60l60-120 60 120v60l90-50 90 50v-90l50-160 50 160v90l100-40 100 40v-30l70-60 70 60v30l120-50 80 40v-110l40-150 40 150v110l110-40 110 40v-60l90-40 90 40v260z" fill="#111827"/>${win}
+        <rect y="640" width="1600" height="260" fill="#292524"/>${[...Array(40)].map((_, i) => `<rect x="${(i % 10) * 160 + (Math.floor(i / 10) % 2) * 80}" y="${660 + Math.floor(i / 10) * 60}" width="150" height="54" fill="#3f3a36"/>`).join('')}`;
+    },
+    podium(r) { // medal ceremony: three steps, flags on poles, spotlights
+      const g = uid('g');
+      return `<defs><radialGradient id="${g}" cx=".5" cy=".3" r=".8"><stop offset="0" stop-color="#1e3a8a"/><stop offset="1" stop-color="#020617"/></radialGradient></defs>
+        <rect width="1600" height="900" fill="url(#${g})"/>${[[560, 0], [800, 1], [1040, 2]].map(([x, i]) => `<polygon points="${x - 60},0 ${x + 60},0 ${x + 160},760 ${x - 160},760" fill="#fde68a" opacity=".07"/>`).join('')}
+        ${[[540, 220, '#1e3a8a'], [800, 170, '#dc2626'], [1060, 240, '#15803d']].map(([x, y, c]) => `<rect x="${x}" y="${y}" width="8" height="300" fill="#94a3b8"/><rect x="${x + 8}" y="${y}" width="120" height="74" fill="${c}"/><rect x="${x + 8}" y="${y + 24}" width="120" height="12" fill="#f8fafc" opacity=".8"/>`).join('')}
+        <rect x="500" y="600" width="200" height="160" fill="#cbd5e1"/><rect x="700" y="540" width="200" height="220" fill="#facc15"/><rect x="900" y="640" width="200" height="120" fill="#b45309"/>
+        <text x="800" y="660" text-anchor="middle" font-family="monospace" font-size="80" font-weight="900" fill="#78350f">1</text><text x="600" y="700" text-anchor="middle" font-family="monospace" font-size="64" font-weight="900" fill="#475569">2</text><text x="1000" y="730" text-anchor="middle" font-family="monospace" font-size="56" font-weight="900" fill="#451a03">3</text>
+        <rect y="760" width="1600" height="140" fill="#7c4a1e"/>`;
+    },
     matchbg(r) { // plain dark arena behind the match screen (no signage that could show through)
       const g = uid('g'); let crowd = '';
       for (let i = 0; i < 380; i++) crowd += `<circle cx="${(r() * 1600).toFixed(0)}" cy="${(r() * 900).toFixed(0)}" r="${(1.5 + r() * 2.5).toFixed(1)}" fill="${['#1e293b', '#334155', '#0f172a'][Math.floor(r() * 3)]}"/>`;

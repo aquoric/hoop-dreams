@@ -1015,6 +1015,88 @@ const Match = (() => {
   }
   for (const k of Object.keys(MG)) { const fn = MG[k]; MG[k] = (layer, o = {}) => guardMG(k, fn, layer, o); }
 
+  const STYLE_EXPR = { ego: 'fierce', brag: 'fierce', needle: 'fierce', joke: 'smile', calm: 'determined', respect: 'determined', honest: 'determined', effort: 'determined', team: 'smile', specific: 'determined', humble: 'neutral', excuse: 'sad', argue: 'angry', insult: 'angry', sarcasm: 'smile' };
+  function zoomCourt(court, to, ms) { return new Promise(res => { if (!court) return res(); const z0 = court.zoom, t0 = performance.now(); const f = now => { const k = Math.min(1, (now - t0) / ms); court.zoom = z0 + (to - z0) * EASE.io(k); if (k < 1 && court.alive) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); }); }
+  async function talkSceneCore(o, env) {   // env: { court (optional), meLook, first, last, beat(), waitInput(setup) }
+    const court = env.court, beat = env.beat || (() => { }), waitInput = env.waitInput, meLook = env.meLook, PH = 112;
+    const el = document.createElement('div'); el.className = 'tkc';
+    el.innerHTML = `<div class="tkc-dim"></div>
+      <div class="tkc-bar top"><b class="tkc-title">${escH(o.title)}</b><div class="tk-gauge${o.ego ? ' ego' : ''}"><span>${o.gaugeLabel}</span><div class="tk-bar"><i style="width:${Math.min(100, o.g)}%"></i></div><em class="tk-delta"></em></div></div>
+      <div class="tkc-stage">
+        <div class="tkc-p me"><span class="tkc-tag">${escH(env.first + ' ' + env.last)}</span><canvas></canvas></div>
+        <div class="tkc-box"><b class="tkc-who"></b><p class="tkc-line"></p><i class="tkc-more">▼</i></div>
+        <div class="tkc-p them"><span class="tkc-tag">${escH(o.name)}<small>${escH(o.trait || '')}</small></span><canvas></canvas></div>
+      </div>
+      <div class="tkc-bar bot"><div class="tkc-opts mp-opts"></div></div>`;
+    document.body.appendChild(el);
+    const q = sel => el.querySelector(sel), side = { me: { el: q('.tkc-p.me'), look: meLook, cur: null }, them: { el: q('.tkc-p.them'), look: o.look || meLook, cur: null } };
+    const frames = async (who, expr) => { try { return await Promise.race([Cutscene.portrait(side[who].look, expr, 'bust', PH), sleep(2500).then(() => null)]); } catch (e) { return null; } };
+    const paint = (who, frame) => { const S = side[who], F = S.cur && S.cur[frame]; if (!F) return; const cv = S.el.querySelector('canvas'); if (cv.width !== F.cv.width) { cv.width = F.cv.width; cv.height = F.cv.height; } const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(F.cv, 0, 0); };
+    const expr = async (who, e) => { const f = await frames(who, e); if (f) { side[who].cur = f; paint(who, 'base'); } };
+    // in: pause + push in, bars slide, portraits slide in from the sides
+    if (court) court.stopT = 99; const z0 = court ? court.zoom : 1; SFX.crowd.duck(true); SFX.play('whoosh');
+    await Promise.all([expr('me', 'neutral'), expr('them', o.startExpr || 'neutral')]);
+    requestAnimationFrame(() => el.classList.add('in')); zoomCourt(court, 1.45, 450);
+    let blinkT = 0; const blinker = setInterval(() => { ['me', 'them'].forEach(w => { if (!side[w].talking && Math.random() < .12) { paint(w, 'blink'); setTimeout(() => !side[w].talking && paint(w, 'base'), 120); } }); }, 400);
+    await sleep(380);
+    let skipLine = false; q('.tkc-box').addEventListener('pointerdown', () => { skipLine = true; });
+    const api = {
+      /* one line, typewriter style; the speaker lights up and talks */
+      async say(who, text, e, voice) {
+        beat(); if (e) await expr(who, e);
+        el.querySelectorAll('.tkc-p').forEach(p => p.classList.toggle('spk', p === side[who].el)); el.classList.toggle('me-spk', who === 'me');
+        q('.tkc-who').textContent = who === 'me' ? env.first.toUpperCase() : o.name.toUpperCase(); q('.tkc-who').className = 'tkc-who ' + who;
+        const line = q('.tkc-line'); line.textContent = ''; q('.tkc-more').classList.remove('on'); skipLine = false; side[who].talking = true;
+        for (let i = 1; i <= text.length; i++) {
+          if (skipLine || !el.isConnected) { line.textContent = text; break; }
+          line.textContent = text.slice(0, i); if (i % 2 === 0 && /[a-z0-9]/i.test(text[i - 1])) { SFX.play('blip', voice); paint(who, (i / 2) % 2 ? 'talk' : 'base'); }
+          await sleep(26);
+        }
+        side[who].talking = false; paint(who, 'base'); q('.tkc-more').classList.add('on'); beat();
+      },
+      /* the reply choices (keys 1–3 or tap) — returns the index */
+      ask(opts) {
+        const box = q('.tkc-opts'); box.innerHTML = opts.map((t, i) => `<button class="opt talk-opt" data-i="${i}"><kbd>${i + 1}</kbd><span class="opt-l">${escH(t)}</span></button>`).join(''); box.classList.add('on');
+        return waitInput((res) => { const kd = e => { const n = parseInt(e.key, 10); if (n >= 1 && n <= opts.length) res(n - 1); }; addEventListener('keydown', kd); box.querySelectorAll('.talk-opt').forEach(b => b.onclick = () => res(+b.dataset.i)); return () => removeEventListener('keydown', kd); })
+          .then(i => { box.querySelectorAll('.talk-opt').forEach((b, j) => { b.disabled = true; if (j === i) b.classList.add('picked'); }); setTimeout(() => box.classList.remove('on'), 250); return i; });
+      },
+      face: (who, e) => expr(who, e),
+      gauge(g, delta, good) { const bar = q('.tk-bar i'), dl = q('.tk-delta'); bar.style.width = Math.min(100, g) + '%'; dl.textContent = delta; dl.className = 'tk-delta ' + (good ? 'good' : 'bad'); void dl.offsetWidth; dl.classList.add('pop'); el.classList.remove('hit-good', 'hit-bad'); void el.offsetWidth; el.classList.add(good ? 'hit-good' : 'hit-bad'); },
+      async close() {
+        clearInterval(blinker); el.classList.remove('in'); el.classList.add('out'); await zoomCourt(court, z0 || 1, 420);
+        el.remove(); if (court) court.stopT = 0; SFX.crowd.duck(false); beat();
+      },
+    };
+    return api;
+  }
+
+  /* A conversation outside a game (story nodes: camp evaluations, film sessions…) — the same cutscene, gauge and personalities.
+     o: { who: TALK personality id, script: TALK.scripts key, look, name, title, colors:[jersey, trim] } → { win, g, backfires, ended } */
+  async function storyTalk(o) {
+    const s = Game.state, P = TALK.personalities[o.who], script = TALK.scripts[o.script]; if (!P || !script) return { win: true, g: 60 };
+    const ego = P.kind === 'rival', team = o.colors || ['#1e3a8a', '#dc2626']; let g = ego ? 100 : P.start, backfires = 0, ended = false;
+    const fillT = t => Engine.text(String(t).replace(/\{first\}/g, s.player.first).replace(/\{last\}/g, s.player.last).replace(/\{num\}/g, s.player.num), s);
+    const waitInput = setup => new Promise(res => { let rm = null; rm = setup(v => { rm && rm(); res(v); }, () => rm && rm()); });
+    const voice = { f: P.kind === 'ref' ? 160 : ego ? 330 : P.kind === 'mate' ? 240 : 140, w: 'square', g: .035 }, myVoice = { f: 280, w: 'square', g: .03 };
+    const T = await talkSceneCore({ title: o.title || (o.name || P.name || ''), name: o.name || P.name || 'Coach', trait: P.trait, look: o.look, ego, g, gaugeLabel: ego ? 'EGO' : P.kind === 'mate' ? 'TRUST' : 'PATIENCE', startExpr: ego ? 'smile' : 'neutral' },
+      { court: null, meLook: Object.assign({}, Engine.look(s), { num: s.player.num, jersey: team[0], trim: team[1], outfit: 'jersey' }), first: s.player.first, last: s.player.last, waitInput });
+    try {
+      for (let k = 0; k < script.length && !ended; k++) {
+        const ex = script[k], opts = ex.opts.slice().sort(() => Math.random() - .5);
+        await T.say('them', fillT(ex.say), ego ? 'smile' : k ? 'determined' : null, voice);
+        const pickI = await T.ask(opts.map(x => fillT(x[1])));
+        const style = opts[pickI][0], v = Math.round((P.styles[style] || 0) + rnd(-3, 3)), good = v > 0;
+        await T.say('me', fillT(opts[pickI][1]), STYLE_EXPR[style] || 'determined', myVoice);
+        if (ego) g = clamp(g - v, 0, 130); else g = clamp(g + v, 0, 100); if (!good) backfires++;
+        T.gauge(g, (ego ? (good ? '−' : '+') : (good ? '+' : '−')) + Math.abs(v), good); SFX.play(good ? 'good' : 'bad');
+        await T.say('them', pick(good ? P.good : P.bad), ego ? (good ? 'angry' : 'smile') : (good ? 'smile' : 'angry'), voice);
+        T.face('me', good ? 'smile' : 'shocked'); await sleep(600);
+        if (v <= TALK.endAt || (!ego && g <= 0)) ended = true;
+      }
+    } finally { await T.close(); }
+    return { win: ego ? g <= 60 : !ended && g >= 60, g, backfires, ended };
+  }
+
   /* =================================================================
      MATCH FLOW
      cfg: { title, sub, level, us:{name,abbr,colors,logo,roster}, them:{..., star},
@@ -1665,60 +1747,7 @@ const Match = (() => {
        background dims. You and the other person face off in big 16-bit portraits (expressions change as you talk);
        the speaker lights up, lines type out, and the choices + gauge sit in the letterbox bars (never on the faces).
        ================================================================= */
-    const STYLE_EXPR = { ego: 'fierce', brag: 'fierce', needle: 'fierce', joke: 'smile', calm: 'determined', respect: 'determined', honest: 'determined', effort: 'determined', team: 'smile', specific: 'determined', humble: 'neutral', excuse: 'sad', argue: 'angry', insult: 'angry', sarcasm: 'smile' };
-    function zoomCourt(to, ms) { return new Promise(res => { const z0 = court.zoom, t0 = performance.now(); const f = now => { const k = Math.min(1, (now - t0) / ms); court.zoom = z0 + (to - z0) * EASE.io(k); if (k < 1 && court.alive) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); }); }
-    async function talkScene(o) {
-      const meLook = Object.assign({}, U.look || {}, { num: s.player.num, jersey: cfg.us.colors[0], trim: cfg.us.colors[1], outfit: 'jersey' }), PH = 112;
-      const el = document.createElement('div'); el.className = 'tkc';
-      el.innerHTML = `<div class="tkc-dim"></div>
-        <div class="tkc-bar top"><b class="tkc-title">${escH(o.title)}</b><div class="tk-gauge${o.ego ? ' ego' : ''}"><span>${o.gaugeLabel}</span><div class="tk-bar"><i style="width:${Math.min(100, o.g)}%"></i></div><em class="tk-delta"></em></div></div>
-        <div class="tkc-stage">
-          <div class="tkc-p me"><span class="tkc-tag">${escH(s.player.first + ' ' + s.player.last)}</span><canvas></canvas></div>
-          <div class="tkc-box"><b class="tkc-who"></b><p class="tkc-line"></p><i class="tkc-more">▼</i></div>
-          <div class="tkc-p them"><span class="tkc-tag">${escH(o.name)}<small>${escH(o.trait || '')}</small></span><canvas></canvas></div>
-        </div>
-        <div class="tkc-bar bot"><div class="tkc-opts mp-opts"></div></div>`;
-      document.body.appendChild(el);
-      const q = sel => el.querySelector(sel), side = { me: { el: q('.tkc-p.me'), look: meLook, cur: null }, them: { el: q('.tkc-p.them'), look: o.look || meLook, cur: null } };
-      const frames = async (who, expr) => { try { return await Promise.race([Cutscene.portrait(side[who].look, expr, 'bust', PH), sleep(2500).then(() => null)]); } catch (e) { return null; } };
-      const paint = (who, frame) => { const S = side[who], F = S.cur && S.cur[frame]; if (!F) return; const cv = S.el.querySelector('canvas'); if (cv.width !== F.cv.width) { cv.width = F.cv.width; cv.height = F.cv.height; } const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(F.cv, 0, 0); };
-      const expr = async (who, e) => { const f = await frames(who, e); if (f) { side[who].cur = f; paint(who, 'base'); } };
-      // in: pause + push in, bars slide, portraits slide in from the sides
-      court.stopT = 99; const z0 = court.zoom; SFX.crowd.duck(true); SFX.play('whoosh');
-      await Promise.all([expr('me', 'neutral'), expr('them', o.startExpr || 'neutral')]);
-      requestAnimationFrame(() => el.classList.add('in')); zoomCourt(1.45, 450);
-      let blinkT = 0; const blinker = setInterval(() => { ['me', 'them'].forEach(w => { if (!side[w].talking && Math.random() < .12) { paint(w, 'blink'); setTimeout(() => !side[w].talking && paint(w, 'base'), 120); } }); }, 400);
-      await sleep(380);
-      let skipLine = false; q('.tkc-box').addEventListener('pointerdown', () => { skipLine = true; });
-      const api = {
-        /* one line, typewriter style; the speaker lights up and talks */
-        async say(who, text, e, voice) {
-          beat(); if (e) await expr(who, e);
-          el.querySelectorAll('.tkc-p').forEach(p => p.classList.toggle('spk', p === side[who].el)); el.classList.toggle('me-spk', who === 'me');
-          q('.tkc-who').textContent = who === 'me' ? s.player.first.toUpperCase() : o.name.toUpperCase(); q('.tkc-who').className = 'tkc-who ' + who;
-          const line = q('.tkc-line'); line.textContent = ''; q('.tkc-more').classList.remove('on'); skipLine = false; side[who].talking = true;
-          for (let i = 1; i <= text.length; i++) {
-            if (skipLine || !el.isConnected) { line.textContent = text; break; }
-            line.textContent = text.slice(0, i); if (i % 2 === 0 && /[a-z0-9]/i.test(text[i - 1])) { SFX.play('blip', voice); paint(who, (i / 2) % 2 ? 'talk' : 'base'); }
-            await sleep(26);
-          }
-          side[who].talking = false; paint(who, 'base'); q('.tkc-more').classList.add('on'); beat();
-        },
-        /* the reply choices (keys 1–3 or tap) — returns the index */
-        ask(opts) {
-          const box = q('.tkc-opts'); box.innerHTML = opts.map((t, i) => `<button class="opt talk-opt" data-i="${i}"><kbd>${i + 1}</kbd><span class="opt-l">${escH(t)}</span></button>`).join(''); box.classList.add('on');
-          return waitInput((res) => { const kd = e => { const n = parseInt(e.key, 10); if (n >= 1 && n <= opts.length) res(n - 1); }; addEventListener('keydown', kd); box.querySelectorAll('.talk-opt').forEach(b => b.onclick = () => res(+b.dataset.i)); return () => removeEventListener('keydown', kd); })
-            .then(i => { box.querySelectorAll('.talk-opt').forEach((b, j) => { b.disabled = true; if (j === i) b.classList.add('picked'); }); setTimeout(() => box.classList.remove('on'), 250); return i; });
-        },
-        face: (who, e) => expr(who, e),
-        gauge(g, delta, good) { const bar = q('.tk-bar i'), dl = q('.tk-delta'); bar.style.width = Math.min(100, g) + '%'; dl.textContent = delta; dl.className = 'tk-delta ' + (good ? 'good' : 'bad'); void dl.offsetWidth; dl.classList.add('pop'); el.classList.remove('hit-good', 'hit-bad'); void el.offsetWidth; el.classList.add(good ? 'hit-good' : 'hit-bad'); },
-        async close() {
-          clearInterval(blinker); el.classList.remove('in'); el.classList.add('out'); await zoomCourt(z0 || 1, 420);
-          el.remove(); court.stopT = 0; SFX.crowd.duck(false); beat();
-        },
-      };
-      return api;
-    }
+    const talkScene = o => talkSceneCore(o, { court, meLook: Object.assign({}, U.look || {}, { num: s.player.num, jersey: cfg.us.colors[0], trim: cfg.us.colors[1], outfit: 'jersey' }), first: s.player.first, last: s.player.last, beat, waitInput });
     async function talk(type, topic, pre) {   // pre = the short pre-game talk (doesn't count toward the in-game limit)
       const id = type === 'coach' ? coachId : type === 'ref' ? refId : type === 'mate' ? mateId : rivalId, P = TK.personalities[id]; if (!P) return;
       if (pre) cnt('pretalks'); else { st.talkN++; st.talkAt = st.i; cnt('talks'); }
@@ -2387,5 +2416,5 @@ const Match = (() => {
     };
   }
 
-  return { play, MG, Court, LEVELS, green };
+  return { play, MG, Court, LEVELS, green, talk: storyTalk };
 })();

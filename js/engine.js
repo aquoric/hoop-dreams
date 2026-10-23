@@ -209,6 +209,9 @@ const Engine = (() => {
     if (c.path && s.career.path !== c.path) return false;
     if (c.minTrust && s.meta.trust < c.minTrust) return false;
     if (c.maxTrust && s.meta.trust > c.maxTrust) return false;
+    if (c.usaInvite && !(typeof USA !== 'undefined' && USA.inviteScore(s) >= USA_CAMP.invite)) return false;   // national team list
+    if (c.maxRank && !(s.recruit && s.recruit.rank <= c.maxRank)) return false;
+    if (c.minCount) for (const k in c.minCount) if ((s.counters[k] || 0) < c.minCount[k]) return false;
     return true;
   }
 
