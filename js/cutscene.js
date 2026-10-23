@@ -870,5 +870,7 @@ const Cutscene = (() => {
     removeEventListener('keydown', stop, true); M.off(); M.root.remove(); hlOn = false; return true;
   }
 
-  return { play, pregame, highlight, prep, ready, get playing() { return playing; } };
+  /* outlined 16-bit portrait frames { base, blink, talk } (each .cv) — used by the in-game dialogue scenes */
+  const portraitOf = (look, expr = 'neutral', kind = 'bust', h = 112) => portrait(look, expr, kind, h);
+  return { play, pregame, highlight, prep, ready, portrait: portraitOf, get playing() { return playing; } };
 })();

@@ -397,6 +397,7 @@ const Match = (() => {
      All support mouse, touch, and keyboard.
      ================================================================= */
   function mgShell(layer, title, hint, extraCls = '') {
+    if (layer._drive) closeDrive(layer);
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();   // Space / Enter must reach the minigame, not a focused button
     const el = document.createElement('div');
     el.className = 'mg ' + extraCls;
@@ -429,6 +430,80 @@ const Match = (() => {
     const now = performance.now(); if (now - greenAt < 250) return; greenAt = now;
     SFX.play('green'); const el = document.createElement('div'); el.className = 'green-pop'; el.innerHTML = `<b>${label}</b>`; document.body.appendChild(el);
     setTimeout(() => el.remove(), 900);
+  }
+
+  /* ---------- the drive stage (shared by blowBy / gatherStep / layupStep) ---------- */
+  let mgHold = false;   // a minigame is waiting on a tutorial card: its watchdog clock stops
+  const DRIVE_VEN = new Map(), nextFrame = () => new Promise(r => requestAnimationFrame(r));
+  const dvAnim = (sec, fn) => new Promise(res => { const t0 = performance.now(); const f = now => { const k = Math.min(1, (now - t0) / 1000 / sec); fn(k); if (k < 1) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); });
+  function driveStage(layer, o) {
+    if (layer._drive && layer._drive.el.isConnected) return layer._drive;
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    const X = o.ctx || {}, us = X.us || { colors: ['#f97316', '#111827'] }, them = X.them || { colors: ['#1e3a8a', '#e5e7eb'] }, vid = X.venue && VENUES[X.venue] ? X.venue : 'rec_center';
+    const key = vid + us.colors + them.colors; let V = DRIVE_VEN.get(key); if (!V) { V = Pixel.venue(vid, us, them, 384); DRIVE_VEN.set(key, V); }
+    const touch = matchMedia('(pointer: coarse)').matches;
+    const el = document.createElement('div'); el.className = 'mg mg-drive' + (touch ? ' touch' : '');
+    el.innerHTML = `<div class="mg-card dv-card">
+        <div class="dv-steps"><b data-p="read">1 · READ</b><b data-p="step">2 · STEP</b><b data-p="rel">3 · RELEASE</b></div>
+        <div class="dv-stage"><canvas width="256" height="144"></canvas><div class="dv-say"></div><div class="dv-fb"></div>
+          <button class="dv-key l" data-d="L"><b>${touch ? '◀' : '←'}</b><small>${touch ? 'LEFT' : 'A'}</small></button>
+          <button class="dv-key r" data-d="R"><b>${touch ? '▶' : '→'}</b><small>${touch ? 'RIGHT' : 'D'}</small></button>
+          <button class="dv-key c" data-d="T"><b>${touch ? 'TAP' : 'SPACE'}</b></button></div>
+        <div class="timer dv-timer"><i></i></div><div class="dv-sub"></div></div>`;
+    layer.querySelectorAll('.mg').forEach(e => e.remove());
+    layer.classList.remove('ftmode'); layer.appendChild(el); layer.classList.add('on'); requestAnimationFrame(() => el.classList.add('in'));
+    const cv = el.querySelector('canvas'), c = cv.getContext('2d'); c.imageSmoothingEnabled = false;
+    const mk = (look, num, cols, x, y) => Pixel.sprite(Object.assign({}, look || {}, { num }), cols, { x, y });
+    const D = { el, c, V, R: Pixel.renderer(c, V), me: mk(X.meLook, X.meNum, us.colors, 192, 162), df: mk(X.defLook, X.defNum, them.colors, 192, 124), cam: { x: 192, y: 115, z: 1.35 }, camT: { x: 192, y: 115, z: 1.35 }, t0: performance.now(), last: performance.now(), input: null, alive: true, touch };
+    D.R.E.hype = .5; D.me.hasBall = true;
+    const kd = e => { const m = { ArrowLeft: 'L', KeyA: 'L', ArrowRight: 'R', KeyD: 'R', Space: 'T', Enter: 'T' }[e.code]; if (m && D.input && !el.querySelector('.dv-tut')) { e.preventDefault(); D.input(m); } };
+    addEventListener('keydown', kd);
+    el.querySelectorAll('.dv-key').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); D.input && D.input(b.dataset.d); }));
+    const stage = el.querySelector('.dv-stage'); let sx = 0;
+    stage.addEventListener('pointerdown', e => { sx = e.clientX; if (D.tapAny && D.input && !e.target.closest('.dv-tut')) D.input('T'); });
+    stage.addEventListener('pointerup', e => { const dx = e.clientX - sx; if (Math.abs(dx) > 30 && D.input) D.input(dx > 0 ? 'R' : 'L'); });
+    const off = () => { removeEventListener('keydown', kd); mgOffs.delete(off); }; mgOffs.add(off); D.off = off;
+    const frame = now => { if (!D.alive || !el.isConnected) { off(); return; } const dt = Math.min(.05, (now - D.last) / 1000); D.last = now; try { drawDrive(D, dt); } catch (e) { console.error('drive', e); } requestAnimationFrame(frame); };
+    requestAnimationFrame(frame);
+    layer._drive = D; return D;
+  }
+  function drawDrive(D, dt) {
+    const { c, V, R, me, df } = D; D.t = (performance.now() - D.t0) / 1000; R.E.t = D.t;
+    const k = Math.min(1, dt * 5); for (const a of ['x', 'y', 'z']) D.cam[a] += (D.camT[a] - D.cam[a]) * k;
+    [me, df].forEach(p => {
+      if (p._lx != null && dt > 0) { p.vx = (p.x - p._lx) / dt; p.vy = (p.y - p._ly) / dt; } p._lx = p.x; p._ly = p.y;
+      const sp = Math.hypot(p.vx || 0, p.vy || 0); p.phase += sp * dt * .21; if (p.hasBall) p.dribT += dt / (sp > 12 ? .38 : .5);
+      if (p.act && !p.act.hold && p.act.T) { p.act.t += dt; if (p.act.t >= p.act.T) p.act = null; }
+    });
+    c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#05070d'; c.fillRect(0, 0, 256, 144);
+    const z = D.cam.z; c.setTransform(z, 0, 0, z, Math.round(128 - z * (D.cam.x + V.ox)), Math.round(72 - z * D.cam.y));
+    c.drawImage(V.bg, 0, 0); R.crowd(); c.save(); c.translate(V.ox, 0); R.hoop(false);
+    if (D.under) D.under(c);
+    [me, df].slice().sort((a, b) => a.y - b.y).forEach(p => R.player(p, { me: p === me }));
+    R.hoop(true); if (D.over) D.over(c); c.restore(); R.fx(dt); R.lights();
+    c.setTransform(1, 0, 0, 1, 0, 0); if (D.screen) D.screen(c);
+  }
+  const dvSay = (D, html, cls = '') => { const e = D.el.querySelector('.dv-say'); if (e.dataset.h === html) return; e.dataset.h = html; e.innerHTML = html.replace(/<small>/, '<small>'); e.className = 'dv-say' + (html ? ' on ' + cls : ''); };
+  const dvSub = (D, t) => { D.el.querySelector('.dv-sub').textContent = t || ''; };
+  const dvKeys = (D, on) => D.el.querySelectorAll('.dv-key').forEach(b => { b.classList.toggle('on', on.includes(b.dataset.d)); if (!on.length) b.classList.remove('hit'); });
+  const dvHit = (D, d) => { const b = D.el.querySelector(`.dv-key[data-d="${d}"]`); if (b) { b.classList.remove('hit'); void b.offsetWidth; b.classList.add('hit'); } };
+  const dvTimer = (D, f) => { const t = D.el.querySelector('.dv-timer'); t.firstChild.style.width = clamp(f, 0, 1) * 100 + '%'; t.classList.toggle('low', f < .3); };
+  const dvPhase = (D, p) => D.el.querySelectorAll('.dv-steps b').forEach(b => b.classList.toggle('on', b.dataset.p === p));
+  const dvDone = (D, p) => { const b = D.el.querySelector(`.dv-steps b[data-p="${p}"]`); if (b) b.classList.add('done'); };
+  const dvFb = async (D, text, good, ms = 700) => { const e = D.el.querySelector('.dv-fb'); e.textContent = text; e.className = 'dv-fb ' + (good ? 'good' : 'bad'); void e.offsetWidth; e.classList.add('on'); SFX.play(good ? 'good' : 'bad'); await sleep(ms); e.classList.remove('on'); };
+  function closeDrive(layer) { const D = layer && layer._drive; if (!D) return; layer._drive = null; D.alive = false; D.off && D.off(); D.el.classList.remove('in'); setTimeout(() => { D.el.remove(); if (!layer.children.length) layer.classList.remove('on'); }, 180); }
+  async function driveTutorial(D) {
+    let seen = false; try { seen = localStorage.getItem('hd_drive_tut') === '1'; } catch (e) { }
+    if (seen) return;
+    const k = D.touch ? ['◀ / ▶', '◀ then ▶', 'TAP'] : ['← / →', '← then →', 'SPACE'];
+    const box = document.createElement('div'); box.className = 'dv-tut';
+    box.innerHTML = `<h3>THE DRIVE</h3><ol>
+      <li><b>1 · READ</b> His lean, feet or reaching arm gives away the side he's covering. Go the <u>other</u> way: <kbd>${k[0]}</kbd></li>
+      <li><b>2 · STEP</b> Sometimes: hit <kbd>${k[1]}</kbd> as each footprint lights up under you.</li>
+      <li><b>3 · RELEASE</b> <kbd>${k[2]}</kbd> when the ring hits the green zone on the rim.</li></ol><button class="btn sm">GOT IT</button>`;
+    D.el.querySelector('.dv-card').appendChild(box); mgHold = true;
+    await new Promise(r => { const go = () => { removeEventListener('keydown', kk); r(); }; const kk = e => { if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); go(); } }; addEventListener('keydown', kk); box.querySelector('button').onclick = go; });
+    mgHold = false; try { localStorage.setItem('hd_drive_tut', '1'); } catch (e) { } box.remove();
   }
 
   const MG = {
@@ -686,89 +761,127 @@ const Match = (() => {
       });
     },
 
-    /* BLOW-BY — the defender gives away which side he overplays (lean / feet / reach / hips); attack the OTHER side.
-       o: { window (s), tell 0..1 (size), fake (chance of a fake tell first), cols: [them], mine: [us] } → { read: 'right'|'wrong'|'late', side, quality } */
+    /* THE DRIVE (layups), played on the real court with the game's sprites — one stage across three phases:
+       1 BLOW-BY  the defender shifts his weight, then gives away the side he covers (lean / reach / arrow at easy settings);
+                  go the OTHER way (← → / A D / swipe / on-screen keys) before the timer runs out → { read: 'right'|'wrong'|'late', quality }
+       2 GATHER   (sometimes) footprints light up on the floor one by one: ← then → on the beat → { clean, sloppy, travel }
+       3 RELEASE  you rise to the rim; press SPACE / tap when the ring hits the green zone at the rim → { quality, perfect, good }
+       o.ctx: { venue, us, them, meLook, meNum, defLook, defNum } */
     blowBy(layer, o = {}) {
-      const W = o.window || .8, amt = 1 + Math.round(clamp(o.tell == null ? .7 : o.tell, 0, 1) * 2), kind = pick(['lean', 'feet', 'reach', 'hips']);
-      const over = Math.random() < .5 ? -1 : 1, faked = Math.random() < (o.fake || 0), T_FAKE = faked ? .4 : 0, T_TELL = .45 + T_FAKE;   // over = side he overplays (-1 left / 1 right)
-      const [d0, d1] = o.cols || ['#1e3a8a', '#e5e7eb'], [m0] = o.mine || ['#f97316'];
-      const sh = mgShell(layer, o.title || 'BLOW-BY', 'Read his tell — attack the OTHER side. ◀ ▶ / A D, swipe, or tap', 'mg-blow');
-      sh.body.innerHTML = `<canvas class="pxc" width="160" height="112" style="width:300px;max-width:100%;aspect-ratio:160/112"></canvas><div class="timer"><i></i></div>
-        <div class="dpad two"><button data-d="L">◀ LEFT</button><button data-d="R">RIGHT ▶</button></div>`;
-      const cv = sh.body.querySelector('canvas'), c = cv.getContext('2d'), bar = sh.body.querySelector('.timer i'); c.imageSmoothingEnabled = false;
-      const P = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), w, h); };
-      return new Promise(res => {
-        const t0 = performance.now() + 250; let done = false, choice = null, chosenAt = 0, sx = 0;
-        const side = t => t < .45 ? 0 : faked && t < T_TELL ? -over : over;   // what the tell shows right now
-        const input = d => { if (done || choice != null) return; const t = (performance.now() - t0) / 1000; if (t < .45) return;   // no tell yet: ignore mashing
-          choice = d === 'L' ? -1 : 1; chosenAt = t; SFX.play('squeak'); };
-        const offK = dirInput(d => (d === 'L' || d === 'R') && input(d));
-        sh.body.querySelectorAll('.dpad button').forEach(b => b.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); input(b.dataset.d); }));
-        const pdown = e => { sx = e.clientX; }, pup = e => { const dx = e.clientX - sx; if (Math.abs(dx) > 30) input(dx > 0 ? 'R' : 'L'); };
-        sh.el.addEventListener('pointerdown', pdown); sh.el.addEventListener('pointerup', pup);
-        const finish = async (read, q) => { done = true; offK(); sh.el.removeEventListener('pointerdown', pdown); sh.el.removeEventListener('pointerup', pup);
-          SFX.play(read === 'right' ? 'whoosh' : 'bad'); await sh.close(read === 'right' ? 'BLOW BY!' : read === 'late' ? 'TOO SLOW — CUT OFF!' : 'CUT OFF!', read === 'right'); res({ read, side: choice, quality: q, faked, kind }); };
-        const draw = now => {
-          if (done) return; const t = (now - t0) / 1000, tl = side(t);
-          // read window counts from when the REAL tell shows
-          const left = choice != null ? 0 : t < T_TELL ? 1 : 1 - (t - T_TELL) / W; bar.style.width = clamp(left, 0, 1) * 100 + '%';
-          if (choice == null && t > T_TELL + W) { choice = 0; chosenAt = t; }
-          c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#c88e52'; c.fillRect(0, 0, 160, 112); for (let y = 0; y < 112; y += 4) P(0, y, 160, 1, '#b97f45');
-          P(50, 0, 60, 112, Pixel.shade(d0, -.1)); c.globalAlpha = .6; P(50, 0, 60, 112, '#c88e52'); c.globalAlpha = 1; P(50, 0, 1, 112, '#fef3c7'); P(109, 0, 1, 112, '#fef3c7');
-          // after the choice: a short burst past him (right) or he slides over (wrong)
-          const a = choice != null ? clamp((t - chosenAt) / .35, 0, 1) : 0, right = choice && choice === -over;
-          const dx = choice != null && !right ? (choice || over) * 6 * a : 0;
-          // DEFENDER (front view, 2× — over your shoulder) — the tell
-          c.save(); c.setTransform(2, 0, 0, 2, -80, -36);
-          const bx = 80 + dx + (kind === 'lean' ? tl * amt : 0), hx = 80 + dx + (kind === 'hips' ? tl * amt : 0), y0 = 20 + Math.round(Math.sin(t * 6) * .6);
-          P(bx - 4, y0, 8, 8, '#a86b43'); P(bx - 4, y0, 8, 2, '#1f2937'); P(bx - 2, y0 + 4, 1, 1, '#0a0a12'); P(bx + 1, y0 + 4, 1, 1, '#0a0a12');   // head
-          P(bx - 7, y0 + 9, 14, 13, d0); P(bx - 7, y0 + 9, 14, 2, d1);                          // jersey
-          P(hx - 7, y0 + 22, 14, 6, Pixel.shade(d0, -.25)); if (kind === 'hips' && tl) P(hx - 7 + (tl > 0 ? 9 : 0), y0 + 22, 5, 2, d1);   // shorts / hips
-          const reach = kind === 'reach' && tl ? 4 + amt * 2 : 0;
-          [-1, 1].forEach(sd => { const ext = sd === tl ? reach : 0; P(bx + sd * 7 + (sd < 0 ? -3 - ext : 0), y0 + 10 + (ext ? 2 : 0), 3 + ext, ext ? 3 : 9, '#a86b43'); });   // arms
-          [-1, 1].forEach(sd => { const fwd = kind === 'feet' && sd === tl ? amt * 2 : 0, out = kind === 'feet' && sd === tl ? amt : 0; P(hx + sd * 4 - 2 + sd * out, y0 + 28, 4, 9 + fwd, '#a86b43'); P(hx + sd * 4 - 3 + sd * out, y0 + 36 + fwd, 6, 3, '#f8fafc'); });
-          c.restore();
-          // YOU (back view, near the camera, a little left) with the ball
-          const yx = 62 + (choice != null ? (choice || 0) * (right ? 34 : 14) * a : 0), yy = 88 - (right ? a * 20 : 0);
-          P(yx - 9, yy, 18, 18, m0); P(yx - 5, yy - 9, 10, 9, '#4a2a19'); P(yx - 13, yy + 2, 4, 12, '#a86b43'); P(yx + 9, yy + 2, 4, 12, '#a86b43');
-          const bb = Math.abs(Math.sin(t * 9)) * 5; P(yx + 11, yy + 12 + bb, 6, 6, '#e8651b'); P(yx + 11, yy + 14 + bb, 6, 1, '#0a0a12');
-          if (right && a > 0) for (let i = 0; i < 6; i++) P(yx - choice * (12 + i * 6), yy + 2 + i * 3, 9, 1, 'rgba(255,255,255,.75)');
-          Pixel.text(c, t < .45 ? 'READ HIM…' : choice == null ? 'GO!' : '', 4, 3, '#111827', 1, 'left');
-          if (choice != null && t - chosenAt > .4) return finish(choice === 0 ? 'late' : right ? 'right' : 'wrong', right ? clamp(1 - (chosenAt - T_TELL) / W * .45, .5, 1) : 0);
-          requestAnimationFrame(draw);
+      const D = driveStage(layer, o), my = D.run = {}; dvPhase(D, 'read');
+      const W = o.window || .8, tell = clamp(o.tell == null ? .7 : o.tell, 0, 1), amt = 2 + tell * 6, arrow = tell >= .5, reach = tell >= .25;
+      const over = Math.random() < .5 ? -1 : 1, faked = Math.random() < (o.fake || 0), T_SHOW = .6, T_TELL = T_SHOW + (faked ? .45 : 0);
+      const me = D.me, df = D.df;
+      Object.assign(me, { x: 192, y: 162, z: 0, act: null, hasBall: true, face: 1 }); Object.assign(df, { x: 192, y: 124, z: 0, act: null, stance: true, face: -1 });
+      D.camT = { x: 192, y: 115, z: 1.35 }; D.under = D.screen = null; dvSub(D, o.sub);   // both players fit under the instruction band
+      return (async () => {
+        await driveTutorial(D);
+        dvSay(D, 'READ THE DEFENDER<small>GO THE OTHER WAY!</small>'); dvKeys(D, ['L', 'R']);
+        const t0 = performance.now(); let choice = null, at = 0, shown = 0;
+        const side = t => t < T_SHOW ? 0 : faked && t < T_TELL ? -over : over;   // the side his tell shows right now
+        D.input = d => { if (choice != null || d === 'T') return; const t = (performance.now() - t0) / 1000; if (t < T_SHOW - .1) return; choice = d === 'L' ? -1 : 1; at = t; dvHit(D, d); };
+        D.over = c => {   // easy reads: an arrow over his head shows where his weight is going
+          const t = (performance.now() - t0) / 1000, s2 = side(t); if (!s2 || !arrow || choice != null) return;
+          const x = Math.round(df.x + s2 * (13 + (t * 8 % 3))), y = Math.round(df.y - 22);   // beside his body, pointing where his weight is going
+          for (let i = 0; i < 3; i++) { const ax = x + s2 * i * 4; c.fillStyle = '#000'; c.fillRect(ax - 1, y - 4, 4, 9); c.fillStyle = i === 2 ? '#fecaca' : '#ef4444'; for (let j = -3; j <= 3; j++) c.fillRect(ax + s2 * (3 - Math.abs(j)), y + j, 2, 1); }
         };
-        requestAnimationFrame(draw);
-      });
+        for (;;) {
+          const t = (performance.now() - t0) / 1000, s2 = side(t);
+          df.x = 192 + Math.sin(t * 5) * (s2 ? .4 : 1.4) + s2 * amt; df.face = s2 || (Math.sin(t * 1.6) > 0 ? 1 : -1);   // shifting his weight, then the tell
+          df.act = s2 && reach ? { type: 'reach', t: .16, T: 9, hold: true } : null;
+          me.x = 192 + Math.sin(t * 2.3) * 2.5; me.face = Math.sin(t * 1.1) > -.6 ? 1 : -1;                         // you, sizing him up
+          if (s2 && s2 !== shown) { shown = s2; SFX.play('squeak', .6); }
+          dvTimer(D, t < T_TELL ? 1 : 1 - (t - T_TELL) / W);
+          if (choice == null && t > T_TELL + W) { choice = 0; at = t; }
+          if (choice != null) break;
+          await nextFrame(); if (D.run !== my) return Object.assign({}, MG_FALLBACK);
+        }
+        D.input = null; D.over = null; dvKeys(D, []); dvSay(D, '');
+        const right = choice === -over, q = right ? clamp(1 - (at - T_TELL) / W * .45, .5, 1) : 0, go = choice || over;
+        if (right) {   // burst past him
+          SFX.play('whoosh'); df.act = null;
+          await dvAnim(.42, k => { me.face = go; me.x = 192 + go * 22 * Math.min(1, k * 1.7); me.y = 162 - 50 * k; if (k > .3) df.act = { type: 'stumble', t: k - .3, T: .5, hold: true }; });
+          D.R.dust(me.x, me.y, 6);
+        } else {         // he slides over and cuts you off
+          SFX.play('impact'); D.R.dust(df.x, df.y, 6);
+          await dvAnim(.34, k => { df.x = 192 + go * 10 * k; df.y = 124 + 12 * k; me.x = 192 + go * 9 * k; me.y = 162 - 10 * k; df.act = { type: 'reach', t: .16, T: 9, hold: true }; });
+          me.act = { type: 'stumble', t: 0, T: .45 };
+        }
+        await dvFb(D, right ? 'BLOW BY!' : choice === 0 ? 'TOO SLOW — CUT OFF!' : 'CUT OFF!', right);
+        dvDone(D, 'read');
+        return { read: choice === 0 ? 'late' : right ? 'right' : 'wrong', side: choice, quality: q, faked };
+      })();
     },
-    /* GATHER STEP — two footprints: LEFT then RIGHT on the beat. Clean = bigger layup window, sloppy = smaller, a mess = maybe a travel.
-       o: { beat (s), tol (s) } → { clean, sloppy, travel, errs } */
     gatherStep(layer, o = {}) {
-      const beat = o.beat || .34, tol = o.tol || .12;
-      const sh = mgShell(layer, o.title || 'GATHER STEP', 'LEFT foot, then RIGHT foot — on the beat. ◀ then ▶ / A then D, or tap the steps', 'mg-gather');
-      sh.body.innerHTML = `<canvas class="pxc" width="160" height="64" style="width:320px;max-width:100%;aspect-ratio:5/2"></canvas><div class="dpad two"><button data-d="L">LEFT STEP</button><button data-d="R">RIGHT STEP</button></div>`;
-      const cv = sh.body.querySelector('canvas'), c = cv.getContext('2d'); c.imageSmoothingEnabled = false;
-      const P = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), w, h); };
-      return new Promise(res => {
-        const t0 = performance.now() + 450, want = ['L', 'R'], at = [beat, beat * 2], got = []; let done = false;
-        const input = d => { if (done || got.length >= 2) return; const t = (performance.now() - t0) / 1000; if (t < -.15) return; got.push({ d, t }); SFX.play(d === want[got.length - 1] ? 'squeak' : 'bad'); if (got.length === 2) setTimeout(end, 200); };
-        const offK = dirInput(d => (d === 'L' || d === 'R') && input(d));
-        sh.body.querySelectorAll('.dpad button').forEach(b => b.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); input(b.dataset.d); }));
-        const end = async () => { if (done) return; done = true; offK();
-          const errs = [0, 1].map(i => { const g = got[i]; return !g || g.d !== want[i] ? 9 : Math.abs(g.t - at[i]); });
-          const clean = errs.every(e => e <= tol), mess = errs.some(e => e > tol * 2.5), sloppy = !clean && !mess;
-          SFX.play(clean ? 'good' : 'bad'); await sh.close(clean ? 'CLEAN GATHER' : mess ? 'SLOPPY FEET!' : 'OFF-BEAT', clean); res({ clean, sloppy, travel: mess, errs }); };
-        const draw = now => {
-          if (done) return; const t = (now - t0) / 1000; if (t > beat * 2 + tol * 3 + .3) return end();
-          c.fillStyle = '#c88e52'; c.fillRect(0, 0, 160, 64); for (let y = 0; y < 64; y += 4) P(0, y, 160, 1, '#b97f45');
-          [0, 1].forEach(i => { const x = 50 + i * 44, y = i ? 18 : 30, g = got[i], hit = g && g.d === want[i] && Math.abs(g.t - at[i]) <= tol, near = Math.abs(t - at[i]) <= tol;
-            const col = g ? (hit ? '#4ade80' : '#f87171') : near ? '#facc15' : '#334155'; P(x, y, 9, 14, col); P(x + (i ? 6 : -2), y - 4, 4, 4, col); P(x + (i ? -2 : 6), y - 4, 4, 4, col);
-            Pixel.text(c, want[i], x + 4, y + 17, '#111827', 1, 'center');
-            const r = 5 + Math.max(0, at[i] - t) * 40; if (!g && t < at[i] + tol) { c.strokeStyle = '#ffffff'; c.lineWidth = 1; c.beginPath(); c.arc(x + 4, y + 7, r, 0, 7); c.stroke(); } });
-          Pixel.text(c, t < 0 ? 'READY' : 'STEP!', 80, 3, '#111827', 1, 'center');
-          requestAnimationFrame(draw);
+      const D = driveStage(layer, o), my = D.run = {}; dvPhase(D, 'step');
+      const beat = o.beat || .34, tol = o.tol || .12, me = D.me, df = D.df, x0 = me.x, y0 = me.y, dir = x0 >= 192 ? -1 : 1;
+      const F = [{ x: x0 + dir * 4 - 7, y: y0 - 17, k: 'L', at: beat }, { x: x0 + dir * 10 + 6, y: y0 - 34, k: 'R', at: beat * 2 }];   // ahead of you, left then right
+      D.camT = { x: (x0 + 192) / 2, y: y0 - 26, z: 1.7 }; dvSub(D, o.sub);
+      return (async () => {
+        dvSay(D, 'STEP! STEP!<small>LEFT, THEN RIGHT — ON THE BEAT</small>');
+        const t0 = performance.now() + 450, got = [];
+        const tNow = () => (performance.now() - t0) / 1000;
+        D.input = d => { if (d === 'T' || got.length >= 2) return; const t = tNow(); if (t < -.15) return; const i = got.length, ok = d === F[i].k && Math.abs(t - F[i].at) <= tol;
+          got.push({ d, t, ok }); dvHit(D, d); SFX.play(ok ? 'squeak' : 'bad', ok ? 1 : .6); const f = F[i], fx = me.x, fy = me.y; dvAnim(.14, k => { me.x = fx + (f.x - fx) * k; me.y = fy + (f.y - fy) * k; }); };
+        D.under = c => {   // the footprints, on the floor under you, lighting up one by one with their key
+          const t = tNow();
+          F.forEach((f, i) => { const g = got[i], near = !g && Math.abs(t - f.at) <= tol, lit = t >= f.at - .25;
+            const col = g ? (g.ok ? '#4ade80' : '#f87171') : near ? '#facc15' : lit ? '#fde68a' : 'rgba(226,232,240,.35)';
+            const x = Math.round(f.x), y = Math.round(f.y), m = f.k === 'L' ? -1 : 1;   // a sneaker print: sole + heel, outlined
+            c.fillStyle = '#0a0a12'; c.fillRect(x - 3, y - 6, 7, 5); c.fillRect(x - 2 + m, y - 9, 5, 4); c.fillRect(x - 2, y - 1, 5, 4);
+            c.fillStyle = col; c.fillRect(x - 2, y - 5, 5, 3); c.fillRect(x - 1 + m, y - 8, 3, 3); c.fillRect(x - 1, y, 3, 2);
+            if (near || (!g && lit)) { c.strokeStyle = near ? '#facc15' : 'rgba(253,230,138,.6)'; c.lineWidth = 1; c.beginPath(); c.ellipse(x + .5, y - 3, 8 + (near ? Math.sin(t * 30) : 0), 4, 0, 0, 7); c.stroke(); }
+            if (!g || near) Pixel.text(c, f.k, x + m * 9, y - 8, near ? '#facc15' : '#f8fafc', 1, 'center', '#000'); });
         };
-        requestAnimationFrame(draw);
-      });
+        for (;;) {
+          const t = tNow(); dvTimer(D, 1 - clamp(t / (beat * 2 + tol), 0, 1));
+          dvKeys(D, got.length === 0 ? (t > beat - .3 ? ['L'] : []) : got.length === 1 ? ['R'] : []);
+          df.x += ((x0 - dir * 16) - df.x) * .05; df.y += ((y0 - 36) - df.y) * .05; df.face = dir; df.act = { type: 'reach', t: .16, T: 9, hold: true };   // the help defender steps over from the rim side
+          if (got.length >= 2 || t > beat * 2 + tol * 3 + .3) break;
+          await nextFrame(); if (D.run !== my) return Object.assign({}, MG_FALLBACK);
+        }
+        D.input = null; dvKeys(D, []); dvSay(D, ''); await sleep(120);
+        const errs = [0, 1].map(i => { const g = got[i]; return !g || g.d !== F[i].k ? 9 : Math.abs(g.t - F[i].at); });
+        const clean = errs.every(e => e <= tol), mess = errs.some(e => e > tol * 2.5), travel = mess && Math.random() < (o.travel != null ? o.travel : .45);
+        if (travel) SFX.play('whistle');
+        await dvFb(D, clean ? 'CLEAN STEPS!' : travel ? 'TRAVEL!' : 'OFF-BEAT!', clean);
+        D.under = null; dvDone(D, 'step');
+        return { clean, sloppy: !clean && !travel, travel, errs };
+      })();
+    },
+    layupStep(layer, o = {}) {
+      const D = driveStage(layer, o), my = D.run = {}; dvPhase(D, 'rel');
+      const beat = o.beat || .34, win = clamp(o.win || .06, .025, .14), T = beat * 2, me = D.me, df = D.df;
+      const x0 = me.x, y0 = me.y, side = x0 >= 192 ? 1 : -1, tx = 192 + side * 7, ty = 70;
+      D.camT = { x: 192, y: 52, z: 1.35 }; D.tapAny = true; dvSub(D, o.sub); dvKeys(D, ['T']);   // the rim (and its release ring) high in the frame, you rising toward it
+      return (async () => {
+        dvSay(D, 'GET UP…', 'low');
+        const t0 = performance.now() + 450, tNow = () => (performance.now() - t0) / 1000; let tapAt = null;
+        D.input = d => { if (d !== 'T' || tapAt != null) return; const t = tNow(); if (t > -.1) { tapAt = t; dvHit(D, 'T'); } };
+        D.screen = c => {   // the release ring sits on the rim: green = good, bright band = perfect
+          const z = D.cam.z, rx = 128 + z * (192 - D.cam.x), ry = 72 + z * (PIX.hoop.y - PIX.hoop.z - D.cam.y), t = tNow(), R0 = 7;
+          c.strokeStyle = 'rgba(74,222,128,.35)'; c.lineWidth = Math.max(2, win * 120); c.beginPath(); c.arc(rx, ry, R0 + win * 30, 0, 7); c.stroke();
+          c.strokeStyle = '#4ade80'; c.lineWidth = 2; c.beginPath(); c.arc(rx, ry, R0, 0, 7); c.stroke();
+          c.strokeStyle = '#bbf7d0'; c.lineWidth = 1; c.beginPath(); c.arc(rx, ry, R0 + win * 15, 0, 7); c.stroke();
+          if (tapAt == null) { const r = R0 + Math.max(0, T - t) * 60; c.strokeStyle = '#ffffff'; c.lineWidth = 2; c.beginPath(); c.arc(rx, ry, Math.max(3, r), 0, 7); c.stroke(); }
+          Pixel.text(c, 'PERFECT', rx, ry + R0 + win * 30 + 4, '#4ade80', 1, 'center', '#000');
+        };
+        for (;;) {
+          const t = tNow(), k = clamp(t / T, 0, 1.2);
+          me.act = { type: 'layup', t: Math.min(.68, k * .6), T: .7, hold: true }; me.face = side;   // rise toward the rim
+          me.x = x0 + (tx - x0) * Math.min(1, k); me.y = y0 + (ty - y0) * Math.min(1, k); me.z = Math.sin(Math.min(1, k) * Math.PI / 2) * 20;
+          if (t >= T - win - .18) dvSay(D, 'RELEASE!', 'go low');
+          dvTimer(D, 1 - clamp(t / (T + win), 0, 1));
+          if (tapAt != null || t > T + win + .25) break;
+          await nextFrame(); if (D.run !== my) return Object.assign({}, MG_FALLBACK);
+        }
+        D.input = null; D.tapAny = false; dvKeys(D, []); dvSay(D, '');
+        const e = tapAt == null ? 1 : Math.abs(tapAt - T), perfect = e <= win * .5, good = e <= win;
+        const q = good ? 1 - e / win * .35 : clamp(.55 - (e - win) / (win * 3), 0, .5);
+        await dvFb(D, tapAt == null ? 'TOO LATE' : perfect ? 'PERFECT RELEASE!' : good ? 'GOOD TOUCH' : tapAt < T ? 'TOO EARLY' : 'TOO LATE', good, 600);
+        dvDone(D, 'rel'); closeDrive(layer);
+        return { quality: q, perfect, good, success: good };
+      })();
     },
 
     /* 5. DEFENSE REACTION — read the attacker's move and mirror it */
@@ -886,7 +999,7 @@ const Match = (() => {
      MG_LIMIT seconds of visible time; its card is removed and its key / pointer listeners are released. */
   const MG_LIMIT = { freeThrow: 150 }, MG_FALLBACK = { success: false, quality: .35, perfect: false, good: false, hits: 0, total: 3, made: 0, result: 'late', read: 'late', clean: false, sloppy: true, travel: false };
   let mgActive = null;
-  const busyElsewhere = () => !!(mgActive || document.querySelector('.arc, .cs:not(.cs-hl), #panel .talk'));
+  const busyElsewhere = () => !!(mgActive || document.querySelector('.arc, .cs:not(.cs-hl), .tkc'));
   function guardMG(name, fn, layer, o) {
     if (mgActive) mgActive.kill('another minigame started');
     return new Promise(res => {
@@ -896,7 +1009,7 @@ const Match = (() => {
         if (why) { console.warn(`minigame ${name}: ${why}`); clean(); } if (!silent) res(v || Object.assign({}, MG_FALLBACK)); };
       const tok = { name, kill: why => end(null, why, true) }; mgActive = tok;
       const onErr = e => { if (/\/js\/match\.js/.test(e.filename || '')) end(null, 'error: ' + e.message); }; addEventListener('error', onErr);
-      const iv = setInterval(() => { if (!document.hidden && ++secs > (MG_LIMIT[name] || 25)) end(null, 'timed out'); }, 1000);
+      const iv = setInterval(() => { if (!document.hidden && !mgHold && ++secs > (MG_LIMIT[name] || 25)) end(null, 'timed out'); }, 1000);
       try { Promise.resolve(fn(layer, o)).then(v => end(v), e => end(null, 'error: ' + (e && e.message))); } catch (e) { end(null, 'error: ' + e.message); }
     });
   }
@@ -1248,13 +1361,15 @@ const Match = (() => {
         // 1) BLOW-BY read → 2) sometimes a GATHER STEP → 3) the layup release (js/balance.js BALANCE.layup)
         const LB = BALANCE.layup, BB = LB.blowBy, D = opp(U), hs = (Balance.eff(ME.handle) + Balance.eff(ME.speed)) / 2 / 99, pdK = Math.max(0, ((DEF.perD || oppR) + diffShift - 50) / 49);
         busy(setup, '🎮 Read your man');
-        const r1 = await MG.blowBy($('mg'), { window: lerp(BB.window[0], BB.window[1], hs) * WIN() * MGX('comboTime'), tell: clamp(lerp(BB.tell[0], BB.tell[1], hs) - pdK * BB.perD * .5, .1, 1),
+        const DCTX = { venue: court.venueId, us: cfg.us, them: cfg.them, meLook: U.look, meNum: s.player.num, defLook: D && D.look, defNum: D && D.num };
+        const r1 = await MG.blowBy($('mg'), { ctx: DCTX, sub: `Handles ${ME.handle} · Speed ${ME.speed} vs Perimeter D ${DEF.perD || oppR}`, window: lerp(BB.window[0], BB.window[1], hs) * WIN() * MGX('comboTime'), tell: clamp(lerp(BB.tell[0], BB.tell[1], hs) - pdK * BB.perD * .5 - (s.difficulty === 'hof' ? BB.hofTell || .2 : 0), .1, 1),   // ≥ .5 shows the arrow; Hall of Fame and good defenders hide it
           fake: (cfg.them && cfg.them.star) || st.takeover > 0 ? BB.fakeStar : BB.fake, cols: cfg.them.colors, mine: cfg.us.colors });
         let contest = (o.extra && o.extra.contest) || 'normal';
         if (r1.read === 'right') { contest = 'open'; cnt('blowbys'); court.pop('BLOW BY!', U.x, U.y, 8, '#4ade80', 30); pbp(`💨 ${myName} reads ${escH(D ? D.short : 'him')} and blows by.`, 'good'); }
         else {
           const w = BB.cutOff, r = Math.random() * (w.contested + w.charge + w.steal), out = r < w.contested ? 'contested' : r < w.contested + w.charge && r1.read === 'wrong' ? 'charge' : r < w.contested + w.charge ? 'contested' : 'steal';
           court.pop('CUT OFF!', U.x, U.y, 8, '#f87171', 30);
+          if (out !== 'contested') closeDrive($('mg'));
           if (out === 'charge') { idle(); st.box.to++; cnt('chargesOn'); SFX.play('whistle'); await court.drive(U, D ? D.x : 0, (D ? D.y : 10) + 1.5, .35); if (D) court.act(D, 'sit', .9); await banner('<small>OFFENSIVE FOUL</small>CHARGE!', 'loss', 1000); pbp(`${myName} runs right into ${escH(D ? D.short : 'the defender')}. Charge.`, 'bad'); fail(); return false; }
           if (out === 'steal') { idle(); st.box.to++; if (D && D.box) D.box.stl++; if (D) await court.steal(D, U); pbp(`${escH(D ? D.short : 'The defender')} cuts you off and pokes it loose.`, 'bad'); fail(); return false; }
           contest = 'heavy'; pbp(`${escH(D ? D.short : 'The defender')} cuts you off. Tough finish ahead.`, 'bad');
@@ -1263,14 +1378,14 @@ const Match = (() => {
         let gk = 1; const gch = LB.gather.chance + (contest === 'heavy' || contest === 'contested' ? LB.gather.contested : 0) + (sit === 'post' || o.extra && o.extra.help ? LB.gather.help : 0);
         if (Math.random() < gch) {
           busy(setup, '🎮 Gather step'); cnt('gathers');
-          const g = await MG.gatherStep($('mg'), { beat: LB.gather.beat, tol: LB.gather.tol * WIN() });
-          if (g.travel && Math.random() < LB.gather.travel) { idle(); st.box.to++; cnt('travels'); SFX.play('whistle'); await banner('<small>VIOLATION</small>TRAVELING', 'loss', 1000); pbp(`${myName} shuffles the feet on the gather. Travel.`, 'bad'); fail(); return false; }
+          const g = await MG.gatherStep($('mg'), { ctx: DCTX, beat: LB.gather.beat, tol: LB.gather.tol * WIN(), travel: LB.gather.travel, sub: contest === 'heavy' ? 'Cut off — help is coming' : 'Help defender waiting' });
+          if (g.travel) { closeDrive($('mg')); idle(); st.box.to++; cnt('travels'); SFX.play('whistle'); await banner('<small>VIOLATION</small>TRAVELING', 'loss', 1000); pbp(`${myName} shuffles the feet on the gather. Travel.`, 'bad'); fail(); return false; }
           gk = g.clean ? LB.gather.clean : g.sloppy || g.travel ? LB.gather.sloppy : 1;
         }
         if (contest !== ((o.extra && o.extra.contest) || 'normal')) o = Object.assign({}, o, { pct: calc(o.action, Object.assign({}, o.extra, { contest })).pct });
         busy(setup, '🎮 Finish');
         const ck = { open: 1.2, normal: 1, contested: .8, heavy: .65 }[contest];
-        const r2 = await MG.layupStep($('mg'), { win: (.035 + Balance.eff(ME.finish) / 99 * .06) * WIN() * ck * gk, beat: .36 - Balance.eff(ME.speed) / 99 * .06, sub: `Finishing ${ME.finish}${ck < 1 ? ' · cut off' : ck > 1 ? ' · open lane' : ''}${gk > 1 ? ' · clean gather' : gk < 1 ? ' · sloppy gather' : ''}` });
+        const r2 = await MG.layupStep($('mg'), { ctx: DCTX, win: (.035 + Balance.eff(ME.finish) / 99 * .06) * WIN() * ck * gk, beat: .36 - Balance.eff(ME.speed) / 99 * .06, sub: `Finishing ${ME.finish}${ck < 1 ? ' · cut off' : ck > 1 ? ' · open lane' : ''}${gk > 1 ? ' · clean gather' : gk < 1 ? ' · sloppy gather' : ''}` });
         q = r1.quality * .4 + r2.quality * .6; perfect = !!r2.perfect; kind = 'layup';
         cnt('fastbreaks', sit === 'break' ? 1 : 0);
       } else if (o.k === 'dunk') {
@@ -1540,10 +1655,69 @@ const Match = (() => {
     const refId = cfg.level === 'street' ? null : pick(['ref_dawkins', 'ref_vance', 'ref_ortiz']);
     const rivalId = star.name === 'Kai Sterling' ? 'kai' : pick(['hothead', 'iceman', 'showman']);
     const TMATE = () => US.filter(p => !p.isUser).sort((a, b) => (b.rating || 0) - (a.rating || 0))[0], mateId = pick(['mate_vet', 'mate_hype']);
-    const talkLook = id => { const P = TK && TK.personalities[id]; if (!P) return null; if (P.kind === 'rival') return STAR.look; if (P.kind === 'mate') return TMATE() ? TMATE().look : Art.lookFromSeed(id, P.look || {}); if (P.char && STORY.characters[P.char]) return UI.charLook(P.char); return Art.lookFromSeed(P.name || id, P.look || {}); };
+    const talkLook = id => { const P = TK && TK.personalities[id]; if (!P) return null; if (P.kind === 'rival') return Object.assign({}, STAR.look, { jersey: cfg.them.colors[0], trim: cfg.them.colors[1], outfit: 'jersey' }); if (P.kind === 'mate') return TMATE() ? TMATE().look : Art.lookFromSeed(id, P.look || {}); if (P.char && STORY.characters[P.char]) return UI.charLook(P.char); return Art.lookFromSeed(P.name || id, P.look || {}); };
     const talkName = id => { const P = TK.personalities[id]; return P.kind === 'rival' ? STAR.full : P.kind === 'mate' ? (TMATE() ? TMATE().full || TMATE().name : 'Teammate') : P.char && STORY.characters[P.char] ? STORY.characters[P.char].name : P.name || 'Coach'; };
     /* ask for a conversation at the next dead ball (with probability p) */
     function queueTalk(type, p = 1, topic) { if (!TK || st.talkQ || st.done || st.talkN >= ((BALANCE.talk && BALANCE.talk.perGame) ?? 1) || Math.random() > p) return; if (type === 'coach' && !coachId) return; if (type === 'ref' && !refId) return; st.talkQ = { type, topic }; if (type === 'coach' && typeof Cutscene !== 'undefined') Cutscene.prep(talkLook(coachId)); }
+    /* =================================================================
+       IN-GAME DIALOGUE AS A MINI CUTSCENE — the game pauses, the camera pushes in, letterbox bars slide in and the
+       background dims. You and the other person face off in big 16-bit portraits (expressions change as you talk);
+       the speaker lights up, lines type out, and the choices + gauge sit in the letterbox bars (never on the faces).
+       ================================================================= */
+    const STYLE_EXPR = { ego: 'fierce', brag: 'fierce', needle: 'fierce', joke: 'smile', calm: 'determined', respect: 'determined', honest: 'determined', effort: 'determined', team: 'smile', specific: 'determined', humble: 'neutral', excuse: 'sad', argue: 'angry', insult: 'angry', sarcasm: 'smile' };
+    function zoomCourt(to, ms) { return new Promise(res => { const z0 = court.zoom, t0 = performance.now(); const f = now => { const k = Math.min(1, (now - t0) / ms); court.zoom = z0 + (to - z0) * EASE.io(k); if (k < 1 && court.alive) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); }); }
+    async function talkScene(o) {
+      const meLook = Object.assign({}, U.look || {}, { num: s.player.num, jersey: cfg.us.colors[0], trim: cfg.us.colors[1], outfit: 'jersey' }), PH = 112;
+      const el = document.createElement('div'); el.className = 'tkc';
+      el.innerHTML = `<div class="tkc-dim"></div>
+        <div class="tkc-bar top"><b class="tkc-title">${escH(o.title)}</b><div class="tk-gauge${o.ego ? ' ego' : ''}"><span>${o.gaugeLabel}</span><div class="tk-bar"><i style="width:${Math.min(100, o.g)}%"></i></div><em class="tk-delta"></em></div></div>
+        <div class="tkc-stage">
+          <div class="tkc-p me"><span class="tkc-tag">${escH(s.player.first + ' ' + s.player.last)}</span><canvas></canvas></div>
+          <div class="tkc-box"><b class="tkc-who"></b><p class="tkc-line"></p><i class="tkc-more">▼</i></div>
+          <div class="tkc-p them"><span class="tkc-tag">${escH(o.name)}<small>${escH(o.trait || '')}</small></span><canvas></canvas></div>
+        </div>
+        <div class="tkc-bar bot"><div class="tkc-opts mp-opts"></div></div>`;
+      document.body.appendChild(el);
+      const q = sel => el.querySelector(sel), side = { me: { el: q('.tkc-p.me'), look: meLook, cur: null }, them: { el: q('.tkc-p.them'), look: o.look || meLook, cur: null } };
+      const frames = async (who, expr) => { try { return await Promise.race([Cutscene.portrait(side[who].look, expr, 'bust', PH), sleep(2500).then(() => null)]); } catch (e) { return null; } };
+      const paint = (who, frame) => { const S = side[who], F = S.cur && S.cur[frame]; if (!F) return; const cv = S.el.querySelector('canvas'); if (cv.width !== F.cv.width) { cv.width = F.cv.width; cv.height = F.cv.height; } const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(F.cv, 0, 0); };
+      const expr = async (who, e) => { const f = await frames(who, e); if (f) { side[who].cur = f; paint(who, 'base'); } };
+      // in: pause + push in, bars slide, portraits slide in from the sides
+      court.stopT = 99; const z0 = court.zoom; SFX.crowd.duck(true); SFX.play('whoosh');
+      await Promise.all([expr('me', 'neutral'), expr('them', o.startExpr || 'neutral')]);
+      requestAnimationFrame(() => el.classList.add('in')); zoomCourt(1.45, 450);
+      let blinkT = 0; const blinker = setInterval(() => { ['me', 'them'].forEach(w => { if (!side[w].talking && Math.random() < .12) { paint(w, 'blink'); setTimeout(() => !side[w].talking && paint(w, 'base'), 120); } }); }, 400);
+      await sleep(380);
+      let skipLine = false; q('.tkc-box').addEventListener('pointerdown', () => { skipLine = true; });
+      const api = {
+        /* one line, typewriter style; the speaker lights up and talks */
+        async say(who, text, e, voice) {
+          beat(); if (e) await expr(who, e);
+          el.querySelectorAll('.tkc-p').forEach(p => p.classList.toggle('spk', p === side[who].el)); el.classList.toggle('me-spk', who === 'me');
+          q('.tkc-who').textContent = who === 'me' ? s.player.first.toUpperCase() : o.name.toUpperCase(); q('.tkc-who').className = 'tkc-who ' + who;
+          const line = q('.tkc-line'); line.textContent = ''; q('.tkc-more').classList.remove('on'); skipLine = false; side[who].talking = true;
+          for (let i = 1; i <= text.length; i++) {
+            if (skipLine || !el.isConnected) { line.textContent = text; break; }
+            line.textContent = text.slice(0, i); if (i % 2 === 0 && /[a-z0-9]/i.test(text[i - 1])) { SFX.play('blip', voice); paint(who, (i / 2) % 2 ? 'talk' : 'base'); }
+            await sleep(26);
+          }
+          side[who].talking = false; paint(who, 'base'); q('.tkc-more').classList.add('on'); beat();
+        },
+        /* the reply choices (keys 1–3 or tap) — returns the index */
+        ask(opts) {
+          const box = q('.tkc-opts'); box.innerHTML = opts.map((t, i) => `<button class="opt talk-opt" data-i="${i}"><kbd>${i + 1}</kbd><span class="opt-l">${escH(t)}</span></button>`).join(''); box.classList.add('on');
+          return waitInput((res) => { const kd = e => { const n = parseInt(e.key, 10); if (n >= 1 && n <= opts.length) res(n - 1); }; addEventListener('keydown', kd); box.querySelectorAll('.talk-opt').forEach(b => b.onclick = () => res(+b.dataset.i)); return () => removeEventListener('keydown', kd); })
+            .then(i => { box.querySelectorAll('.talk-opt').forEach((b, j) => { b.disabled = true; if (j === i) b.classList.add('picked'); }); setTimeout(() => box.classList.remove('on'), 250); return i; });
+        },
+        face: (who, e) => expr(who, e),
+        gauge(g, delta, good) { const bar = q('.tk-bar i'), dl = q('.tk-delta'); bar.style.width = Math.min(100, g) + '%'; dl.textContent = delta; dl.className = 'tk-delta ' + (good ? 'good' : 'bad'); void dl.offsetWidth; dl.classList.add('pop'); el.classList.remove('hit-good', 'hit-bad'); void el.offsetWidth; el.classList.add(good ? 'hit-good' : 'hit-bad'); },
+        async close() {
+          clearInterval(blinker); el.classList.remove('in'); el.classList.add('out'); await zoomCourt(z0 || 1, 420);
+          el.remove(); court.stopT = 0; SFX.crowd.duck(false); beat();
+        },
+      };
+      return api;
+    }
     async function talk(type, topic, pre) {   // pre = the short pre-game talk (doesn't count toward the in-game limit)
       const id = type === 'coach' ? coachId : type === 'ref' ? refId : type === 'mate' ? mateId : rivalId, P = TK.personalities[id]; if (!P) return;
       if (pre) cnt('pretalks'); else { st.talkN++; st.talkAt = st.i; cnt('talks'); }
@@ -1551,26 +1725,25 @@ const Match = (() => {
       const nEx = pre ? script.length : clamp(script.length - (Math.random() < .35 ? 1 : 0), 2, 4), ego = P.kind === 'rival';
       let g = ego ? 100 : P.start, backfires = 0, ended = false;
       const look = talkLook(id), name = talkName(id), first = properName(s.player.first), fillT = t => t.replace(/\{first\}/g, first).replace(/\{last\}/g, myName).replace(/\{num\}/g, s.player.num);
-      const face = async expr => { const svg = Art.avatar(Object.assign({}, look, { expr }), { mode: 'portrait' }); const cv = await Pixel.pixelate(svg, 68, 84); const box = document.querySelector('.tk-face'); if (box) { const c2 = document.createElement('canvas'); c2.width = 68; c2.height = 84; c2.getContext('2d').drawImage(cv, 0, 0); box.innerHTML = ''; box.appendChild(c2); } };
-      const head = () => `<div class="tk-head"><div class="tk-face"></div><div class="tk-who"><b>${escH(name)}</b><small>${escH(P.trait)}</small><div class="tk-gauge ${ego ? 'ego' : ''}"><span>${ego ? 'EGO' : P.kind === 'mate' ? 'TRUST' : 'PATIENCE'}</span><div class="tk-bar"><i style="width:${g}%"></i></div><em class="tk-delta"></em></div></div></div>`;
-      const p = $('panel'); SFX.crowd.duck(true);
-      for (let k = 0; k < nEx && !ended; k++) {
-        const ex = script[k], opts = ex.opts.slice().sort(() => Math.random() - .5);
-        p.innerHTML = `<div class="talk">${head()}<div class="tk-line">“${escH(fillT(ex.say))}”</div><div class="mp-opts">${opts.map((o, i) => `<button class="opt talk-opt" data-i="${i}"><kbd>${i + 1}</kbd><span class="opt-l">${escH(fillT(o[1]))}</span></button>`).join('')}</div></div>`;
-        p.classList.add('show'); p.classList.remove('busy'); face(k === 0 && type !== 'rival' ? 'neutral' : type === 'rival' ? 'smile' : 'neutral'); SFX.play('blip', { f: type === 'ref' ? 160 : type === 'rival' ? 330 : 140, w: 'square', g: .04 });
-        const pickI = await waitInput((res, off) => { const kd = e => { const n = parseInt(e.key, 10); if (n >= 1 && n <= opts.length) res(n - 1); }; addEventListener('keydown', kd); p.querySelectorAll('.talk-opt').forEach(b => b.onclick = () => res(+b.dataset.i)); return () => removeEventListener('keydown', kd); });
-        const style = opts[pickI][0], v = Math.round((P.styles[style] || 0) + rnd(-3, 3)), good = v > 0;
-        if (ego) g = clamp(g - v, 0, 130); else g = clamp(g + v, 0, 100); if (!good) backfires++;
-        const bar = p.querySelector('.tk-bar i'), dl = p.querySelector('.tk-delta'); if (bar) bar.style.width = Math.min(100, g) + '%'; if (dl) { dl.textContent = (ego ? (good ? '−' : '+') : (good ? '+' : '−')) + Math.abs(v); dl.className = 'tk-delta ' + (good ? 'good' : 'bad'); }
-        const line = p.querySelector('.tk-line'); if (line) { line.textContent = '“' + pick(good ? P.good : P.bad) + '”'; line.classList.add(good ? 'good' : 'bad'); }
-        p.querySelectorAll('.talk-opt').forEach((b, i) => { b.disabled = true; if (i === pickI) b.classList.add(good ? 'right' : 'wrong'); });
-        SFX.play(good ? 'good' : 'bad'); await face(ego ? (good ? 'angry' : 'smile') : (good ? 'smile' : 'angry'));
-        await sleep(1100);
-        if (v <= TK.endAt || (!ego && g <= 0)) ended = true;   // the wrong thing ends it early
-      }
+      const voice = { f: type === 'ref' ? 160 : type === 'rival' ? 330 : type === 'mate' ? 240 : 140, w: 'square', g: .035 }, myVoice = { f: 280, w: 'square', g: .03 };
+      const tag = pre ? 'PRE-GAME' : type === 'coach' ? 'TIMEOUT' : type === 'ref' ? 'DEAD BALL' : type === 'rival' ? 'FACE-OFF' : 'HUDDLE';
+      const T = await talkScene({ title: `${tag} · ${name}`, name, trait: P.trait, look, ego, g, gaugeLabel: ego ? 'EGO' : P.kind === 'mate' ? 'TRUST' : 'PATIENCE', startExpr: type === 'rival' ? 'smile' : 'neutral' });
+      try {
+        for (let k = 0; k < nEx && !ended; k++) {
+          const ex = script[k], opts = ex.opts.slice().sort(() => Math.random() - .5);
+          await T.say('them', fillT(ex.say), type === 'rival' ? 'smile' : type === 'ref' && k ? 'determined' : null, voice);
+          const pickI = await T.ask(opts.map(o2 => fillT(o2[1])));
+          const style = opts[pickI][0], v = Math.round((P.styles[style] || 0) + rnd(-3, 3)), good = v > 0;
+          await T.say('me', fillT(opts[pickI][1]), STYLE_EXPR[style] || 'determined', myVoice);
+          if (ego) g = clamp(g - v, 0, 130); else g = clamp(g + v, 0, 100); if (!good) backfires++;
+          T.gauge(g, (ego ? (good ? '−' : '+') : (good ? '+' : '−')) + Math.abs(v), good); SFX.play(good ? 'good' : 'bad');
+          await T.say('them', pick(good ? P.good : P.bad), ego ? (good ? 'angry' : 'smile') : (good ? 'smile' : 'angry'), voice);
+          T.face('me', good ? 'smile' : 'shocked'); await sleep(700);
+          if (v <= TK.endAt || (!ego && g <= 0)) ended = true;   // the wrong thing ends it early
+        }
+      } finally { await T.close(); }
       idle();
       /* ---------- outcomes ---------- */
-      SFX.crowd.duck(false);
       if (pre) {   // small pre-game effects
         if (type === 'rival') { if (g <= 60) { st.rattled = 1; pbp(`😤 ${escH(STAR.short)} looked rattled before tip-off.`, 'good'); } else if (backfires >= 2) { st.shaken = 1; pbp(`${escH(STAR.short)} got the last word before tip-off.`, 'bad'); } else pbp(`${escH(STAR.short)} smirks and jogs off.`); }
         else if (!ended && g >= 60) { st.nextBonus = { label: type === 'mate' ? 'Chemistry' : 'Game plan', v: type === 'mate' ? 3 : 4 }; pbp(type === 'mate' ? `🤝 ${escH(name)} is locked in with you. (+3% next play)` : `📣 ${escH(name)} likes your answer. (+4% next play)`, 'good'); }
@@ -2060,6 +2233,7 @@ const Match = (() => {
         if (!st.inSeg) { document.querySelectorAll('.arc').forEach(e => e.remove()); document.body.classList.remove('arc-open'); }
         court.tweens.length = 0; court.stopT = 0; court.timeScale = 1; court.zoom = 1; court.kick = 0;   // the stuck moment's animations are dropped (never resumed)
         court.players.forEach(p => { p.anim = null; p.pose = ''; p.moving = false; p.z = 0; }); court.ball.holder = U; court.ball.show = true; court.ball.z = 3;
+        document.querySelectorAll('.tkc').forEach(e => e.remove());
         $('banner').className = 'court-banner'; if (SFX.crowd && SFX.crowd.reset) SFX.crowd.reset();
         formation('us'); idle(); updBug(); pbp('Play resets.', 'sys');
       } catch (e) { console.error('recover', e); }
@@ -2082,8 +2256,6 @@ const Match = (() => {
       if (st.talkQ && st.talkAt < i) {   // dead ball: a quick conversation (huddle or face-off first)
         const q = st.talkQ; st.talkQ = null; formation('us');
         await guardMoment(async () => {
-          if (q.type === 'coach') { const cl = talkLook(coachId); await court.mini('huddle', 'TIMEOUT', { look: cl, name: talkName(coachId), force: true }); }
-          if (q.type === 'rival') await court.mini('faceoff', 'FACE-OFF', { look2: STAR.look, name2: STAR.full, colors2: cfg.them.colors, force: true });
           await talk(q.type, q.topic || (q.type === 'coach' ? pick(['play', 'minutes']) : null));
         }, 'talk'); updBug();
         if (st.done) break;

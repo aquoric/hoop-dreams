@@ -95,12 +95,13 @@ const BALANCE = {
   /* ---------- LAYUP DRIVES: read → (gather) → release ----------
      blowBy: the defender shows a tell (lean / feet / reach / hips) toward the side he overplays — attack the other side.
        window: seconds to pick a side (Ball Handling + Speed move it from low to high end, × difficulty window)
-       tell:   tell size 0..1 (Handling + Speed raise it; the defender's Perimeter D shrinks it by perD × how far above 50 he is)
+       tell:   tell size 0..1 (Handling + Speed raise it; the defender's Perimeter D shrinks it by perD × how far above 50 he is;
+               Hall of Fame takes hofTell off). At .5+ an arrow over his head shows the lean; below that only his body gives it away.
        fakeStar / fake: chance a star / anyone shows a fake tell first. cutOff: what a wrong or late read turns into.
      gather: chance per layup (+contested when cut off or contested, +help when the help defender is waiting),
        beat = seconds per step, tol = timing tolerance, clean/sloppy = layup window multiplier, travel = chance a bad gather is a travel */
   layup: {
-    blowBy: { window: [.55, 1.05], tell: [.4, 1], perD: .9, fakeStar: .35, fake: .08, cutOff: { contested: .55, charge: .2, steal: .25 } },
+    blowBy: { window: [.55, 1.05], tell: [.45, 1], perD: .9, hofTell: .2, fakeStar: .35, fake: .08, cutOff: { contested: .55, charge: .2, steal: .25 } },
     gather: { chance: .22, contested: .3, help: .15, beat: .34, tol: .12, clean: 1.35, sloppy: .75, travel: .45 },
   },
   others: { mate: 1.6, opp: 1.3, weaponUse: .5, star: { heatAt: 2, takeover: 3, bonus: 6, askGuard: .7 } },

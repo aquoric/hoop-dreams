@@ -958,6 +958,38 @@ body.fs[data-screen=match] .pbp .pbp-list { max-height: none; min-height: 0; }
 body.fs[data-screen=match] .box-live { overflow: auto; min-height: 0; flex: 1; }
 body.fs[data-screen=match] .corner { bottom: auto; top: 8px; right: auto; left: 8px; }
 body.fs[data-screen=match] .corner .icon-btn { width: 30px; height: 30px; font-size: .8rem; }
+
+/* laptops / desktops (MacBook-sized windows with the browser bars showing): the same court-left, panel-right layout as fullscreen,
+   sized to the visible page so nothing needs scrolling — the decision choices always stay on screen */
+@media (min-width: 980px) and (min-aspect-ratio: 4/3) {
+  body[data-screen=match] .screen { overflow: hidden; padding: 0; }
+  body[data-screen=match] .match { max-width: none; height: 100vh; height: 100dvh; min-height: 0; padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); gap: 6px; display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(250px, 28vw, 360px); grid-template-rows: auto auto auto minmax(0, 1fr); grid-template-areas: "court sb" "court title" "court panel" "court pbp"; }
+  body[data-screen=match] .match-main { display: contents; }
+  body[data-screen=match] .scorebug { grid-area: sb; max-width: none; width: 100%; margin: 0; order: 0; }
+  body[data-screen=match] .sb-abbr { display: none; }
+  body[data-screen=match] .sb-score { font-size: 1.4rem; }   body[data-screen=match] .sb-team svg { width: 26px; height: 26px; }
+  body[data-screen=match] .match-title { grid-area: title; order: 0; align-self: stretch; text-align: center; border-radius: 0; padding: 3px 8px; font-size: .55rem; }
+  body[data-screen=match] .court-wrap { grid-area: court; order: 0; aspect-ratio: auto; width: 100%; height: 100%; max-height: none; min-height: 0; }
+  body[data-screen=match] .moment-panel { grid-area: panel; order: 0; min-height: 0; max-height: 58vh; max-height: 58dvh; overflow-y: auto; padding: 8px 10px; }
+  body[data-screen=match] .moment-panel:not(.show) { display: none; }
+  body[data-screen=match] .mp-opts { grid-template-columns: 1fr; gap: 5px; }
+  body[data-screen=match] .pbp { grid-area: pbp; order: 0; max-height: none; min-height: 0; overflow: hidden; padding: 8px; }
+  body[data-screen=match] .pbp .pbp-list { max-height: none; min-height: 0; }
+  body[data-screen=match] .box-live { overflow: auto; min-height: 0; flex: 1; }
+  body[data-screen=match] .corner { bottom: auto; top: 8px; right: auto; left: 8px; }
+  body[data-screen=match] .corner .icon-btn { width: 30px; height: 30px; font-size: .8rem; }
+  body[data-screen=match] .match { grid-template-columns: minmax(0, 1fr) clamp(300px, 27vw, 400px); }
+  body[data-screen=match] .moment-panel { max-height: none; overflow: visible; }
+  body[data-screen=match] .match-title { font-size: .6rem; }
+}
+@media (min-width: 980px) and (min-aspect-ratio: 4/3) and (max-height: 820px) {   /* shorter laptop windows: tighter panels, the feed shrinks first */
+  body[data-screen=match] .mp-opts .opt { padding: 6px 10px; }
+  body[data-screen=match] .mp-setup { font-size: 1.05rem; line-height: 1.05; margin-bottom: 6px; }
+  body[data-screen=match] .mp-hint { display: none; }
+  body[data-screen=match] .pbp .statline { display: none; }
+  body[data-screen=match] .sb-score { font-size: 1.3rem; }
+}
 @media (max-height: 520px) and (orientation: landscape) {   /* phones in landscape */
   body.fs[data-screen=match] .match { gap: 4px; grid-template-columns: minmax(0, 1fr) clamp(230px, 36vw, 320px); }
   body.fs[data-screen=match] .statline { display: none; }
@@ -986,3 +1018,100 @@ body.fs[data-screen=match] .corner .icon-btn { width: 30px; height: 30px; font-s
 .dpad.two { grid-template-columns: 1fr 1fr; width: min(320px, 100%); margin-left: auto; margin-right: auto; }
 .dpad.two button { font-size: .72rem; letter-spacing: .06em; height: 46px; }
 .mg-blow .timer, .mg-gather .timer { margin-top: 6px; }
+
+/* ---------- IN-GAME DIALOGUE AS A MINI CUTSCENE (coach / ref / rival / teammate, pre-game too) ----------
+   letterbox bars slide in (title + gauge on top, the reply choices at the bottom), the court dims and pushes in,
+   two big pixel portraits face off on either side of the dialogue box — nothing ever covers the faces. */
+.tkc { position: fixed; inset: 0; z-index: 95; display: flex; flex-direction: column; --bar: clamp(46px, 10vh, 96px); user-select: none; -webkit-user-select: none; }
+.tkc-dim { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 58%, rgba(3, 5, 12, .4), rgba(3, 5, 12, .86)); opacity: 0; transition: opacity .35s; }
+.tkc.in .tkc-dim { opacity: 1; }
+.tkc-bar { position: relative; z-index: 3; flex: none; background: #000; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 clamp(10px, 3vw, 44px); transition: transform .38s cubic-bezier(.2, .9, .2, 1); }
+.tkc-bar.top { height: var(--bar); transform: translateY(-105%); border-bottom: 3px solid #1e293b; }
+.tkc-bar.bot { min-height: var(--bar); transform: translateY(105%); border-top: 3px solid #1e293b; padding-top: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom)); justify-content: center; }
+.tkc.in .tkc-bar { transform: none; }
+.tkc.out .tkc-bar.top { transform: translateY(-105%); } .tkc.out .tkc-bar.bot { transform: translateY(105%); } .tkc.out .tkc-dim { opacity: 0; } .tkc.out .tkc-stage { opacity: 0; transition: opacity .25s; }
+.tkc-title { font-family: var(--px); font-size: clamp(.58rem, 1.3vw, .82rem); color: #facc15; letter-spacing: .12em; text-shadow: 2px 2px 0 #7c2d12; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tkc .tk-gauge { width: min(360px, 44vw); margin: 0; font-size: clamp(.5rem, 1.1vw, .66rem); }
+.tkc .tk-bar { height: 14px; }
+.tk-delta.pop { animation: tkPop .5s steps(4); }
+@keyframes tkPop { 0% { transform: scale(2.2); } 100% { transform: scale(1); } }
+.tkc-stage { position: relative; z-index: 2; flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 1.35fr) minmax(0, 1fr); align-items: end; gap: clamp(6px, 2vw, 28px); padding: 10px clamp(8px, 3vw, 44px) 0; }
+.tkc-p { position: relative; min-height: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; filter: brightness(.42) saturate(.65); transition: transform .45s cubic-bezier(.2, .9, .2, 1.15), filter .25s; }
+.tkc-p.me { transform: translateX(-130%); } .tkc-p.them { transform: translateX(130%); }
+.tkc.in .tkc-p { transform: none; }
+.tkc.in .tkc-p.spk { filter: none; transform: translateY(-6px) scale(1.04); }
+.tkc-p canvas { display: block; height: min(100% - 34px, 48vh, 380px); width: auto; image-rendering: pixelated; image-rendering: crisp-edges; filter: drop-shadow(4px 4px 0 rgba(0, 0, 0, .6)); }
+.tkc-tag { font-family: var(--px); font-size: clamp(.5rem, 1.1vw, .7rem); letter-spacing: .1em; color: #cbd5e1; background: #0b0f1c; border: 2px solid #1e293b; padding: 3px 8px; margin-bottom: 6px; text-align: center; max-width: 100%; }
+.tkc-tag small { display: block; font-family: var(--pxb); font-size: .95em; letter-spacing: 0; color: #94a3b8; text-transform: none; }
+.tkc-p.spk .tkc-tag { color: #000; background: #facc15; border-color: #000; }
+.tkc-box { position: relative; align-self: end; margin-bottom: clamp(10px, 3vh, 34px); background: #0b0f1c; border: 3px solid #e2e8f0; box-shadow: 0 0 0 3px #000, 6px 6px 0 #000; padding: 12px 16px 14px; min-height: 104px; cursor: pointer; }
+.tkc.in .tkc-box { animation: tkBox .3s steps(3); }
+@keyframes tkBox { from { transform: scaleY(0); } to { transform: none; } }
+.tkc-who { display: inline-block; font-family: var(--px); font-size: .62rem; letter-spacing: .12em; padding: 2px 8px; margin: -24px 0 6px; background: #93c5fd; color: #000; border: 2px solid #000; }
+.tkc-who.me { background: #facc15; }
+.tkc-line { margin: 0; font-family: var(--pxb); font-size: clamp(1.15rem, 2.1vw, 1.65rem); line-height: 1.08; color: #f8fafc; }
+.tkc-more { position: absolute; right: 10px; bottom: 6px; font-style: normal; font-size: .7rem; color: #facc15; opacity: 0; }
+.tkc-more.on { opacity: 1; animation: tkBlink .8s steps(2) infinite; }
+@keyframes tkBlink { 50% { opacity: 0; } }
+.tkc-opts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; max-width: 1100px; opacity: 0; transform: translateY(8px); transition: opacity .15s, transform .15s; pointer-events: none; }
+.tkc-opts.on { opacity: 1; transform: none; pointer-events: auto; }
+.tkc-opts .opt { flex: 1 1 220px; max-width: 360px; display: flex; align-items: center; gap: 8px; text-align: left; padding: 8px 12px; background: #111827; color: #f8fafc; border: 3px solid #334155; box-shadow: 3px 3px 0 #000; font-family: var(--pxb); font-size: clamp(1rem, 1.6vw, 1.25rem); line-height: 1.05; cursor: pointer; }
+.tkc-opts .opt:hover:not(:disabled) { border-color: #facc15; background: #1f2937; }
+.tkc-opts .opt kbd { font-family: var(--px); font-size: .6rem; background: #facc15; color: #000; padding: 3px 6px; border: 2px solid #000; }
+.tkc-opts .opt.picked { border-color: #facc15; background: #422006; }
+.tkc-opts .opt:disabled:not(.picked) { opacity: .35; }
+.tkc.hit-bad .tkc-p.me { animation: tkShake .3s steps(4); }
+.tkc.hit-good .tkc-p.them { animation: tkShake .3s steps(4); }
+@keyframes tkShake { 25% { translate: -6px 0; } 50% { translate: 5px 0; } 75% { translate: -3px 0; } }
+@media (max-width: 640px) and (orientation: portrait) {   /* phones held upright: portraits on top, the dialogue box under them */
+  .tkc-stage { grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr) auto; grid-template-areas: "me them" "box box"; align-items: end; }
+  .tkc-p.me { grid-area: me; } .tkc-p.them { grid-area: them; } .tkc-box { grid-area: box; margin-bottom: 10px; min-height: 86px; }
+  .tkc-p canvas { height: min(100% - 34px, 30vh); }
+  .tkc-opts { flex-direction: column; } .tkc-opts .opt { max-width: none; flex: none; }
+  .tkc-bar.top { flex-direction: column; justify-content: center; gap: 4px; } .tkc .tk-gauge { width: 90vw; }
+}
+@media (max-height: 520px) and (orientation: landscape) { .tkc { --bar: 40px; } .tkc-p canvas { height: min(100% - 28px, 52vh); } .tkc-box { min-height: 70px; padding: 8px 12px; } .tkc-opts .opt { padding: 5px 8px; } }
+
+/* ---------- THE DRIVE (layup read → steps → release) on the real court ----------
+   big instructions on the stage, pulsing key icons beside the action, a timer bar, punchy feedback, a 1-card tutorial */
+.mg-drive { padding: 6px; container-type: size; }
+.mg-drive .dv-card { width: min(680px, 100cqw - 12px, (100cqh - 92px) * 16 / 9 + 26px); max-width: none; max-height: 100%; padding: 8px 10px 8px; display: flex; flex-direction: column; gap: 5px; overflow: hidden; }
+.dv-steps { display: flex; justify-content: center; gap: 6px; font-family: var(--px); font-size: .55rem; letter-spacing: .08em; }
+.dv-steps b { padding: 2px 8px; background: #111827; color: #64748b; border: 2px solid #000; }
+.dv-steps b.on { background: #facc15; color: #000; } .dv-steps b.done { color: #4ade80; } .dv-steps b.done.on { color: #000; }
+.dv-stage { position: relative; width: 100%; aspect-ratio: 16 / 9; border: 3px solid #000; box-shadow: 0 0 0 2px #1e293b; background: #05070d; overflow: hidden; }
+.dv-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+.dv-say { position: absolute; left: 0; right: 0; top: 5%; text-align: center; font-family: var(--px); font-weight: 700; font-size: clamp(.85rem, 2.6vw, 1.45rem); line-height: 1.1; color: #fff; text-shadow: 3px 3px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000; pointer-events: none; opacity: 0; }
+.dv-say.on { opacity: 1; animation: dvIn .22s steps(3); }
+.dv-say small { display: block; margin-top: 4px; font-size: .62em; color: #facc15; letter-spacing: .06em; }
+.dv-say.go { color: #4ade80; font-size: clamp(1.1rem, 3.6vw, 2rem); animation: dvPulse .35s steps(2) infinite; }
+@keyframes dvIn { from { transform: scale(1.6); } to { transform: none; } }   /* scale only: text can never get stuck invisible */
+.dv-key { position: absolute; bottom: 12%; min-width: clamp(44px, 9%, 70px); padding: 6px 8px 4px; font-family: var(--px); color: #f8fafc; background: #111827; border: 3px solid #000; box-shadow: 3px 3px 0 #000; opacity: 0; transform: scale(.85); transition: opacity .12s; cursor: pointer; touch-action: manipulation; line-height: 1; }
+.dv-key b { display: block; font-size: clamp(1rem, 2.6vw, 1.5rem); }
+.dv-key small { display: block; margin-top: 2px; font-size: .5rem; color: #94a3b8; }
+.dv-key.l { left: 7%; } .dv-key.r { right: 7%; }
+.dv-key.c { left: 50%; bottom: auto; top: 30%; translate: -50% 0; }
+.dv-key.on { opacity: 1; transform: none; border-color: #facc15; animation: dvPulse .55s steps(2) infinite; }
+.dv-key.hit { background: #facc15; color: #000; animation: none; }
+@keyframes dvPulse { 50% { transform: scale(1.12); box-shadow: 0 0 0 3px #facc15, 3px 3px 0 #000; } }
+.mg-drive.touch .dv-key { min-width: 22%; padding: 10px 8px 6px; bottom: 8%; }
+.mg-drive.touch .dv-key.l { left: 3%; } .mg-drive.touch .dv-key.r { right: 3%; }
+.dv-fb { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--px); font-weight: 700; font-size: clamp(1.3rem, 5vw, 2.6rem); text-shadow: 4px 4px 0 #000, -2px -2px 0 #000; pointer-events: none; opacity: 0; }
+.dv-fb.good { color: #4ade80; } .dv-fb.bad { color: #f87171; }
+.dv-fb.on { opacity: 1; animation: dvFb .5s steps(4); }
+@keyframes dvFb { 0% { transform: scale(2.4); } 45% { transform: scale(.92); } 100% { transform: none; } }
+.dv-timer { width: 100%; margin: 0; height: 10px; } .dv-timer.low i { background: #ef4444; }
+.dv-sub { font-family: var(--pxb); font-size: 1rem; line-height: 1; color: #94a3b8; min-height: 1em; }
+.dv-tut { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 12px 16px; background: rgba(5, 7, 13, .95); text-align: left; overflow: auto; }
+.dv-tut h3 { margin: 0; font-family: var(--px); font-size: .9rem; color: #facc15; text-align: center; letter-spacing: .12em; }
+.dv-tut ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-family: var(--pxb); font-size: clamp(1rem, 2vw, 1.25rem); line-height: 1.1; color: #e2e8f0; }
+.dv-tut li b { font-family: var(--px); font-size: .6rem; color: #000; background: #facc15; padding: 2px 6px; margin-right: 6px; }
+.dv-tut kbd { font-family: var(--px); font-size: .6rem; padding: 2px 6px; background: #1e293b; border: 2px solid #000; color: #fff; }
+.dv-tut button { align-self: center; }
+.dv-key b, .dv-tut kbd { font-family: var(--pxb); }   /* the pixel caps font has no arrow glyphs */
+.dv-tut kbd { font-size: 1.05rem; padding: 0 6px; }
+.dv-key b { font-size: clamp(1.4rem, 3.4vw, 2.1rem); line-height: .9; }
+.mg-layer.on ~ .fs-offer { display: none; }   /* never on top of a minigame */
+.dv-say { top: 3%; font-size: clamp(.8rem, 2.3vw, 1.3rem); }
+.dv-say.low { top: auto; bottom: 7%; left: auto; right: 4%; text-align: right; }
+.dv-key.c { left: auto; right: 16%; top: 6%; translate: none; }   /* beside the rim, not on top of you */
