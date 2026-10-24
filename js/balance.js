@@ -94,6 +94,20 @@ const BALANCE = {
     clutch: 1.5,                                   // per 10 Clutch points above/below 50 — only in clutch time
     fire: 6,                                       // On Fire
   },
+  /* ---------- PERFECT RELEASES ----------
+     A perfect (green) release on a shot is worth a lot: it replaces the shot's % with `curve` (by distance in
+     feet: rim → mid → three → deep → halfcourt), never lower than the normal % + `floor`. Contests still bite
+     (× contested / heavy). Free throws use `ft`. Arcade contests cut a perfect shot by only `arcadeCut` of
+     the usual amount. Good-but-not-perfect timing moves the normal % by (quality − .5) × skill × `goodK`;
+     bad timing by × `badK` (much lower). `ai`: the chance any other player's shot is a perfect release
+     (× .6–1.4 by his shooting stat), so teammates and opponents get greens too.
+     SHOTS: the actions this applies to (blocks, passes, steals… keep the plain formula). */
+  perfect: {
+    curve: [[0, 94], [10, 93], [16, 92], [21, 90], [22, 89], [24, 87], [26, 80], [27, 70], [30, 64], [35, 44], [40, 28], [44, 18], [60, 15]],
+    ft: 98, floor: 8, contested: .84, heavy: .8, arcadeCut: .45, goodK: .4, badK: 1.8, ai: .09, max: 99,
+    shots: ['catch3', 'pull3', 'catchMid', 'pullMid', 'fade', 'hook', 'layup', 'jelly', 'dunk', 'ft', 'touch'],
+  },
+
   /* ---------- WEAPONS (signature moves — see WEAPONS in js/data-game.js) ----------
      pct = base + (weapon stats − defender stats) × k + your level × perLevel + (rank − 1) × perRank + rarity bonus,
      using ONLY the stats listed on the weapon (weights) and the defender stats in `def` for its type.
@@ -123,7 +137,17 @@ const BALANCE = {
      coach asks you to guard him (askGuard = chance per defensive moment while he's hot). */
   // in-game conversations (coach / ref / rival): at most this many per game, only after something meaningful
   // (an opponent run, three misses in a row, a bad call, ankles broken, the star taking over)
-  talk: { perGame: 1 },
+  talk: { perGame: 1, every: 3 },
+  /* ---------- SUMMER JAM (3x3 with choice moments inside the live game) ----------
+     first: total points before the first choice moment · every: points between them · max: choice moments (+ the clutch one)
+     closeBy / lateBy: the clutch moment comes when it's within closeBy and someone is within lateBy of the target
+     plans: the game plan before each round → bonuses for you (us) and against them (them), per action or `all` */
+  jam: { first: [4, 7], every: [6, 9], max: 4, closeBy: 3, lateBy: 4,
+    plans: {
+      run:  { name: 'Run and gun', us: { layup: 4, dunk: 4, catch3: -1, pull3: -1 }, them: { all: 1 } },
+      slow: { name: 'Slow it down', us: { catchMid: 3, pullMid: 3, catch3: 2, pull3: 2, layup: -1 }, them: { all: -2 } },
+      lock: { name: 'Lock in on D', us: { all: -1 }, them: { all: -4 } },
+    }, practice: 2 },   // in-game conversations: at most one per game, in about one game out of `every`
   /* ---------- LAYUP DRIVES: read → (gather) → release ----------
      blowBy: the defender shows a tell (lean / feet / reach / hips) toward the side he overplays — attack the other side.
        window: seconds to pick a side (Ball Handling + Speed move it from low to high end, × difficulty window)
@@ -306,9 +330,18 @@ const Balance = (() => {
   /* the perfect window at this distance (× of the normal one) */
   function greenAt(dist) { const D = BALANCE.distance, G = D.green; if (dist == null) return 1; return clamp(G[0] - (G[0] - G[1]) * Math.pow(clamp(dist / D.heave, 0, 1), G[2] || 1), G[1], G[0]); }
   /* Minigame performance moves the result. quality 0..1 (0.5 = neutral). */
-  function apply(action, base, quality, dist) {
-    const A = BALANCE.actions[action] || { skill: 30 }, D = BALANCE.distance, far = dist != null && dist >= 27;
-    const p = base + ((quality == null ? .5 : quality) - .5) * A.skill * (far ? .6 : 1);   // timing matters less on heaves…
+  /* o: { perfect, contest: 'open'|'normal'|'contested'|'heavy' } — a perfect release on a shot uses BALANCE.perfect */
+  function perfectPct(action, base, dist, contest) {
+    const PF = BALANCE.perfect, D = BALANCE.distance;
+    let p = action === 'ft' ? PF.ft : curveAt(PF.curve, dist != null ? dist : (D.byAction[action] != null ? D.byAction[action] : 3));
+    p *= contest === 'heavy' ? PF.heavy : contest === 'contested' ? PF.contested : 1;
+    return Math.round(clamp(Math.max(p, (base || 0) + PF.floor), 1, PF.max));
+  }
+  function apply(action, base, quality, dist, o = {}) {
+    const A = BALANCE.actions[action] || { skill: 30 }, D = BALANCE.distance, far = dist != null && dist >= 27, PF = BALANCE.perfect, shot = PF && PF.shots.includes(action);
+    const q = quality == null ? .5 : quality;
+    if (shot && (o.perfect || q >= .999)) return perfectPct(action, base, dist, o.contest);   // a GREEN: most of them go in
+    const p = base + (q - .5) * A.skill * (far ? .6 : 1) * (shot ? (q < .5 ? PF.badK : PF.goodK) : 1);   // timing matters less on heaves…
     if (dist != null && dist >= D.heave) return Math.round(clamp(p, 1, D.heaveMax * 2));    // …and halfcourt stays a prayer
     return Math.round(clamp(p, far ? 1 : BALANCE.minPct, BALANCE.maxPct));
   }
@@ -316,7 +349,7 @@ const Balance = (() => {
   /* "Three-Point 72 · vs Perimeter D 58 +10% · Contested −8%" */
   function describe(parts) { return parts.map(x => x.v == null ? x.label : `${x.label} ${x.v > 0 ? '+' : '−'}${Math.abs(x.v)}%`).join(' · '); }
 
-  return { pct, apply, roll, profile, userStats, available, describe, eff, blend, curveAt, greenAt };
+  return { pct, apply, perfectPct, roll, profile, userStats, available, describe, eff, blend, curveAt, greenAt };
 })();
 
 /* ---------- named players: stats with a style + their weapons ---------- */

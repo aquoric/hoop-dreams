@@ -158,11 +158,31 @@ const Arcade = (() => {
       /* ---------- setup ---------- */
       function resetP(p) { p.z = 0; p.vz = 0; p.vx = 0; p.vy = 0; p.stun = 0; p.act = null; p.goal = null; p.burst = 0; p.slide = 0; p.celebNext = null; p.bumpTo = null; }
       function giveBall(p) { ball.state = 'held'; ball.owner = p; ball.shot = null; ball.pass = null; p.catchT = G.time; }
+      /* back from a choice moment: its points, whose ball, a street call or a matchup */
+      function applyBreak(r) {
+        G.inBreak = false; root.classList.remove('hold'); document.body.classList.add('arc-open'); last = performance.now();
+        if (r.pts) { [0, 1].forEach(t => { if (r.pts[t]) { G.score[t] += r.pts[t]; $('ahS' + t).textContent = G.score[t]; } }); }
+        if (r.guard) G.myMatch = players.find(q => q.team !== me.team && q.name === r.guard) || null;
+        if (G.score[0] >= target || G.score[1] >= target) { G.resume = null; return endSoon({}, .6); }
+        const nx = r.next != null ? r.next : G.resume ? G.resume.next : 0; G.resume = null; setupHalf(nx); G.paused = false;
+        if (r.call && nx === me.team) applyCall(r.call);
+        if (r.banner) pop(r.banner, '#fde68a', true);
+      }
+      /* street calls: they set up the next possession */
+      function applyCall(call) {
+        const mates = teamOf(me.team).filter(q => q !== me), corners = [[A.court.x0 + 30, A.hoop.y + 40], [A.court.x1 - 30, A.hoop.y + 40], [A.hoop.x, 196]];
+        G.call = call;
+        if (call === 'give' && mates[0]) { giveBall(mates[0]); mates[0].giveGo = 5; me.callT = 6; me.callB = 6; tag('GIVE IT — CUT!', me, '#86efac'); }
+        else if (call === 'iso') { mates.forEach((q, i) => { q.x = corners[i % 3][0]; q.y = corners[i % 3][1]; q.goal = { x: q.x, y: q.y }; }); me.callT = 8; me.callB = 5; G.noHelp = 8; tag('ISO — CLEAR SIDE!', me, '#86efac'); }
+        else if (call === 'hot') { const hot = mates.slice().sort((a, b) => b.box.pts - a.box.pts)[0]; if (hot) { giveBall(hot); hot.callT = 8; hot.callB = 7; tag('FEED ' + hot.short.toUpperCase(), hot, '#86efac'); } }
+        else if (call === 'clear') { mates.forEach((q, i) => { q.x = corners[(i + 1) % 3][0]; q.y = corners[(i + 1) % 3][1]; }); me.callT = 8; me.callB = 3; G.noHelp = 8; tag('CLEAR OUT!', me, '#86efac'); }
+      }
       function setupHalf(off) {
-        G.off = off; G.clock = SEGM ? SEG.clock : PACE.shotClock; G.mustClear = false;
+        G.off = off; G.call = null; players.forEach(q => { q.callT = 0; }); G.clock = SEGM ? SEG.clock : PACE.shotClock; G.mustClear = false;
         const O = teamOf(off), D = teamOf(1 - off);
         O.forEach((p, i) => { const sp = A.spots[i] || A.spots[0]; resetP(p); p.x = sp[0] + rnd(-4, 4); p.y = sp[1] + rnd(-3, 3); p.face = p.x < A.hoop.x ? 1 : -1; });
         D.forEach((p, i) => { const m = O[i] || O[0]; resetP(p); p.guard = m; p.x = lerp(m.x, A.hoop.x, .22); p.y = lerp(m.y, A.hoop.y, .22); p.face = m.x < p.x ? -1 : 1; });
+        if (D.includes(me) && G.myMatch && O.includes(G.myMatch) && me.guard !== G.myMatch) { const other = D.find(q => q.guard === G.myMatch); if (other) { other.guard = me.guard; other.x = me.x; other.y = me.y; } me.guard = G.myMatch; me.x = lerp(G.myMatch.x, A.hoop.x, .22); me.y = lerp(G.myMatch.y, A.hoop.y, .22); }   // the matchup you picked
         O.forEach(p => p.guard = null);
         const h = O.includes(me) && !(SEGM && SEG.handler === 'mate' && O.length > 1) ? me : O.find(p => p !== me) || O[0]; h.x = 192; h.y = 168; giveBall(h);
         ball.lastPasser = null;
@@ -215,6 +235,8 @@ const Arcade = (() => {
         if (p.wpn && p.wpn.t > 0 && Weapons.fits(p.wpn.id, action)) out.push({ label: WEAPONS[p.wpn.id].name, v: WA.bonus + (p.wpn.rank - 1) * WA.perRank });
         if (BREAK && p.team === 0 && ['layup', 'dunk', 'catchMid', 'pullMid', 'catch3', 'pull3'].includes(action)) out.push({ label: 'Fast break', v: 6 });
         if (p.duoT > 0 && p.duoB) out.push({ label: 'Duo move', v: p.duoB });
+        if (p.callT > 0 && p.callB) out.push({ label: 'Street call', v: p.callB });
+        const md = cfg.mods && cfg.mods[p.team]; if (md) { const v = md[action] != null ? md[action] : md.all; if (v) out.push({ label: md.label || 'Game plan', v }); }
         if (easeShot && p.team === me.team && ['layup', 'dunk', 'catchMid', 'pullMid', 'catch3', 'pull3', 'move'].includes(action)) out.push({ label: 'Early career', v: easeShot });
         return out;
       };
@@ -350,8 +372,11 @@ const Arcade = (() => {
       const greenFX = (heave) => { if (heave) { pop('HALFCOURT GREEN!!!', '#4ade80', true); RD.confetti(220); SFX.play('roar'); SFX.play('stinger'); G.slowT = 1.2; G.zoomT = 1; impact(.3, 14, .6, .12, '74,222,128'); logLine(`${me.name} hits a GREEN from halfcourt!`); }
         pop('GREEN!', '#4ade80', true); if (typeof Match !== 'undefined' && Match.green) Match.green(); else SFX.play('green'); G.flash = Math.max(G.flash, .25); G.flashCol = '74,222,128'; };
       const contestK = p => ({ open: 1.15, normal: 1, contested: .8, heavy: .65 }[contestFor(p)] || 1);   // defenders shrink the release window
+      /* a perfect release: contests cut it only a little (BALANCE.perfect.arcadeCut); other players hit greens too */
+      const perfCut = (q, cut) => q >= .999 ? 1 - (1 - cut) * BALANCE.perfect.arcadeCut : cut;
+      const aiGreen = (p, stat) => Math.random() < BALANCE.perfect.ai * (.6 + Balance.eff(stat || 50) / 99 * .8);
       function releaseQuality(p, err, stat, wide = 1) {
-        if (p !== me) return clamp(aiFor(p).shotQ + rnd(-.22, .22), 0, 1);
+        if (p !== me) return aiGreen(p, stat) ? 1 : clamp(aiFor(p).shotQ + rnd(-.22, .22), 0, .97);
         const win = (.05 + Balance.eff(stat) / 99 * .09) * WINDOW * wide * contestK(p) * Balance.greenAt(p.act && p.act.sc ? p.act.sc.ft : null);   // smaller from far out
         if (err < win * .35) { tag('PERFECT', p, '#86efac'); SFX.play('good'); return 1; }   // green comes only if it goes in
         return clamp(1 - err / (win * 3), 0, 1);
@@ -415,7 +440,7 @@ const Arcade = (() => {
         noteShot(p, sc, sc.action);
         const ct = contest(p, 'shot'); if (ct.block) { p.box.fga++; if (sc.three) p.box.tpa++; G.lastShooter = p; return blocked(ct.by, p); }
         showContest(p, ct);
-        const pct = Balance.apply(sc.action, sc.pct, q, sc.ft) * cutBy(ct, 'shot'), made = Math.random() * 100 < pct;
+        const pct = Balance.apply(sc.action, sc.pct, q, sc.ft) * perfCut(q, cutBy(ct, 'shot')), made = Math.random() * 100 < pct;
         const res = made ? (q > .8 || Math.random() < .55 ? 'swish' : 'rimin') : (q < .15 && sc.dh > 70 && Math.random() < .5 ? 'airball' : Math.random() < .55 ? 'rimout' : 'back');
         const hand = p.hand || { x: p.x + p.face * 3, y: p.y - p.z - 32 };
         ball.owner = null; ball.state = 'shot';
@@ -485,7 +510,7 @@ const Arcade = (() => {
         if (SEGM) { const bz = SEG.untilClock && G.clock <= 0; if (bz) { pop('AT THE BUZZER!!', '#fde047', true); RD.confetti(120); if (p.team === me.team) highlight('winner', me, 'AT THE BUZZER!', 350); } return endSoon({ end: foul ? 'foul' : 'score', foul: foul ? { shots: 1, team: p.team } : null, pts, scorer: p, dunk: kind === 'dunk', buzzer: bz }, 1.1); }
         if (foul) { G.score[p.team] += 1; p.box.pts += 1; $('ahS' + p.team).textContent = G.score[p.team]; }
         if (G.score[0] >= target || G.score[1] >= target) return endSoon({}, 1.2);
-        G.paused = 'score'; G.resume = { at: G.time + PACE.afterScore + .35, fn: () => setupHalf(1 - p.team) };   // loser's ball (sim time: waits through hit-stops + close-ups)
+        G.paused = 'score'; G.resume = { at: G.time + PACE.afterScore + .35, next: 1 - p.team, fn: () => setupHalf(1 - p.team) };   // loser's ball (sim time: waits through hit-stops + close-ups)
       }
       function changePossession(team, why, by) {
         if (SEGM) return endSoon({ end: G.off === 0 ? 'to' : 'stop' }, .9);
@@ -738,7 +763,8 @@ const Arcade = (() => {
           p.goal = { x: A.hoop.x + (def && def.x > p.x ? -12 : 12), y: A.hoop.y + 14 }; return;
         }
         const sc = shotChance(p);
-        if (dh < A.layupRange || sc.pct >= AI.shootAt + rnd(0, 6) || (openness(p) > 28 && sc.pct >= AI.shootAt - 8) || G.clock < 2.2) { p.wantShoot = true; return; }   // good shots only — deep ones when the clock is dying
+        const sty = (cfg.teams[p.team] || {}).style, adj = sty === 'inside' && sc.three ? 8 : sty === 'shooters' && sc.three ? -5 : sty === 'pace' ? -2 : 0;   // the other team's style
+        if (dh < A.layupRange || sc.pct >= AI.shootAt + adj + rnd(0, 6) || (openness(p) > 28 && sc.pct >= AI.shootAt - 8) || G.clock < 2.2) { p.wantShoot = true; return; }   // good shots only — deep ones when the clock is dying
         if (inFront && p.cool <= 0 && Math.random() < AI.moves) { doMove(p, Math.random() < .5 ? -p.face : p.face * .4, rnd(-.6, .2)); return; }
         if (open.length && Math.random() < .3) { aiWeapon(p, 'pass'); startPass(p, open.includes(me) && Math.random() < .5 ? me : pick(open)); return; }
         const laneClear = !def || (toHoop(def) > dh - 4) || Math.abs(def.x - p.x) > 14;
@@ -769,7 +795,7 @@ const Arcade = (() => {
           return;
         }
         const O = teamOf(1 - p.team), man = p.guard && O.includes(p.guard) ? p.guard : O[teamOf(p.team).indexOf(p)] || O[0];
-        if (h && h.team !== p.team && h !== man && toHoop(h) < 54 && Math.random() < AI.help) { p.goal = { x: lerp(h.x, A.hoop.x, .45), y: lerp(h.y, A.hoop.y, .45) + 4 }; return; }
+        if (h && h.team !== p.team && h !== man && toHoop(h) < 54 && !(G.noHelp > 0 && h === me) && Math.random() < AI.help) { p.goal = { x: lerp(h.x, A.hoop.x, .45), y: lerp(h.y, A.hoop.y, .45) + 4 }; return; }
         const k = h === man ? 11 : 20, d = Math.max(1, toHoop(man));
         p.goal = { x: man.x + (A.hoop.x - man.x) / d * k, y: man.y + (A.hoop.y - man.y) / d * k };
         if (h === man && dist(p, man) < 14 && Math.random() < AI.steal * .55) trySteal(p);
@@ -783,7 +809,12 @@ const Arcade = (() => {
       function update(dt) {
         G.time += dt;
         if (G.paused === true || G.over) return;
-        if (G.resume && G.time >= G.resume.at) { const f = G.resume.fn; G.resume = null; f(); G.paused = false; }
+        if (G.resume && G.time >= G.resume.at && !G.inBreak) {
+          const brk = !G.over && !G.pending && cfg.onBreak ? cfg.onBreak({ score: G.score.slice(), next: G.resume.next }) : null;   // a dead ball: the match may run a choice moment here
+          if (brk && brk.then) { G.inBreak = true; root.classList.add('hold'); document.body.classList.remove('arc-open');
+            brk.then(r => applyBreak(r || {}), () => applyBreak({})); }
+          else { const f = G.resume.fn; G.resume = null; f(); G.paused = false; }
+        }
         const frozen = typeof G.paused === 'string';     // after a basket / whistle: animations continue, play doesn't
         if (G.pending && G.time >= G.endAt) return finish(G.pending);
         // clocks
@@ -805,7 +836,7 @@ const Arcade = (() => {
         if (G.mustClear && ball.owner && ball.state === 'held' && isThree(ball.owner)) { G.mustClear = false; if (ball.owner === me) tag('CLEARED', me, '#86efac'); }
         const [six, siy] = stick();
         players.forEach(p => {
-          p.stealCD = Math.max(0, p.stealCD - dt); p.cool = Math.max(0, p.cool - dt); if (p.duoT > 0) p.duoT -= dt; if (p.giveGo > 0) p.giveGo -= dt; p.burst = Math.max(0, p.burst - dt); p.slide = Math.max(0, p.slide - dt);
+          p.stealCD = Math.max(0, p.stealCD - dt); p.cool = Math.max(0, p.cool - dt); if (p.duoT > 0) p.duoT -= dt; if (p.giveGo > 0) p.giveGo -= dt; if (p.callT > 0) p.callT -= dt; if (G.noHelp > 0 && p === me) G.noHelp -= dt; p.burst = Math.max(0, p.burst - dt); p.slide = Math.max(0, p.slide - dt);
           if (p.wpn) { p.wpn.t -= dt; if (p.wpn.t <= 0) p.wpn = null; }
           if (p.diveT > 0) { p.diveT = Math.max(0, p.diveT - dt); if (ball.state === 'loose') { const dx = ball.x - p.x, dy = ball.y - p.y, l = Math.hypot(dx, dy) || 1; p.bdx = dx / l; p.bdy = dy / l; } } if (p.diveCD > 0) p.diveCD = Math.max(0, p.diveCD - dt);
           if (p.stun > 0) p.stun = Math.max(0, p.stun - dt);
@@ -899,9 +930,9 @@ const Arcade = (() => {
               if (ct.block) { if (a.jelly && p === me) G.jellyBlocks = (G.jellyBlocks || 0) + 1; return blocked(ct.by, p); }
               showContest(p, ct); if (ct.foul) a.foul = true;
               if (a.jelly) { p.face = a.jelly.side * (A.hoop.x >= p.x ? 1 : -1) || -p.face; SFX.play('whoosh'); RD.ring(p.x, p.y - p.z - 30, '#fde68a', 40, .2); }   // the twist
-              const q = p === me ? (a.relT != null ? releaseQuality(p, Math.abs(a.relT - relAt), p.st.finish, 1.6) : .5) : clamp(aiFor(p).shotQ + rnd(-.2, .2), 0, 1);
+              const q = p === me ? (a.relT != null ? releaseQuality(p, Math.abs(a.relT - relAt), p.st.finish, 1.6) : .5) : aiGreen(p, p.st.finish) ? 1 : clamp(aiFor(p).shotQ + rnd(-.2, .2), 0, .97);
               const cutJ = a.jelly ? 1 - (ct.C || 0) * CT().cut.layup * JB.contestFactor : cutBy(ct, 'layup');
-              const made = Math.random() * 100 < Balance.apply(a.jelly ? 'jelly' : 'layup', a.sc.pct, q) * cutJ;
+              const made = Math.random() * 100 < Balance.apply(a.jelly ? 'jelly' : 'layup', a.sc.pct, q, 3) * perfCut(q, cutJ);
               ball.owner = null; ball.state = 'shot';
               const from = { x: p.x + p.face * 3, y: p.y, z: p.z + 34 };
               ball.shot = { by: p, from, to: { x: H.x, y: H.y, z: H.z + 1 }, t: 0, T: a.jelly ? .62 : .34, made, res: made ? (a.jelly || Math.random() < .5 ? 'swish' : 'rimin') : 'rimout', three: false, action: 'layup', peak: 6, foul: a.foul, green: p === me && q >= 1,
@@ -922,8 +953,8 @@ const Arcade = (() => {
               if (!a.chk && u > .4) { a.chk = true; const ct = a.ct = contest(p, 'dunk'); if (ct.block) { p.box.fga++; G.lastShooter = p; a.stuffed = true; blocked(ct.by, p); p.act = { type: 'jump', t: 0 }; p.vz = 0; return; } showContest(p, ct); if (ct.foul) a.foul = true; }
             } else if (!a.slammed) {
               a.slammed = true; p.box.fga++; G.lastShooter = p;
-              const q = p === me ? (a.relT != null ? releaseQuality(p, Math.abs(a.relT - .6), p.st.dunk, 2) : .55) : clamp(aiFor(p).shotQ + .1 + rnd(-.15, .15), 0, 1);
-              a.made = Math.random() * 100 < Balance.apply('dunk', a.sc.pct, q) * cutBy(a.ct || {}, 'dunk'); if (a.made && p === me && q >= 1) greenFX();
+              const q = p === me ? (a.relT != null ? releaseQuality(p, Math.abs(a.relT - .6), p.st.dunk, 2) : .55) : aiGreen(p, p.st.dunk) ? 1 : clamp(aiFor(p).shotQ + .1 + rnd(-.15, .15), 0, .97);
+              a.made = Math.random() * 100 < Balance.apply('dunk', a.sc.pct, q, 1) * perfCut(q, cutBy(a.ct || {}, 'dunk')); if (a.made && p === me && q >= 1) greenFX();
               G.slowT = 0; impact(a.big ? .2 : .14, a.big ? 11 : 8, .35, a.big ? .1 : .06); E.rim = 1; E.net.swish = 1; RD.sweat(p.x, p.y - p.z - 26, 6);
               if (a.made) {
                 const shatter = p.st.dunk >= 75 && Math.random() < .04;

@@ -683,7 +683,7 @@ const Match = (() => {
           if (busy || k >= shots) return; busy = true;
           const g = G(), d = Math.hypot(ret.x - g.RX, ret.y - g.RY);
           const q = d <= g.zone ? 1 - (d / g.zone) * .45 : clamp(.5 - (d - g.zone) / (g.zone * 2.2), 0, .5);
-          const fin = Balance.apply('ft', base, q), ok = Math.random() * 100 < fin;
+          const fin = Balance.apply('ft', base, q, null, { perfect: q > .9 }), ok = Math.random() * 100 < fin;   // a perfect free throw almost never misses
           const kind = ok ? (q > .8 ? 'swish' : 'rimin') : (d > g.zone * 2.6 ? 'airball' : 'rimout');
           ball = { t: performance.now(), dur: 1050, kind, tx: kind === 'airball' ? ret.x : kind === 'swish' ? g.RX : g.RX + (ret.x >= g.RX ? 1 : -1) * g.rr * .8, ty: kind === 'airball' ? g.RY + g.rr * 1.4 : g.RY };
           await sleep(650);
@@ -1426,7 +1426,7 @@ const Match = (() => {
       if (st.run.pts >= 8 && !st.run.shown && !st.done) { st.run.shown = true; const ours = side === 'us', sl = STAR.look;
         court.highlight('run', ours ? `${st.run.pts}-0 RUN!` : `${cfg.them.abbr} ${st.run.pts}-0 RUN`, 450, ours ? { sub: `${st.run.pts}-0` } : { look: sl, name: STAR.full, colors: cfg.them.colors, sub: `${st.run.pts}-0` });
         if (!ours) queueTalk('coach', 1, 'play'); }
-      if (PICK && st[side] >= cfg.target) { st.done = side; if (side === 'us' && st.them >= cfg.target - 4) { st.gameWinner = true; cnt('gameWinners'); st.highlights.push('Hit the game-winner'); } }
+      if (PICK && st[side] >= cfg.target && !(cfg.jam && st.inSeg)) { st.done = side; if (side === 'us' && st.them >= cfg.target - 4) { st.gameWinner = true; cnt('gameWinners'); st.highlights.push('Hit the game-winner'); } }
       updBug(); const el = $(side === 'us' ? 'sbUs' : 'sbThem'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
     }
     const who = p => p ? { name: p.isUser ? `${s.player.first} ${s.player.last}` : (p.full || p.name), short: p.isUser ? myName : p.short, look: p.look, num: p.isUser ? s.player.num : p.num, isUser: !!p.isUser } : null;
@@ -1445,10 +1445,10 @@ const Match = (() => {
     }
     function success(big) {
       st.failRun = 0; st.succ++; st.att++; st.streak++; if (!st.sigUsed) st.sig++;
-      if (st.streak >= 3 && !st.fire) { st.fire = true; court.fire = true; pbp(`🔥 <b>${myName} is ON FIRE!</b>`, 'hot'); banner('🔥 ON FIRE', 'fire'); SFX.play('roar'); }
+      if (st.streak >= 3 && !st.fire) { st.fire = true; st.talkEv = 'me_hot'; court.fire = true; pbp(`🔥 <b>${myName} is ON FIRE!</b>`, 'hot'); banner('🔥 ON FIRE', 'fire'); SFX.play('roar'); }
       court.excite = Math.min(1, court.excite + (big ? .5 : .25)); updBug();
     }
-    function fail() { st.failRun++; if (st.failRun >= 3) { st.failRun = 0; queueTalk('coach', .8, 'argue'); } st.att++; st.streak = 0; if (st.fire) { st.fire = false; court.fire = false; pbp('The fire cools off.', 'cold'); } court.excite = Math.max(.2, court.excite - .1); updBug(); }
+    function fail() { st.failRun++; if (st.failRun >= 2) st.talkEv = 'me_cold'; if (st.failRun >= 3) { st.failRun = 0; queueTalk('coach', .8, 'argue'); } st.att++; st.streak = 0; if (st.fire) { st.fire = false; court.fire = false; pbp('The fire cools off.', 'cold'); } court.excite = Math.max(.2, court.excite - .1); updBug(); }
     const tire = () => { st.fatigue = Math.min(100, st.fatigue + (100 - Engine.attr(s, 'stam')) / 14 + 1.5); court.sweaty = st.fatigue > 50; };
     const roll = p => Math.random() * 100 < p;
 
@@ -1525,7 +1525,7 @@ const Match = (() => {
       else made = await court.shoot(U, made ? (o.perfect || Math.random() < .55 ? 'swish' : 'rimin') : (Math.random() < .08 ? 'airball' : 'miss'), { slowmo: o.slowmo, green: o.perfect && made });
       if (o.perfect && !made) pbp('<i class="pct-note">Perfect release — still no good.</i>');
       if (made) {
-        st.box.fgm++; st.box.pts += pts; if (kind === 'three') { st.box.tpm++; cnt('threes'); } else if (kind === 'mid' || kind === 'fade') cnt('mids'); else if (kind === 'dunk') { cnt('dunks'); if (o.poster) { cnt('posterizers'); st.posterizers++; } } else cnt('layups');
+        st.box.fgm++; st.box.pts += pts; if (kind === 'dunk') st.talkEv = 'dunked_on'; if (kind === 'three') { st.box.tpm++; cnt('threes'); } else if (kind === 'mid' || kind === 'fade') cnt('mids'); else if (kind === 'dunk') { cnt('dunks'); if (o.poster) { cnt('posterizers'); st.posterizers++; } } else cnt('layups');
         if (kind === 'hook' || kind === 'fade') cnt('posts');
         addPts('us', pts, playOf(U, kind === 'hook' ? 'hook' : kind, { poster: o.poster, ast: o.ast || st.astNext, putback: o.putback })); court.pop(kind === 'dunk' ? (o.poster ? 'POSTERIZED!' : 'SLAM!') : '+' + pts, U.x, U.y, 9, kind === 'three' ? '#38bdf8' : '#facc15', o.poster ? 46 : 36);
         if (cfg.venue === 'away' && (kind === 'dunk' || kind === 'three')) SFX.play('boo', .65); else SFX.play('crowd', 1 + (st.clutch ? .8 : 0)); court.celebrate(U, kind === 'three' ? 'three' : kind === 'dunk' ? 'dunk' : 'two');
@@ -1537,12 +1537,14 @@ const Match = (() => {
     async function theyShoot(action, contest, by = STAR, o = {}) {
       const dst = o.def ? (o.def.stats || MATE) : ME;
       const p = o.pct != null ? o.pct : Balance.pct(action, by.stats || THEM, { def: dst, contest, bonus: diffBonus().concat(heatBonus(by)) }).pct;
-      const made = o.made != null ? o.made : roll(p), three = !!BALANCE.actions[action].three, pts = three ? 3 : 2;
-      court.ball.holder = by; st.lastTheirPct = p;
+      const green = o.made == null && o.pct == null && Math.random() < BALANCE.perfect.ai * (.6 + Balance.eff((by.stats || THEM)[BALANCE.actions[action].three ? 'three' : 'mid'] || 50) / 99 * .8);   // they get greens too
+      const pp = green ? Balance.apply(action, p, 1, undefined, { perfect: true, contest }) : p;
+      const made = o.made != null ? o.made : roll(pp), three = !!BALANCE.actions[action].three, pts = three ? 3 : 2;
+      court.ball.holder = by; st.lastTheirPct = pp;
       if (action === 'dunk') await court.dunk(by, made, o.poster);
       else { if (action === 'layup' || action === 'hook') await court.drive(by, rnd(-2, 2), 8, .4); await court.shoot(by, made ? 'swish' : 'miss', { arc: action === 'layup' ? 3 : undefined, slowmo: o.slowmo }); }
       shotBox(by, made, three);
-      if (made) { if (cfg.venue === 'away') SFX.play('crowd', 1.2); addPts('them', pts, playOf(by, KIND_OF[action] || (three ? 'three' : 'layup'), { def: o.def || U })); st.oppSig++; court.pop('+' + pts, by.x, by.y, 9, '#f87171', 30); court.celebrate(by, three ? 'three' : action === 'dunk' ? 'dunk' : 'two'); }
+      if (made) { if (cfg.venue === 'away') SFX.play('crowd', 1.2); addPts('them', pts, playOf(by, KIND_OF[action] || (three ? 'three' : 'layup'), { def: o.def || U })); if (by === STAR) st.talkEv = 'got_dunked'; st.oppSig++; court.pop('+' + pts, by.x, by.y, 9, '#f87171', 30); court.celebrate(by, three ? 'three' : action === 'dunk' ? 'dunk' : 'two'); }
       if (by === STAR) heatCheck(made);
       return made;
     }
@@ -1669,7 +1671,7 @@ const Match = (() => {
       else { const r = await MG.passLane($('mg'), { title: d.move.toUpperCase(), window: (600 + (ME.pass * .5 + ME.iq * .5) / 99 * 700) * WIN() * MGX('passWindow'), names: MATES().map(x => x.short), target: MATES().indexOf(m) }); q = r.success ? r.quality : 0; }
       idle();
       if (q <= 0) { st.box.to++; const th = opp(m); if (th.box) th.box.stl++; court.ball.holder = U; await court.pass(U, th, .35); pbp(`The ${d.move} gets jumped. Turnover.`, 'bad'); fail(); return false; }
-      const fin = Balance.apply(d.action, o.pct, q), made = roll(fin);
+      const fin = Balance.apply(d.action, o.pct, Math.min(q, .95)), made = roll(fin);   // pass quality, not a release
       if (o.mateFin) {
         court.ball.holder = U; await court.pass(U, m, .45, d.action === 'dunk' ? 2 : 0);
         await animShot(m, d.action, made, { poster: d.action === 'dunk' && q >= .9 }); shotBox(m, made, three);
@@ -1695,7 +1697,7 @@ const Match = (() => {
         await court.drive(U, side * 3, 9, .3); if (big) { await court.block(big, U, true); if (big.box) big.box.blk++; }
         cnt('jellyBlocks'); pbp(say('jelly_block') + ` <i class="pct-note">${fr.side === 'late' ? 'too slow' : 'wrong side'}</i>`, 'bad'); fail(); await boardAfterMiss(true); return false;
       }
-      const fin = Balance.apply('jelly', jc.pct, fr.side === 'right' ? fr.quality : .15), made = roll(fin);
+      const fin = Balance.apply('jelly', jc.pct, fr.side === 'right' ? fr.quality : .15, 3, { perfect: fr.side === 'right' && fr.perfect, contest: 'contested' }), made = roll(fin);
       const ok = await court.jelly(U, made, big, { side, perfect: fr.perfect && made });
       if (ok) {
         st.box.fgm++; st.box.pts += 2; addPts('us', 2, playOf(U, 'jelly', { def: big })); cnt('jellies'); cnt('layups'); if (JMn && JMn.payoff) cnt('jellyPayoff'); if (fr.perfect) { cnt('perfects'); st.perfects++; }
@@ -1734,7 +1736,7 @@ const Match = (() => {
         return runOffense(Object.assign({}, o, { k: K, chained: true }), text, sit);
       }
       if (o.k === 'pass') return passMoment(o.passKind || 'kickout');
-      let q = .5, kind, poster = false, perfect = false;
+      let q = .5, kind, poster = false, perfect = false, shotCon = (o.extra && o.extra.contest) || 'normal';
       if (o.k === 'catch') {
         const mateWithBall = MATES().length ? pick(MATES()) : STAR; court.ball.holder = mateWithBall; await court.pass(mateWithBall, U); st.astNext = MATES().includes(mateWithBall) ? mateWithBall : null;
         busy(setup, `🎮 ${o.label}`);
@@ -1768,6 +1770,7 @@ const Match = (() => {
           contest = 'heavy'; pbp(`${escH(D ? D.short : 'The defender')} cuts you off. Tough finish ahead.`, 'bad');
         }
         if (JMn) contest = 'heavy';   // the big man is already there, arms up
+        shotCon = contest;
         // GATHER STEP — now and then, more often in traffic
         let gk = 1, gathered = false; const gch = LB.gather.chance + (contest === 'heavy' || contest === 'contested' ? LB.gather.contested : 0) + (sit === 'post' || o.extra && o.extra.help ? LB.gather.help : 0);
         if (Math.random() < gch) {
@@ -1813,7 +1816,7 @@ const Match = (() => {
         q = r1.quality * .4 + r2q * .6; kind = o.k;
       }
       idle();
-      let fin = Balance.apply(o.action, o.pct, q), made = roll(fin);
+      let fin = Balance.apply(o.action, o.pct, q, FT(o.action), { perfect, contest: shotCon }), made = roll(fin);   // a perfect release goes in most of the time (BALANCE.perfect)
       if (!made && (o.k === 'hook' || o.k === 'fade') && Engine.hasSpecial(s, 'postpone') && !st.postponed) { st.postponed = true; pbp('⏳ <b>Right of Postponement</b>: you hang in the air and wait out the block…', 'hot'); made = roll(Math.min(95, fin + 10)); }
       made = await myShot(kind === 'dunk' ? 'dunk' : kind === 'layup' ? 'layup' : kind === 'hook' ? 'hook' : kind, made, { poster, perfect, slowmo: st.clutch && st.last });
       const key = { three: 'three', mid: 'mid', layup: 'drive', dunk: 'dunk', hook: 'post', fade: 'mid' }[kind];
@@ -1870,7 +1873,7 @@ const Match = (() => {
         await court.drive(att, -3, 8, .45);
         const ok = r.success && roll(fin(r.quality));
         await court.block(U, att, ok); shotBox(att, !ok, false);
-        if (ok) { st.box.blk++; cnt('blocks'); cnt('stops'); st.lastStop = Object.assign(playOf(U, 'block', { def: STAR }), { side: 'us', clock: Math.round(clk.rem * 10) / 10 }); pbp(say('block'), 'good'); court.pop('REJECTED!', U.x, U.y, 10, '#38bdf8', 38); success(true); if (!(await maybeFastBreak('block', Math.random() < .6 ? 'me' : 'mate'))) await boardAfterMiss(false); return true; }
+        if (ok) { st.box.blk++; cnt('blocks'); cnt('stops'); st.talkEv = 'blocked'; st.lastStop = Object.assign(playOf(U, 'block', { def: STAR }), { side: 'us', clock: Math.round(clk.rem * 10) / 10 }); pbp(say('block'), 'good'); court.pop('REJECTED!', U.x, U.y, 10, '#38bdf8', 38); success(true); if (!(await maybeFastBreak('block', Math.random() < .6 ? 'me' : 'mate'))) await boardAfterMiss(false); return true; }
         addPts('them', 2, playOf(att, 'layup', { def: U })); pbp(say('block_fail', { att: att.name }), 'bad'); fail(); return false;
       } else if (ch.k === 'contest') {
         busy(setup, '🎮 Contest timing');
@@ -1938,7 +1941,7 @@ const Match = (() => {
     function heatCheck(made) {
       if (!made) { st.starRun = 0; return; }
       st.starRun++;
-      if (st.starRun >= OB.star.heatAt && !(st.takeover > 0)) { st.takeover = OB.star.takeover; queueTalk('rival', .7); court.aura(STAR, '#ef4444', 3); pbp(`🔥 <b>${escH(STAR.short)} is taking over!</b> ${st.starRun} straight bucket${st.starRun > 1 ? 's' : ''}.`, 'bad'); banner(`<small>${escH(STAR.full)}</small>IS TAKING OVER`, 'fire', 1300); SFX.play('roar'); }
+      if (st.starRun >= OB.star.heatAt && !(st.takeover > 0)) { st.takeover = OB.star.takeover; st.talkEv = 'he_hot'; queueTalk('rival', .7); court.aura(STAR, '#ef4444', 3); pbp(`🔥 <b>${escH(STAR.short)} is taking over!</b> ${st.starRun} straight bucket${st.starRun > 1 ? 's' : ''}.`, 'bad'); banner(`<small>${escH(STAR.full)}</small>IS TAKING OVER`, 'fire', 1300); SFX.play('roar'); }
     }
     const heatBonus = by => by !== STAR ? [] : [].concat(st.takeover > 0 ? [{ label: 'Taking over', v: OB.star.bonus }] : [], st.rattled > 0 ? [{ label: 'Rattled', v: -8 }] : []);
     const diffBonus = () => (diffShift ? [{ label: 'Difficulty', v: Math.round(diffShift * .6) }] : []).concat(tutOn() ? [{ label: 'Warm-up', v: -8 }] : []);   // Kai takes it easy until the tutorial is done
@@ -1963,7 +1966,7 @@ const Match = (() => {
         pbp(`${escH(m.short)} draws the help and kicks it out to ${myName}!`); await court.pass(m, U);
         const c = calc('catch3', { contest: 'open' }); busy(`<b>Kick-out from ${escH(m.short)}!</b>`, '🎮 Catch & shoot');
         const r = await MG.shotMeter($('mg'), { title: 'CATCH & SHOOT', green: green(ME.three, FT('catch3')) * MGX('green'), dur: 1, sub: `Three-Point ${ME.three} · base ${c.pct}%` }); idle();
-        const fin = Balance.apply('catch3', c.pct, meterQ(r)), made = await myShot('three', roll(fin), { perfect: r.perfect });
+        const fin = Balance.apply('catch3', c.pct, meterQ(r), FT('catch3'), { perfect: r.perfect, contest: 'open' }), made = await myShot('three', roll(fin), { perfect: r.perfect });
         if (made) { m.box.ast++; pbp(`${myName} buries it off ${escH(m.short)}'s kick-out. <i class="pct-note">${fin}%</i>`, 'good'); success(); } else { pbp(`${myName} can't knock down the kick-out. <i class="pct-note">${fin}%</i>`); fail(); await boardAfterMiss(true); }
         return made;
       }
@@ -2057,25 +2060,67 @@ const Match = (() => {
     const TK = typeof TALK !== 'undefined' ? TALK : null;
     const coachId = cfg.level === 'street' ? (PICK ? null : 'lou') : s.career.hs === 'lincoln' ? 'brennan' : s.career.hs === 'westbrook' ? 'graves' : 'coach';
     const refId = cfg.level === 'street' ? null : pick(['ref_dawkins', 'ref_vance', 'ref_ortiz']);
-    const rivalId = star.name === 'Kai Sterling' ? 'kai' : pick(['hothead', 'iceman', 'showman']);
-    const TMATE = () => US.filter(p => !p.isUser).sort((a, b) => (b.rating || 0) - (a.rating || 0))[0], mateId = pick(['mate_vet', 'mate_hype']);
+    const rivalId = star.name === 'Kai Sterling' ? 'kai' : star.name === 'Bastien Mbaye' ? 'mbaye' : ['hothead', 'iceman', 'showman'][Weapons.hash(star.name) % 3];   // each star keeps the same voice
+    const TMATE = () => US.filter(p => !p.isUser).sort((a, b) => (b.rating || 0) - (a.rating || 0))[0], mateId = US.some(p => /Tariq/.test(p.full || p.name || '')) ? 'tariq' : ['mate_vet', 'mate_hype'][Weapons.hash(cfg.us.name || 'x') % 2];
+    /* in-game conversations happen in about 1 game in 3 (BALANCE.talk.every), never more than once */
+    const talkOK = !cfg.practice && ((s.talkGap == null ? 99 : s.talkGap) >= ((BALANCE.talk && BALANCE.talk.every) || 3) - 1);
     const talkLook = id => { const P = TK && TK.personalities[id]; if (!P) return null; if (P.kind === 'rival') return Object.assign({}, STAR.look, { jersey: cfg.them.colors[0], trim: cfg.them.colors[1], outfit: 'jersey' }); if (P.kind === 'mate') return TMATE() ? TMATE().look : Art.lookFromSeed(id, P.look || {}); if (P.char && STORY.characters[P.char]) return UI.charLook(P.char); return Art.lookFromSeed(P.name || id, P.look || {}); };
     const talkName = id => { const P = TK.personalities[id]; return P.kind === 'rival' ? STAR.full : P.kind === 'mate' ? (TMATE() ? TMATE().full || TMATE().name : 'Teammate') : P.char && STORY.characters[P.char] ? STORY.characters[P.char].name : P.name || 'Coach'; };
     /* ask for a conversation at the next dead ball (with probability p) */
-    function queueTalk(type, p = 1, topic) { if (!TK || tutOn() || st.talkQ || st.done || st.talkN >= ((BALANCE.talk && BALANCE.talk.perGame) ?? 1) || Math.random() > p) return; if (type === 'coach' && !coachId) return; if (type === 'ref' && !refId) return; st.talkQ = { type, topic }; if (type === 'coach' && typeof Cutscene !== 'undefined') Cutscene.prep(talkLook(coachId)); }
+    function queueTalk(type, p = 1, topic) { if (!TK || tutOn() || !talkOK || st.talkQ || st.done || st.talkN >= ((BALANCE.talk && BALANCE.talk.perGame) ?? 1) || Math.random() > p) return; if (type === 'coach' && !coachId) return; if (type === 'ref' && !refId) return; if (type === 'ref') st.talkEv = 'bad_call'; st.talkQ = { type, topic }; if (type === 'coach' && typeof Cutscene !== 'undefined') Cutscene.prep(talkLook(coachId)); }
     /* =================================================================
        IN-GAME DIALOGUE AS A MINI CUTSCENE — the game pauses, the camera pushes in, letterbox bars slide in and the
        background dims. You and the other person face off in big 16-bit portraits (expressions change as you talk);
        the speaker lights up, lines type out, and the choices + gauge sit in the letterbox bars (never on the faces).
        ================================================================= */
     const talkScene = o => talkSceneCore(o, { court, meLook: Object.assign({}, U.look || {}, { num: s.player.num, jersey: cfg.us.colors[0], trim: cfg.us.colors[1], outfit: 'jersey' }), first: s.player.first, last: s.player.last, beat, waitInput });
+    /* ---------- conversations from the line pools (js/data-talk-lines.js): fit the moment, never repeat until a pool is used up ---------- */
+    function talkCtx() {
+      const d = st.us - st.them, V = (s.vs || {})[STAR.full];
+      const score = (d >= 10 ? ['bigup', 'up'] : d <= -10 ? ['bigdown', 'down'] : d > 0 ? ['up'] : d < 0 ? ['down'] : ['tied']).concat(Math.abs(d) <= 3 ? ['close'] : []);
+      return { score, ev: st.talkEv ? [st.talkEv] : [], when: st.i >= n * .6 ? 'late' : 'early', vs: [!V || !V.g ? 'first' : null, V && V.last > 0 ? 'won' : null, V && V.last < 0 ? 'lost' : null, V && V.g >= 3 ? 'many' : null].filter(Boolean), games: V ? V.g + 1 : 1 };
+    }
+    function condOk(c, X, topic) {
+      if (!c) return true;
+      for (const k in c) { const v = c[k];
+        if (k === 'topic' ? v !== topic : k === 'score' ? !X.score.includes(v) : k === 'ev' ? !X.ev.includes(v) : k === 'when' ? v !== X.when : k === 'vs' ? !X.vs.includes(v) : k === 'flag' ? ![].concat(v).every(f => s.flags[f]) : k === 'hs' ? s.career.hs !== v : false) return false; }
+      return true;
+    }
+    function drawLine(key, pool, ok, prefer) {   // no repeats until the pool is used up (saved per career)
+      const seen = s.talkSeen || (s.talkSeen = {}), used = seen[key] || (seen[key] = []);
+      const items = (pool || []).map((l, i) => Object.assign({ i }, typeof l === 'string' ? { t: l } : l)).filter(ok);
+      if (!items.length) return null;
+      let cand = items.filter(l => !used.includes(l.i)); if (!cand.length) { seen[key] = used.filter(i => !items.some(l => l.i === i)); cand = items; }
+      const pref = prefer ? cand.filter(prefer) : []; const L = pref.length && Math.random() < .8 ? pick(pref) : pick(cand);
+      seen[key].push(L.i); return L.t;
+    }
+    function buildTalk(id, P, topic, pre) {
+      const X = talkCtx(), key = TK.lines[id] ? id : P.kind === 'coach' ? 'coach' : P.kind === 'ref' ? 'ref_dawkins' : P.kind === 'mate' ? 'mate_vet' : 'hothead', L = TK.lines[key], kind = P.kind;
+      const ok = l => condOk(l.if, X, topic), specific = l => l.if && Object.keys(l.if).length > 0;
+      const lines = [drawLine(key + ':open', L.open, ok, l => specific(l) && (!l.if.topic || l.if.topic === topic) && (l.if.topic === topic || Object.keys(l.if).some(k => k !== 'topic')))];
+      if (!pre || Math.random() < .5) lines.push(drawLine(key + ':push', L.push, ok));
+      if (!pre && Math.random() < .35) lines.push(drawLine(key + ':push', L.push, ok));
+      // your 3 answers: something this person likes, something he doesn't, and one more
+      const sty = Object.entries(P.styles), R = TK.replies[kind] || TK.replies.coach, has = k => R[k] && R[k].length;
+      const exch = lines.filter(Boolean).map(say => {
+        const good = sty.filter(([k, v]) => v > 0 && has(k)), bad = sty.filter(([k, v]) => v <= 0 && has(k));
+        const pickS = list => list.length ? pick(list)[0] : null, a = pickS(good), b = pickS(bad), c = pickS(sty.filter(([k]) => has(k) && k !== a && k !== b));
+        const opts = [a, b, c].filter(Boolean).map(stl => [stl, drawLine(`r:${kind}:${stl}`, R[stl], l => !l.char || l.char === id) || pick(R[stl].map(x => x.t || x))]);
+        return { say, opts };
+      });
+      exch.close = drawLine(key + ':close', L.close, ok);
+      return exch;
+    }
+    if (window.__talkDebug) window.__talkDebug = { build: (type, topic, pre) => { const id = type === 'coach' ? coachId : type === 'ref' ? refId : type === 'mate' ? mateId : rivalId; return id && TK.personalities[id] ? Object.assign(buildTalk(id, TK.personalities[id], topic, pre), { id }) : null; }, st };   // automated tests only
     async function talk(type, topic, pre) {   // pre = the short pre-game talk (doesn't count toward the in-game limit)
       const id = type === 'coach' ? coachId : type === 'ref' ? refId : type === 'mate' ? mateId : rivalId, P = TK.personalities[id]; if (!P) return;
       if (pre) cnt('pretalks'); else { st.talkN++; st.talkAt = st.i; cnt('talks'); }
-      const script = pre ? TK.scripts['pre_' + type] : TK.scripts[type === 'coach' ? 'coach_' + (topic || pick(['play', 'minutes'])) : type === 'ref' ? 'ref_call' : pick(['rival_trash', 'rival_trash2'])];
-      const nEx = pre ? script.length : clamp(script.length - (Math.random() < .35 ? 1 : 0), 2, 4), ego = P.kind === 'rival';
+      const tp = pre ? 'pre' : type === 'coach' ? (topic || pick(['play', 'minutes'])) : type === 'ref' ? 'call' : 'trash';
+      const script = buildTalk(id, P, tp, pre);
+      const nEx = script.length, ego = P.kind === 'rival';
       let g = ego ? 100 : P.start, backfires = 0, ended = false;
-      const look = talkLook(id), name = talkName(id), first = properName(s.player.first), fillT = t => t.replace(/\{first\}/g, first).replace(/\{last\}/g, myName).replace(/\{num\}/g, s.player.num);
+      const look = talkLook(id), name = talkName(id), first = properName(s.player.first), X = talkCtx(), fillT = t => t.replace(/\{first\}/g, first).replace(/\{last\}/g, myName).replace(/\{num\}/g, s.player.num)
+        .replace(/\{star\}/g, STAR.short).replace(/\{opp\}/g, cfg.them.name).replace(/\{us\}/g, cfg.us.name).replace(/\{score\}/g, `${Math.max(st.us, st.them)}-${Math.min(st.us, st.them)}`).replace(/\{hs\}/g, s.career.hs && LOCAL_TEAMS[s.career.hs] ? LOCAL_TEAMS[s.career.hs].name : 'the team').replace(/\{games\}/g, X.games);
       const voice = { f: type === 'ref' ? 160 : type === 'rival' ? 330 : type === 'mate' ? 240 : 140, w: 'square', g: .035 }, myVoice = { f: 280, w: 'square', g: .03 };
       const tag = pre ? 'PRE-GAME' : type === 'coach' ? 'TIMEOUT' : type === 'ref' ? 'DEAD BALL' : type === 'rival' ? 'FACE-OFF' : 'HUDDLE';
       const T = await talkScene({ title: `${tag} · ${name}`, name, trait: P.trait, look, ego, g, gaugeLabel: ego ? 'EGO' : P.kind === 'mate' ? 'TRUST' : 'PATIENCE', startExpr: type === 'rival' ? 'smile' : 'neutral' });
@@ -2092,6 +2137,7 @@ const Match = (() => {
           T.face('me', good ? 'smile' : 'shocked'); await sleep(700);
           if (v <= TK.endAt || (!ego && g <= 0)) ended = true;   // the wrong thing ends it early
         }
+        if (!ended && script.close) { await T.say('them', fillT(script.close), ego ? 'fierce' : 'determined', voice); await sleep(400); }
       } finally { await T.close(); }
       idle();
       /* ---------- outcomes ---------- */
@@ -2223,7 +2269,7 @@ const Match = (() => {
             const c = calc('dunk', { def: big.stats });
             busy(`<b>${myName} rises — ${escH(big.short)} meets him at the rim!</b> <span class="pct">${c.pct}%</span>`, '🎮 Block or dunk?');
             const r = await MG.dunkChain($('mg'), { title: 'BLOCK OR DUNK?', tol: (6 + ME.dunk / 99 * 9 + ME.vert / 99 * 4) * WIN() * MGX('dunkTol'), speed: 100 }); idle();
-            const fin = Balance.apply('dunk', c.pct, r.quality), made = roll(fin); slow(true);
+            const fin = Balance.apply('dunk', c.pct, r.quality, 1, { contest: 'heavy' }), made = roll(fin); slow(true);
             if (made) { await myShot('dunk', true, { poster: true }); pbp(`${myName} DUNKS ON ${escH(big.short.toUpperCase())}! <i class="pct-note">${fin}%</i>`, 'good hot'); st.highlights.push(`Posterized ${big.short}`); success(true); }
             else { st.box.fga++; await court.drive(U, 1, 8, .3); await court.block(big, U, true); big.box.blk++; pbp(`${escH(big.short)} STUFFS ${myName} at the rim! <i class="pct-note">${fin}%</i>`, 'bad'); fail(); }
             endBuild(made); return made;
@@ -2263,7 +2309,7 @@ const Match = (() => {
           const c = calc('pull3', { contest: 'contested', shotClock: true, deep: true });
           busy(`<b>3… 2… 1… ${myName} lets it fly from deep!</b> <span class="pct">${c.pct}%</span>`, '🎮 Beat the horn');
           const r = await MG.shotMeter($('mg'), { title: 'BEAT THE HORN', green: green(ME.three, BALANCE.distance.deepFt) * MGX('green'), dur: .75, sub: 'Release before the red light' }); idle();
-          const q = meterQ(r), late = q < CL.tooLate, fin = Balance.apply('pull3', c.pct, q), inBasket = roll(fin);
+          const q = meterQ(r), late = q < CL.tooLate, fin = Balance.apply('pull3', c.pct, q, BALANCE.distance.deepFt, { perfect: r.perfect, contest: 'contested' }), inBasket = roll(fin);
           st.box.fga++; st.box.tpa++; SFX.play('buzzer'); court.flashA = .3; court.flashCol = '239,68,68';
           await court.shoot(U, inBasket ? 'swish' : 'miss', { slowmo: true, arc: 12 });
           await banner('<small>INSTANT REPLAY</small>⏪ REVIEW', 'clutch', 900);
@@ -2340,7 +2386,7 @@ const Match = (() => {
           zone: (.75 + Balance.eff(ME.ft) / 99 * 1.0) * WIN() * MGX('ftZone'), wobble: 1.55 + st.fatigue * .012 + (pressure ? .55 : 0),
           shooter: { num: s.player.num, name: myName, color: cfg.us.colors[0], trim: cfg.us.colors[1], skin: lk.skin, hair: lk.hairColor },
           lane: { us: cfg.us.colors[0], them: cfg.them.colors[0] }, scoreText: () => `${cfg.us.abbr} ${st.us} – ${st.them} ${cfg.them.abbr}`,
-          onShot: ok => { st.box.fta++; if (ok) { made++; st.box.ftm++; st.box.pts++; cnt('ftMade'); addPts('us', 1, playOf(U, 'ft', { def: null })); SFX.play('crowd', .6); } else SFX.play('groan'); },
+          onShot: ok => { st.box.fta++; if (ok) { made++; st.box.ftm++; st.box.pts++; cnt('ftMade'); addPts('us', 1, playOf(U, 'ft', { def: null })); SFX.play('crowd', .6); } else { st.talkEv = 'missed_ft'; } if (!ok) SFX.play('groan'); },
         });
         idle();
         pbp(say(r.made === shots ? 'ft_all' : r.made ? 'ft_split' : 'ft_none', { n: r.made, of: shots }) + ` <i class="pct-note">${c.pct}% base</i>`, r.made === shots ? 'good' : '');
@@ -2553,7 +2599,7 @@ const Match = (() => {
         looks: { star: Object.assign({}, STAR.look, { jersey: cfg.them.colors[0], trim: cfg.them.colors[1], outfit: 'jersey' }), coach: coachId ? talkLook(coachId) : null, mate: TMATE() ? TMATE().look : null }, names: { star: STAR.full, coach: coachId ? talkName(coachId) : 'Coach', mate: TMATE() ? TMATE().full || TMATE().name : 'Teammate' } };
       try { cnt('pregames'); await Cutscene.pregame({ kind, tier: pgTier, flight: kind === 'away' && /college|pro/.test(cfg.level || ''), city: cfg.them.city, place: vName, starName: STAR.full, starSub: cfg.starSub || `${cfg.them.name}'s best player`, starStats: top }, ctx);
       SFX.music('game'); Pixel.ambient(court.V, court.excite);
-      if (TK) { const who = kind === 'pickup' ? (Math.random() < .6 ? 'rival' : 'mate') : kind === 'away' ? (rivalId === 'kai' || oppR >= usR + 3 ? 'rival' : 'coach') : (Math.random() < .5 || !coachId ? 'mate' : 'coach');
+      if (TK && !cfg.practice && ((cfg.importance || 1) >= 2 || rivalId === 'kai')) { const who = kind === 'pickup' ? (Math.random() < .6 ? 'rival' : 'mate') : kind === 'away' ? (rivalId === 'kai' || oppR >= usR + 3 ? 'rival' : 'coach') : (Math.random() < .5 || !coachId ? 'mate' : 'coach');
         await talk(who === 'coach' && !coachId ? 'mate' : who === 'mate' && !TMATE() ? 'rival' : who, null, true); }
       } catch (e) { console.error('[match] pre-game', e); st.inputOffs.forEach(f => f()); st.inputOffs.clear(); st.waitInput = 0; idle(); if (SFX.crowd && SFX.crowd.reset) SFX.crowd.reset(); }
     }
@@ -2598,13 +2644,58 @@ const Match = (() => {
       if (r.jellies) { cnt('jellies', r.jellies); st.highlights.push(r.jellies > 1 ? `${r.jellies} jellies in the open floor` : 'Jelly in the open floor'); if (JM && JM.payoff && !st.jmDone) { st.jmDone = true; cnt('jellyPayoff'); } }
       if (r.jellyTries) cnt('jellyTries', r.jellyTries); if (r.jellyBlocks) cnt('jellyBlocks', r.jellyBlocks); if (r.duos) cnt('duoMoves', r.duos);
     }
+    /* ---------- SUMMER JAM (cfg.jam): the live game stops at some dead balls for a choice moment ----------
+       street calls (they set up your next possession), matchups (who you guard), key possessions (a decision + minigame),
+       and the clutch possession near the target. About 3–5 per game (BALANCE.jam). */
+    function jamBreak(b) {
+      const J = st.jam || (st.jam = { n: 0, at: rnd(BALANCE.jam.first[0], BALANCE.jam.first[1]), matched: false, clutch: 0 }), JB = BALANCE.jam;
+      const [u, t] = b.score, tgt = cfg.target || 21, mine = b.next === 0, close = Math.abs(u - t) <= JB.closeBy, late = Math.max(u, t) >= tgt - JB.lateBy;
+      let kind = null;
+      if (late && close && J.clutch < 1) kind = 'clutch';
+      else if (J.n < JB.max && u + t >= J.at) kind = !J.matched && !mine ? 'matchup' : mine && s.flags.street_calls !== false && Math.random() < .55 ? 'call' : 'key';
+      if (!kind) return null;
+      J.n++; J.at = u + t + rnd(JB.every[0], JB.every[1]); if (kind === 'clutch') J.clutch++; if (kind === 'matchup') J.matched = true;
+      cnt('jamMoments'); return runJamBreak(kind, b);
+    }
+    async function runJamBreak(kind, b) {
+      try {
+        st.us = b.score[0]; st.them = b.score[1]; updBug(); formation(b.next === 0 ? 'us' : 'them'); court.ball.holder = b.next === 0 ? U : STAR;
+        const title = { call: 'TIMEOUT · STREET CALL', matchup: 'DEAD BALL · MATCHUPS', key: 'KEY POSSESSION', clutch: 'CLUTCH' }[kind];
+        await banner(`<small>${b.score[0]} – ${b.score[1]}</small>${title}`, kind === 'clutch' ? 'clutch' : 'fb', 850);
+        if (kind === 'call') {
+          const mates = MATES(), hot = mates.slice().sort((a, c) => (c.box.pts || 0) - (a.box.pts || 0))[0], m0 = mates[0];
+          const opts = [{ k: 'give', label: 'Give-and-go', desc: `Hit ${m0 ? m0.short : 'your man'}, cut hard, get it back at the rim`, pct: null, mg: 'Live: cut to the rim' },
+            { k: 'iso', label: 'Iso for me', desc: 'Clear a side. You against your man, no help comes', pct: null, mg: 'Live: +5% on your next shot' },
+            { k: 'hot', label: 'Feed the hot hand', desc: hot ? `${hot.short} has ${hot.box.pts || 0}. Ride him` : 'Ride whoever is cooking', pct: null, mg: 'Live: he gets the ball, +7%' },
+            { k: 'clear', label: 'Clear out', desc: 'Everybody to the corners. Space to drive', pct: null, mg: 'Live: no help defense' }];
+          const ch = await choose('<b>Timeout. Make the call.</b> <span class="pct-note">It sets up your next possession.</span>', opts); idle();
+          pbp(`📣 Street call: <b>${escH(ch.label)}</b>.`, 'sys'); return { call: ch.k, next: 0, banner: ch.label.toUpperCase() + '!' };
+        }
+        if (kind === 'matchup') {
+          const vis = TH.filter(p => !p.hidden), by = k => vis.slice().sort((a, c) => (c.stats[k] || 0) - (a.stats[k] || 0))[0];
+          const scorer = STAR, big = by('intD') === STAR ? vis.find(p => p !== STAR) || STAR : by('intD'), shooter = vis.filter(p => p !== big).sort((a, c) => (c.stats.three || 0) - (a.stats.three || 0))[0] || STAR;
+          const opts = [{ k: 'scorer', p: scorer, label: `Guard ${scorer.short} (their scorer)`, desc: 'Take away their star. Everybody else gets more shots', pct: calc('stop', {}).pct },
+            { k: 'big', p: big, label: `Guard ${big.short} (the big man)`, desc: 'Keep him off the glass and out of the paint', pct: Balance.pct('stop', ME, { def: big.stats }).pct },
+            { k: 'shooter', p: shooter, label: `Guard ${shooter.short} (the shooter)`, desc: 'Run him off the line. No open threes', pct: Balance.pct('stop', ME, { def: shooter.stats }).pct }];
+          const ch = await choose('<b>Dead ball. Who are you taking?</b>', opts); idle();
+          pbp(`🛡 You're on <b>${escH(ch.p.short)}</b> now.`, 'sys'); return { guard: ch.p.full || ch.p.name, next: 1, banner: `ON ${ch.p.short.toUpperCase()}` };
+        }
+        // a key possession (or the clutch one): the usual decision moment + minigame, then the other team's ball
+        const u0 = st.us, t0 = st.them, mine = b.next === 0, d = st.us - st.them;
+        if (kind === 'clutch') { st.clutch = true; SFX.play('heartbeat'); SFX.music('clutch'); }
+        const txt = kind === 'clutch' ? `${d === 0 ? 'Tied' : d > 0 ? `Up ${d}` : `Down ${-d}`} near ${cfg.target}. ${mine ? 'Your ball. Make it count.' : `${STAR.short} wants it. Get a stop.`}` : null;
+        if (mine) await offPossession(txt ? { text: txt } : null); else await withMirror(() => defPossession(txt ? { text: txt } : null));
+        st.clutch = false; idle(); SFX.music('game');
+        return { pts: [Math.max(0, st.us - u0), Math.max(0, st.them - t0)], next: mine ? 1 : 0 };
+      } catch (e) { console.error('[match] jam break', e); idle(); return {}; }
+    }
     async function fullArcadeGame() {
       st.inSeg = true; cnt('arcadeGames');
       const toPl = p => p.isUser ? Object.assign(Arcade.userPlayer(), { stamina: 100 - st.fatigue })
         : { name: p.full || p.name, stats: p.stats, look: p.look, num: p.num, weapons: (p.weapons || []).filter(id => WEAPONS[id]).map(id => ({ id, rank: 1 })), star: p === STAR };
       let r = null;
-      try { r = await Arcade.play({ teams: [{ name: cfg.us.name, abbr: cfg.us.abbr, colors: cfg.us.colors, players: US.map(toPl) }, { name: cfg.them.name, abbr: cfg.them.abbr, colors: cfg.them.colors, players: TH.map(toPl) }],
-        target: cfg.target || 21, venue: court.venueId, title: cfg.title || 'PICKUP', sub: cfg.sub || '', difficulty: s.difficulty }); } catch (e) { console.error('arcade game', e); }
+      try { r = await Arcade.play({ teams: [{ name: cfg.us.name, abbr: cfg.us.abbr, colors: cfg.us.colors, players: US.map(toPl) }, { name: cfg.them.name, abbr: cfg.them.abbr, colors: cfg.them.colors, players: TH.map(toPl), style: cfg.them.style }],
+        target: cfg.target || 21, venue: court.venueId, title: cfg.title || 'PICKUP', sub: cfg.sub || '', difficulty: s.difficulty, mods: cfg.mods, onBreak: cfg.jam ? jamBreak : null }); } catch (e) { console.error('arcade game', e); }
       document.querySelectorAll('.arc').forEach(el => el.remove()); document.body.classList.remove('arc-open'); st.inSeg = false;
       if (!r || !r.score) { const w = Math.random() < .5; r = { score: w ? [cfg.target || 21, (cfg.target || 21) - 4] : [(cfg.target || 21) - 4, cfg.target || 21], box: {}, all: [] }; }   // the game couldn't run: neutral result
       st.us = r.score[0]; st.them = r.score[1]; st.done = r.forfeit ? 'them' : st.us > st.them ? 'us' : 'them';
@@ -2690,7 +2781,7 @@ const Match = (() => {
     if (PICK && st.done) pbp(`🏁 <b>GAME!</b> ${escH(st.done === 'us' ? cfg.us.name : cfg.them.name)} reach ${cfg.target}.`, st.done === 'us' ? 'good hot' : 'bad');
     let ot = 0;
     while (!PICK && st.us === st.them && ot < 2) {
-      ot++; st.ot = true; SFX.play('buzzer'); await banner('OVERTIME', 'clutch', 1200); clk = { per: L.periods + ot, rem: Math.round(rnd(2, 9) * 10) / 10 };   // the last possession of overtime st.clutch = true; $('vig').classList.add('on');
+      ot++; st.ot = true; SFX.play('buzzer'); await banner('OVERTIME', 'clutch', 1200); clk = { per: L.periods + ot, rem: Math.round(rnd(2, 9) * 10) / 10 }; st.clutch = true; $('vig').classList.add('on');   // the last possession of overtime
       st.us += Math.floor(rnd(2, 7)); st.them += Math.floor(rnd(2, 7)); const d = st.us - st.them; if (d > 0) st.them += d; else st.us -= d;
       updBug(); const before = st.us;
       await guardMoment(async () => {
@@ -2706,6 +2797,10 @@ const Match = (() => {
     }
     clk.rem = 0; updBug(); SFX.play('buzzer');
     const win = PICK ? st.done === 'us' : st.us > st.them;
+    if (!cfg.practice) {   // conversation pacing + your history with their star (callbacks in the next conversations)
+      s.talkGap = st.talkN ? 0 : (s.talkGap == null ? 3 : s.talkGap + 1);
+      const V = s.vs || (s.vs = {}), R = V[STAR.full] || (V[STAR.full] = { g: 0, w: 0, l: 0 }); R.g++; if (win) R.w++; else R.l++; R.last = win ? 1 : -1;
+    }
     // the play that decided it (big games replay it as the game-winner cutscene, js/cutscene.js Cutscene.winner)
     const close = PICK ? Math.min(st.us, st.them) >= cfg.target - 4 : Math.abs(st.us - st.them) <= 3;
     let winPlay = null, losePlay = null;

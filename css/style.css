@@ -1274,3 +1274,5 @@ body.fs[data-screen=match] .corner .icon-btn { width: 30px; height: 30px; font-s
 .tut-meter .p { position: absolute; left: 0; right: 0; bottom: 74%; height: 2px; background: #bbf7d0; box-shadow: 0 0 6px #4ade80; }
 .tut-meter b { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: #f97316; animation: tutFill 1.6s ease-in infinite; }
 @keyframes tutFill { 0% { height: 0; } 75% { height: 75%; } 100% { height: 75%; } }
+/* Summer Jam: the live game steps aside while a choice moment plays on the match court */
+.arc.hold { opacity: 0 !important; visibility: hidden; pointer-events: none; transition: opacity .25s, visibility 0s .25s; }

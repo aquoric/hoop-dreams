@@ -303,7 +303,7 @@ STORY.chapters.street = {
       ],
       choices: [
         { t: '"Who\'s the lady with the notebook?"', next: 'jam_dee' },
-        { t: '"Doesn\'t matter who\'s watching. Let\'s eat."', fx: { morale: 3 }, next: 'm2' },
+        { t: '"Doesn\'t matter who\'s watching. Let\'s eat."', fx: { morale: 3 }, next: 'jam_calls' },
       ] },
     jam_dee: { scene: 'playground', fx: { flag: 'saw_dee' },
       lines: [
@@ -311,22 +311,56 @@ STORY.chapters.street = {
         ['tariq', 'If she writes your name in that notebook, bro, your life changes.'],
       ],
       choices: [
-        { t: 'Feel the pressure. Lock in.', fx: { attrs: { clutch: 1 }, morale: -2 }, next: 'm2' },
-        { t: 'Smile. Let her watch.', fx: { morale: 4 }, next: 'm2' },
+        { t: 'Feel the pressure. Lock in.', fx: { attrs: { clutch: 1 }, morale: -2 }, next: 'jam_calls' },
+        { t: 'Smile. Let her watch.', fx: { morale: 4 }, next: 'jam_calls' },
       ] },
-    m2: { type: 'match', us: 'halsey', them: 'southside', pickup: { size: 3, target: 21 }, venue: 'cage', rating: 45, mateRating: 41, moments: 9, level: 'street',
+    /* ---- the Summer Jam: street calls, your crew, a game plan each round (the games mix live arcade with choice moments) ---- */
+    jam_calls: { scene: 'playground', fx: { flag: 'street_calls' },
+      lines: [
+        ['lou', 'Three-on-three is a thinking game, kid. Somebody has to call it.'],
+        ['lou', 'Give-and-go. Iso. Feed the hot hand. Clear out. Four calls — that\'s all you need out here.'],
+        ['tariq', 'Wait. We get PLAYS? Like real ones?', 'smile'],
+        ['lou', 'Street plays. The fancy stuff comes when somebody pays you to run it.', 'smile'],
+      ], next: 'jam_team' },
+    jam_team: { scene: 'playground',
+      lines: [
+        ['tariq', 'It\'s you, me, and one more. Who\'s the third?'],
+        ['narrator', 'Three guys from the block are leaning on the fence, waiting to be picked.'],
+      ],
+      choices: [
+        { t: 'Big Rudy — the big man.', hint: 'Rebounds and finishes inside · ⚔ Sky Hook, Hammer Put-Back', fx: { jam: { mate: 'Big Rudy' }, rel: { tariq: 1 } }, next: 'jam_plan1' },
+        { t: 'Smoke — the shooter.', hint: 'Spaces the floor from anywhere · ⚔ Logo Three', fx: { jam: { mate: 'Smoke' } }, next: 'jam_plan1' },
+        { t: 'Lil\' Dez — the pest.', hint: 'Quick hands, quick floaters · ⚔ Pickpocket, Floater', fx: { jam: { mate: 'Lil\' Dez' } }, next: 'jam_plan1' },
+      ] },
+    jam_plan1: { scene: 'playground',
+      lines: [
+        ['tariq', 'Round one: Southside Bricklayers. Hammer Jones lives in the paint and loves a poster.'],
+        ['lou', 'Big, slow, physical. So how do you want to play them?'],
+      ],
+      choices: [
+        { t: 'Run and gun. Make the big man run.', hint: 'Easier layups and dunks, a little looser shooting', fx: { jam: { plan: 'run' } }, next: 'm2' },
+        { t: 'Slow it down. Work for good jumpers.', hint: 'Better jumpers, fewer cheap points for them', fx: { jam: { plan: 'slow' } }, next: 'm2' },
+        { t: 'Lock in on defense. Wall up the paint.', hint: 'Their shots get much harder, yours a bit harder too', fx: { jam: { plan: 'lock' } }, next: 'm2' },
+      ] },
+    m2: { type: 'match', us: 'halsey', them: 'southside', pickup: { size: 3, target: 21 }, jam: true, venue: 'cage', rating: 45, mateRating: 41, moments: 9, level: 'street',
       title: 'Halsey Summer Jam', sub: 'Round 1', win: 'm2_win', lose: 'm2_loss' },
     m2_win: { scene: 'playground', fx: { rep: 4, fans: 200 },
       lines: [
         ['mc', 'HALSEY STREET MOVES ON! Somebody check on Hammer Jones, he\'s been posterized emotionally!'],
         ['hammer', 'Respect, little man. You\'re tougher than you look.', 'smile'],
-      ], next: 'hub2' },
+      ], next: 'jam_rest' },
     m2_loss: { scene: 'playground', fx: { fatigue: 15, attrs: { stam: 2 }, morale: -2 },
       lines: [
         ['narrator', 'Hammer Jones puts you on the asphalt on the final possession. No call — pickup rules.'],
         ['narrator', 'But the Jam is double-elimination. You fight back through the loser\'s bracket — three games in the heat — and sneak into the final on dead legs.'],
         ['hammer', 'You don\'t quit, huh? Respect.'],
-      ], next: 'hub2' },
+      ], next: 'jam_rest' },
+    jam_rest: { scene: 'playground',
+      lines: [['narrator', 'Two hours until the final. The sun is brutal and your legs know it.'], ['lou', 'Rest or work. Pick one and own it.']],
+      choices: [
+        { t: 'Find some shade. Ice, water, nap.', hint: 'Fresh legs for the final', fx: { fatigue: -25, morale: 2 }, next: 'hub2' },
+        { t: 'Get shots up on the side court.', hint: 'A small boost in the final, but tired legs', fx: { fatigue: 12, jam: { boost: true } }, next: 'hub2' },
+      ] },
     hub2: { type: 'hub', title: 'Before the Final', next: 'party_invite',
       intro: 'One night until the Summer Jam final. Train, rest, or gear up — fatigue carries into the next game.' },
 
@@ -421,11 +455,21 @@ STORY.chapters.street = {
         ['lou', 'Remember: the rim, not the man.', null, { notFlag: 'lou_snub' }],
       ],
       choices: [
-        { t: '"Let\'s finish what we started."', fx: { morale: 4 }, next: 'm3' },
-        { t: '"Hope you brought your dad, Kai. You\'re gonna need a ride home."', req: { flag: 'trash_kai' }, fx: { rep: 3, rel: { kai: -5 }, morale: 6 }, next: 'm3' },
-        { t: 'Find Tariq. "Whatever happens, it\'s us — Halsey."', fx: { rel: { tariq: 8 }, chem: 10 }, next: 'm3' },
+        { t: '"Let\'s finish what we started."', fx: { morale: 4 }, next: 'jam_plan2' },
+        { t: '"Hope you brought your dad, Kai. You\'re gonna need a ride home."', req: { flag: 'trash_kai' }, fx: { rep: 3, rel: { kai: -5 }, morale: 6 }, next: 'jam_plan2' },
+        { t: 'Find Tariq. "Whatever happens, it\'s us — Halsey."', fx: { rel: { tariq: 8 }, chem: 10 }, next: 'jam_plan2' },
       ] },
-    m3: { type: 'match', us: 'halsey', them: 'westbrook_elite', pickup: { size: 3, target: 21 }, venue: 'street_night', rating: 54, mateRating: 43, moments: 11, level: 'street', importance: 2,
+    jam_plan2: { scene: 'playground',
+      lines: [
+        ['lou', 'Westbrook pushes the pace and everything runs through Kai. He breaks ankles for fun.'],
+        ['tariq', 'So… what\'s the plan, captain?'],
+      ],
+      choices: [
+        { t: 'Run with them. Our legs, our court.', hint: 'Easier layups and dunks, a little looser shooting', fx: { jam: { plan: 'run' } }, next: 'm3' },
+        { t: 'Slow it down. Make Kai play half-court.', hint: 'Better jumpers, fewer cheap points for them', fx: { jam: { plan: 'slow' } }, next: 'm3' },
+        { t: 'Lock in. Make every shot ugly.', hint: 'Their shots get much harder, yours a bit harder too', fx: { jam: { plan: 'lock' } }, next: 'm3' },
+      ] },
+    m3: { type: 'match', us: 'halsey', them: 'westbrook_elite', pickup: { size: 3, target: 21 }, jam: true, venue: 'street_night', rating: 54, mateRating: 43, moments: 11, level: 'street', importance: 2,
       title: 'Halsey Summer Jam', sub: 'Championship', win: 'm3_win', lose: 'm3_loss', gradeFlag: { min: 68, flag: 'good_final' } },
     m3_win: { scene: 'playground', fx: { flag: ['summer_champ', 'beat_kai'], rep: 10, fans: 800, xp: 120, money: 100, post: { by: 'courtvision', text: '🏆 HALSEY SUMMER JAM CHAMPIONS: Halsey Street! {first} {last} outplays #1 sophomore Kai Sterling — a star is born on Fifth Street.' } },
       lines: [

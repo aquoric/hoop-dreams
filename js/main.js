@@ -129,6 +129,7 @@ const Game = {
     /* national team arc (js/data-usa.js) */
     if (fx.campStart) { s.usa = { pts: 0, start: Engine.ovr(s), day: 1, cut: [], prev: {} }; if (s.recruit && s.recruit.stars >= 5) s.usa.pts += 2; }
     if (fx.camp && s.usa) { s.usa.pts += fx.camp; changes.push({ label: 'Camp points', v: fx.camp }); }
+    if (fx.jam) s.jam = Object.assign(s.jam || {}, fx.jam);   // Summer Jam: your third man, game plan, practice boost
     if (fx.count) for (const k in fx.count) s.counters[k] = (s.counters[k] || 0) + fx.count[k];
     if (fx.draftStock) { s.meta.draftStock = (s.meta.draftStock || 0) + fx.draftStock; changes.push({ label: 'Draft stock', v: fx.draftStock }); }
     if (fx.overseas) { s.meta.overseas = (s.meta.overseas || 0) + fx.overseas; changes.push({ label: 'Overseas interest', v: fx.overseas }); }
@@ -236,9 +237,16 @@ const Game = {
     cfg.jellyMoment = node.jellyMoment || this.jellyPayoff(cfg.importance);
     if (node.tutorial && !s.flags.tutorial_done) Object.assign(cfg, { tutorial: true, size: node.pickup.size || 3, target: node.pickup.target || 15, moments: (node.moments || 8) + 3,   // the first Kai game: choices + minigames + arcade segments, taught step by step
       sub: `${cfg.sub ? cfg.sub + ' · ' : ''}Tutorial · first to ${node.pickup.target || 15}` });
+    if (node.jam) {   // the Summer Jam: live arcade with choice moments (js/match.js jamBreak); your crew and game plan
+      const J = s.jam || {}, P = BALANCE.jam.plans[J.plan], mate = J.mate || 'Big Rudy', boost = J.boost ? BALANCE.jam.practice : 0;
+      cfg.us = Object.assign({}, cfg.us, { roster: ['Tariq "T-Bone" Miles', mate].concat((cfg.us.roster || []).filter(n => !/Tariq/.test(n) && n !== mate)) });
+      const us = Object.assign({}, P ? P.us : {}), them = Object.assign({}, P ? P.them : {}); if (boost) us.all = (us.all || 0) + boost;
+      cfg.mods = [Object.assign({ label: P ? P.name : 'Practice' }, us), Object.assign({ label: P ? P.name : 'Game plan' }, them)]; cfg.jam = true;
+    }
     if (node.pickup && !(node.tutorial && !s.flags.tutorial_done)) Object.assign(cfg, { fullArcade: true, size: node.pickup.size || 3, target: node.pickup.target || 21, sub: `${cfg.sub ? cfg.sub + ' · ' : ''}${node.pickup.size || 3}v${node.pickup.size || 3}, first to ${node.pickup.target || 21}` });
     const r = await Match.play(cfg);
     if (cfg.tutorial) s.flags.tutorial_done = true;
+    if (cfg.jam && s.jam) s.jam.boost = false;   // the practice boost lasts one game
     this.unlockVenue(r.venueId);
     await this.bigMoment(r);
     const summary = this.applyMatch(r, node);

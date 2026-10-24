@@ -20,7 +20,7 @@ const LOCAL_TEAMS = {
     star: { name: 'Kai Sterling', perD: 52, intD: 44 },
   },
   southside: {
-    name: 'Southside Bricklayers', abbr: 'SSB', colors: ['#b91c1c', '#fbbf24', '#1c1917'],
+    name: 'Southside Bricklayers', abbr: 'SSB', style: 'inside', colors: ['#b91c1c', '#fbbf24', '#1c1917'],
     logo: { shape: 'shield', icon: 'gear' },
     roster: ['Hammer Jones', 'Q-Tip', 'Marlon Cross', 'Big Shoes'],
     star: { name: 'Hammer Jones', perD: 40, intD: 46 },
@@ -32,7 +32,7 @@ const LOCAL_TEAMS = {
     star: { name: 'Flash Gordon Lee', perD: 45, intD: 38 },
   },
   westbrook_elite: {
-    name: 'Westbrook Elite', abbr: 'WBE', colors: ['#1e3a8a', '#facc15', '#ffffff'],
+    name: 'Westbrook Elite', abbr: 'WBE', style: 'pace', colors: ['#1e3a8a', '#facc15', '#ffffff'],
     logo: { shape: 'shield', icon: 'wing' },
     roster: ['Kai Sterling', 'Brandon Vale', 'Theo "Tank" Marsh', 'Jules Okafor'],
     star: { name: 'Kai Sterling', perD: 55, intD: 46 },
