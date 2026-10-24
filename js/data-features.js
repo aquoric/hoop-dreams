@@ -33,10 +33,10 @@ const FEATURES = [
   { id: 'chemistry', name: 'Chemistry Links', icon: '🔗', chapter: 'Youth National Team', tab: 'chem', color: '#22c55e', scene: 'usa:chem_dre',
     legacy: { usaCamp: true },
     what: ['Some teammates just get you.', 'Play with them and build a link — games, wins and how you treat them.', 'Max a link to unlock a duo move with that teammate.', 'Duo moves show up in matches and arcade play when he\'s on the floor.'] },
-  { id: 'jelly', name: 'Jelly Layups', icon: '🍯', chapter: 'Youth National Team', tab: 'playbook', color: '#facc15', scene: 'usa:jelly_learned / jelly_cut_learned',
+  { id: 'jelly', name: 'Jelly Layups', icon: '🍯', chapter: 'Youth National Team', tab: 'playbook', color: '#facc15', scene: 'usa:jelly_learned / jelly_cut_learned · college:cc_jelly_done / oo_jelly_done / gg_jelly_done',
     legacy: { flag: 'jelly' },
     what: ['You can\'t go through him. Go around him.', 'After you beat your man, pick JELLY when help or a big is coming.', 'In the air: flick it AWAY from his arm (← / →), then tap at the glass.', 'Arcade: drive at the rim with a defender close, hold MOVE and shoot.'] },
-  { id: 'weapon_training', name: 'Weapon Training', icon: '🥋', chapter: 'Chapter 3', tab: 'mentor', color: '#f43f5e', scene: 'college:wt_intro (FEATURE_SCENES)',
+  { id: 'weapon_training', name: 'Weapon Training', icon: '🥋', chapter: 'Chapter 3', tab: 'mentor', color: '#f43f5e', scene: 'college:cc_wt / oo_wt / gg_wt',
     what: ['Scoop DeLuca is back. And he brought homework.', 'Mentor missions teach you new weapons and rank up the ones you have.', 'Level up the jelly: Reverse Jelly, then Under-the-Arm.', 'Find your missions in the Mentor tab.'] },
   { id: 'combine', name: 'Combine Leaderboard', icon: '⏱', chapter: 'Chapter 4', tab: 'combine', color: '#eab308', scene: 'draft:combine_intro (FEATURE_SCENES)',
     what: ['Every scout in the league is holding a stopwatch.', 'Run the combine events: sprint, lane agility, vertical, shooting, bench.', 'See where you rank against this draft class.', 'Beat an all-time record and the whole league hears about it.'] },
@@ -49,14 +49,6 @@ const FEATURE_BY_ID = Object.fromEntries(FEATURES.map(f => [f.id, f]));
 
 /* ---------- scenes for chapters that aren't built yet (added to the chapter automatically once it exists) ---------- */
 const FEATURE_SCENES = {
-  college: {
-    wt_intro: { scene: 'gym', fx: { unlock: 'weapon_training' },
-      lines: [
-        ['narrator', 'After the loss, the gym empties out. One man is still sitting in the bleachers.'],
-        ['sal', 'Rough night. He took away everything you had. So — get more.', 'smile'],
-        ['sal', 'Every morning, six a.m. I\'ll teach you weapons nobody\'s seen from you yet.'],
-      ], next: null },
-  },
   draft: {
     combine_intro: { scene: 'arena', fx: { unlock: 'combine' },
       lines: [

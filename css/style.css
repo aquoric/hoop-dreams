@@ -229,6 +229,8 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 .choice:hover:not(:disabled) { background: rgba(249, 115, 22, .18); border-color: var(--accent); transform: translateX(4px); box-shadow: -4px 0 0 var(--accent); }
 .choice.cont { justify-content: center; font-family: var(--cond); text-transform: uppercase; letter-spacing: .1em; }
 .hint { font-family: var(--cond); font-size: .72rem; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; white-space: nowrap; }
+.choice .hint { white-space: normal; max-width: 46%; text-align: right; }
+@media (max-width: 600px) { .choices { gap: 6px; } .choice { flex-wrap: wrap; row-gap: 3px; padding: 8px 12px; font-size: .9rem; } .choice .hint { flex-basis: 100%; max-width: none; text-align: left; margin-left: 30px; } }
 
 /* =====================================================================
    HUB

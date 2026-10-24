@@ -63,6 +63,8 @@ const Venues = {
   home(teamId) {
     const base = String(teamId || '').replace(/_(hopefuls|varsity|white|blue)$/, '');
     if (VENUES['gym_' + base]) return 'gym_' + base;
+    if (VENUES['col_' + base]) return 'col_' + base;   // Chapter 3: college arenas, Grind League gyms
+    if (VENUES['gl_' + base]) return 'gl_' + base;
     if (VENUES['nbl_' + base]) return 'nbl_' + base;
     if (VENUES['ovs_' + base]) return 'ovs_' + base;
     if (typeof COLLEGES !== 'undefined' && COLLEGES[base]) return 'college_arena';
@@ -76,7 +78,7 @@ const Venues = {
     const us = cfg.us && cfg.us.id, them = cfg.them && cfg.them.id, homeGame = cfg.venue !== 'away';
     const v = homeGame ? (this.home(us) || this.home(them)) : (this.home(them) || this.home(us));
     if (v) return v;
-    return { street: 'street_night', hs: 'rec_center', college: 'college_arena', pro: 'nbl_man' }[cfg.level] || 'street_night';
+    return { street: 'street_night', hs: 'rec_center', college: 'college_arena', euro: 'ovs_paris', dev: 'gl_gl_ignition', pro: 'nbl_man' }[cfg.level] || 'street_night';
   },
   /* unlocks (state.venues = { id: true }) */
   unlocked(s) { const u = Object.assign({}, s && s.venues); for (const id in VENUES) if (VENUES[id].unlocked) u[id] = true; return Object.keys(VENUES).filter(id => u[id]); },

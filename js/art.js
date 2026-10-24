@@ -417,7 +417,8 @@ const Art = (() => {
       <rect x="0" y="620" width="1600" height="60" fill="#78350f"/><rect x="0" y="680" width="1600" height="18" fill="#451a03"/>
       ${[...Array(5)].map((_, i) => `<rect x="${200 + i * 300}" y="20" width="160" height="14" rx="6" fill="#f8fafc" opacity=".8"/>`).join('')}`;
     },
-    arena(r) { // big arena for finals / camps
+    arena(r, label) { // big arena for finals / camps; label = jumbotron text
+      const L = String(label || 'CHAMPIONSHIP').replace(/[<>&"]/g, ''), fs = Math.min(64, Math.floor(820 / Math.max(1, L.length)));
       const g = uid('g'); let crowd = '';
       for (let i = 0; i < 700; i++) { const y = 260 + r() * 300; crowd += `<circle cx="${(r() * 1600).toFixed(0)}" cy="${y.toFixed(0)}" r="${(2 + (y - 260) / 90).toFixed(1)}" fill="${['#1e293b', '#334155', '#475569', '#f97316', '#e5e7eb'][Math.floor(r() * 5)]}" opacity=".85"/>`; }
       let flashes = ''; for (let i = 0; i < 30; i++) flashes += `<circle class="flash" style="animation-delay:${(r() * 4).toFixed(2)}s" cx="${(r() * 1600).toFixed(0)}" cy="${(270 + r() * 280).toFixed(0)}" r="3" fill="#fff"/>`;
@@ -425,7 +426,7 @@ const Art = (() => {
         <linearGradient id="${g}b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".25"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
         <linearGradient id="${g}f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d4a373"/><stop offset="1" stop-color="#7c4a1e"/></linearGradient></defs>
       <rect width="1600" height="900" fill="url(#${g}c)"/>${crowd}${flashes}
-      <rect x="560" y="30" width="480" height="170" rx="12" fill="#020617" stroke="#38bdf8" stroke-width="4"/><rect x="580" y="50" width="440" height="130" fill="#0b1220"/><text x="800" y="135" text-anchor="middle" font-family="Bebas Neue, Impact" font-size="64" fill="#38bdf8">CHAMPIONSHIP</text>
+      <rect x="560" y="30" width="480" height="170" rx="12" fill="#020617" stroke="#38bdf8" stroke-width="4"/><rect x="580" y="50" width="440" height="130" fill="#0b1220"/><text x="800" y="135" text-anchor="middle" font-family="Bebas Neue, Impact" font-size="${fs}" fill="#38bdf8">${L}</text>
       <path d="M0 570 H1600 V900 H0 Z" fill="url(#${g}f)"/>${courtLines(570, '#fff', .55)}
       <path class="beam b1" d="M260 0 L340 0 L660 900 L40 900 Z" fill="url(#${g}b)"/><path class="beam b2" d="M1260 0 L1340 0 L1560 900 L940 900 Z" fill="url(#${g}b)"/>`;
     },
@@ -479,10 +480,10 @@ const Art = (() => {
       <rect x="640" y="40" width="320" height="150" rx="10" fill="#0b0f19" stroke="#f97316" stroke-width="3"/><text x="800" y="135" text-anchor="middle" font-family="Bebas Neue, Impact" font-size="60" fill="#f97316" opacity=".9">HOME 00  ·  AWAY 00</text>`;
     },
   };
-  function scene(name, seed) {
+  function scene(name, seed, label) {
     const r = seeded((seed || name) + '');
     const fn = SCENES[name] || SCENES.title;
-    return `<svg class="scene-svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">${fn(r)}</svg>`;
+    return `<svg class="scene-svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">${fn(r, label)}</svg>`;
   }
 
   return { avatar, lookFromSeed, logo, badge, icon, scene, shade, seeded, hashStr, SKINS, HAIRS, HAIR_COLORS, BEARDS, ACCENTS, SHOES, DEFAULT_LOOK, GLYPHS, TIER_COLORS };

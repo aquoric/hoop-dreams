@@ -32,10 +32,10 @@ const UI = (() => {
     document.body.dataset.screen = cls; if (cls !== 'match' && typeof SFX !== 'undefined' && SFX.crowd) SFX.crowd.stop();   // leaving the game: the crowd fades out
     return sc;
   }
-  function setBg(scene, seed) {
-    const bg = $('#bg'); const key = scene + (seed || '');
+  function setBg(scene, seed, label) {
+    const bg = $('#bg'); const key = scene + (seed || '') + (label || '');
     if (bg.dataset.key === key) return; bg.dataset.key = key;
-    const layer = document.createElement('div'); layer.className = 'bg-layer'; layer.innerHTML = Art.scene(scene, seed);
+    const layer = document.createElement('div'); layer.className = 'bg-layer'; layer.innerHTML = Art.scene(scene, seed, label);
     bg.appendChild(layer); requestAnimationFrame(() => layer.classList.add('on'));
     const old = $$('.bg-layer', bg).slice(0, -1); setTimeout(() => old.forEach(o => o.remove()), 900);
   }
@@ -385,7 +385,7 @@ const UI = (() => {
      ================================================================= */
   function story(node, chapter, onChoice) {
     const s = S();
-    setBg(node.scene || 'playground', (node.scene || '') + (s.career.hs || ''));
+    setBg(node.scene || 'playground', (node.scene || '') + (s.career.hs || ''), node.board || (chapter.board && chapter.board(s)));   // arena jumbotron text
     SFX.music(node.music || (node.scene === 'hospital' || node.scene === 'street_night' ? 'sad' : 'story'));
     const lines = (node.lines || []).filter(l => Engine.check(s, l[3]));
     if (typeof Features !== 'undefined') setTimeout(Features.flush, 300);   // a feature unlocked in the previous scene: its card comes now
@@ -473,7 +473,7 @@ const UI = (() => {
     setBg('rec', 'hub'); SFX.music('hub');
     showScreen(`<div class="hub">
       <header class="hub-top glass" id="hubTop"></header>
-      <nav class="hub-tabs" id="hubTabs">${[['home', 'Home'], (s.season || (s.career.seasons || []).length) && ['season', 'Season'], s.recruit && ['recruit', 'Recruiting'], ['train', 'Train'], ['upgrade', 'Upgrade'], ['badges', 'Badges'], ['shop', 'Shop'], ['social', 'Social'], ['career', 'Career'], ['trophies', 'Achievements'], ['courts', 'Courts']].concat(typeof Features !== 'undefined' ? Features.tabs(s) : []).filter(Boolean).map(([k, n, f]) => `<button data-tab="${k}" class="${f ? 'feat' : ''} ${f === 'new' ? 'new' : ''}">${n}${k === 'upgrade' ? '<i class="dot" id="spDot"></i>' : ''}</button>`).join('')}</nav>
+      <nav class="hub-tabs" id="hubTabs">${[['home', 'Home'], (s.season || (s.career.seasons || []).length) && ['season', 'Season'], (s.flags.done_highschool ? ['recruit', 'Draft Stock'] : s.recruit && ['recruit', 'Recruiting']), ['train', 'Train'], ['upgrade', 'Upgrade'], ['badges', 'Badges'], ['shop', 'Shop'], ['social', 'Social'], ['career', 'Career'], ['trophies', 'Achievements'], ['courts', 'Courts']].concat(typeof Features !== 'undefined' ? Features.tabs(s) : []).filter(Boolean).map(([k, n, f]) => `<button data-tab="${k}" class="${f ? 'feat' : ''} ${f === 'new' ? 'new' : ''}">${n}${k === 'upgrade' ? '<i class="dot" id="spDot"></i>' : ''}</button>`).join('')}</nav>
       <section class="hub-body" id="hubBody"></section>
       <footer class="hub-cta"><div class="hub-cta-info"><b>${esc(ctx.title || 'Free Time')}</b><span id="apInfo"></span></div><div class="cta-btns">${ctx.cta2 ? `<button class="btn big ghost" id="cta2Btn">${ctx.cta2.label}</button>` : ''}<button class="btn big glow" id="ctaBtn" ${ctx.cta.disabled ? 'disabled' : ''}>${ctx.cta.label}</button></div></footer>
     </div>`, 'hubscreen');
@@ -539,6 +539,12 @@ const UI = (() => {
         </div>`;
       },
       recruit: () => {
+        if (s.flags.done_highschool) {   // after high school the tab becomes your draft stock (Chapter 3+)
+          const d = s.meta.draftStock || 0, ov = s.meta.overseas || 0, tier = d >= 14 ? ['Lottery pick', 'good'] : d >= 10 ? ['First round', 'good'] : d >= 6 ? ['Second round', 'xp'] : ['On the bubble', 'bad'];
+          const team = LOCAL_TEAMS[s.career.path === 'overseas' ? s.career.club : s.career.path === 'grind' ? 'gl_ignition' : s.career.college];
+          return `<div class="recruit-grid"><div class="glass panel rec-head"><div class="rec-stars">${team ? Art.logo(team, 56) : ''}</div><div><b>Projection: ${tier[0]}</b><span>Draft stock ${d} · Overall ${Engine.ovr(s)}${ov ? ' · Overseas interest ' + ov : ''}${team ? ' · ' + esc(team.name) : ''}</span></div>
+            <p class="muted small">Scouts move you up for big games, wins over ranked teams and Kai, titles, call-ups and your Overall. 10+ is first round, 14+ is the lottery.</p>${bar(Math.min(d, 20), 20, tier[1])}</div></div>`;
+        }
         const R = s.recruit, sc = Engine.recruitScore(s);
         const offers = R.offers.map(id => [id, COLLEGES[id]]).sort((a, b) => b[1].prestige - a[1].prestige);
         return `<div class="recruit-grid">
@@ -551,7 +557,7 @@ const UI = (() => {
       },
       train: () => `<p class="muted glass panel">Each session uses 1 action and plays a short minigame — better performance = bigger gains. Fatigue builds up; rest when you need to.</p>
         <div class="train-grid">${TRAINING.map(t => `<button class="tcard glass" data-train="${t.id}" ${s.hub.ap <= 0 ? 'disabled' : ''}><div class="tc-ico">${Art.icon(t.icon, '#f97316', '#0006', 40)}</div><b>${t.name}</b><span>${t.desc}</span><div class="tc-attrs">${t.keys.map(k => `<em>${ATTR_BY_KEY[k].s} ${s.player.attrs[k]}</em>`).join('')}</div></button>`).join('')}
-          <button class="tcard glass pickup" data-pickup ${s.hub.ap <= 0 ? 'disabled' : ''}><div class="tc-ico">${Art.icon('ball', '#38bdf8', '#0006', 40)}</div><b>Pickup Run</b><span>3v3 to 21 at <b>${esc(VENUES[s.pickupCourt && Venues.unlocked(s).includes(s.pickupCourt) ? s.pickupCourt : 'street_night'].name)}</b>. Win for XP and a small stat bump. Change courts in the Courts tab.</span><div class="tc-attrs"><em>+30–60 XP</em><em>🕹 Arcade segments</em></div></button>
+          <button class="tcard glass pickup" data-pickup ${s.hub.ap <= 0 ? 'disabled' : ''}><div class="tc-ico">${Art.icon('ball', '#38bdf8', '#0006', 40)}</div><b>Pickup Run</b><span>3v3 to 21 at <b>${esc(VENUES[s.story.chapter === 'college' && typeof ROUTE_COURTS !== 'undefined' && ROUTE_COURTS[s.career.path] ? (ROUTE_COURTS[s.career.path].includes(s.pickupCourt) && Venues.unlocked(s).includes(s.pickupCourt) ? s.pickupCourt : ROUTE_COURTS[s.career.path][0]) : s.pickupCourt && Venues.unlocked(s).includes(s.pickupCourt) ? s.pickupCourt : 'street_night'].name)}</b>. Win for XP and a small stat bump. Change courts in the Courts tab.</span><div class="tc-attrs"><em>+30–60 XP</em><em>🕹 Full arcade</em></div></button>
           <button class="tcard glass rest" data-rest ${s.hub.ap <= 0 ? 'disabled' : ''}><div class="tc-ico">${Art.icon('heart', '#22c55e', '#0006', 40)}</div><b>Rest & Recover</b><span>Sleep in, eat right, ice the knees.</span><div class="tc-attrs"><em>−35 Fatigue</em><em>+4 Confidence</em></div></button></div>
         ${s.hub.ap <= 0 ? '<p class="warn-text center">No actions left. Continue the story to refresh.</p>' : ''}`,
       upgrade: () => {

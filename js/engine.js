@@ -213,6 +213,11 @@ const Engine = (() => {
     if (c.usaInvite && !(typeof USA !== 'undefined' && USA.inviteScore(s) >= USA_CAMP.invite)) return false;   // national team list
     if (c.maxRank && !(s.recruit && s.recruit.rank <= c.maxRank)) return false;
     if (c.minCount) for (const k in c.minCount) if ((s.counters[k] || 0) < c.minCount[k]) return false;
+    if (c.minDraft && (s.meta.draftStock || 0) < c.minDraft) return false;          // Chapter 3: draft stock / overseas interest / your club
+    if (c.minOverseas && (s.meta.overseas || 0) < c.minOverseas) return false;
+    if (c.maxDraft != null && (s.meta.draftStock || 0) > c.maxDraft) return false;
+    if (c.club && ![].concat(c.club).includes(s.career.club)) return false;
+    if (c.notClub && [].concat(c.notClub).includes(s.career.club)) return false;
     return true;
   }
 
@@ -255,6 +260,9 @@ const Engine = (() => {
       stars: s.recruit ? starStr(s.recruit.stars) : '☆☆☆☆☆', starN: s.recruit ? s.recruit.stars : 0, rank: s.recruit ? '#' + s.recruit.rank : 'unranked',
       college: s.career.college && COLLEGES[s.career.college] ? COLLEGES[s.career.college].name : 'college',
       opp: s.season && s.season.nextOpp && LOCAL_TEAMS[s.season.nextOpp] ? LOCAL_TEAMS[s.season.nextOpp].name : 'them',
+      club: s.career.club && LOCAL_TEAMS[s.career.club] ? LOCAL_TEAMS[s.career.club].name : 'the club', clubCity: s.career.club && OVERSEAS_CLUBS[s.career.club] ? OVERSEAS_CLUBS[s.career.club].city : 'Europe',
+      clubCityUp: (s.career.club && OVERSEAS_CLUBS[s.career.club] ? OVERSEAS_CLUBS[s.career.club].city : 'Europe').toUpperCase(), seed: s.career.marchSeed || 8, draft: s.meta.draftStock || 0,
+      nick: s.career.college && COLLEGES[s.career.college] ? COLLEGES[s.career.college].nick : 'team', conf: s.career.college && COLLEGES[s.career.college] ? COLLEGES[s.career.college].conf : 'conference',
     };
     return str.replace(/\{(\w+)\}/g, (m, k) => (k in map ? map[k] : m));
   }

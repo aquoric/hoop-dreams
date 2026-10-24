@@ -70,6 +70,12 @@ Download the code and double-click **`index.html`**. There's no install, no buil
   - **Where it ends**: you pick a fictional university, or skip college for Europe or the Grind League. That choice sets up Chapter 3.
   - **Early endings**: two new ways to end your career (a "sneaker flip" with Cousin Marcus, and painkillers on a broken foot).
 - **Interlude: Red, White & Hoops** (`js/data-usa.js`, `js/usa.js`): the U.S. Youth National Team arc, the summer after high school (or the summer before senior year for top-25 recruits). Invite or open tryout, selection camp at the National Training Center (drills ranked against 16 other campers, a Red-White scrimmage, King of the Court 3v3 against Kai, film sessions and evaluations with Coach Reyes), dorm drama, two cut days on a live "on the bubble" board, then the World Youth Championship in Riga: group stage, knockouts and a final against France's Bastien Mbaye. Medals go to the trophy room, making the team unlocks a national-team jersey, and it all feeds reputation, recruiting, draft stock and overseas interest. Get cut and you get a second chance after graduation.
+- **Chapter 3: The Next Level** (`js/data-story-ch3*.js`, `js/data-ch3-world.js`): the year after high school, on the route you picked at Signing Day. Your high school and national team summer shape it: making the team brings better offers, more overseas interest and dev-league scouts; getting cut gives you a chip on your shoulder. National team teammates, coaches and rivals come back; Kai takes a different road and stays your rival; Scoop DeLuca returns as your mentor. Every route ends at the Draft, and a good run finishes around 68 Overall.
+  - **College**: offers from fictional universities with their own logos and arenas, a signing-day cinematic, move-in, a roommate, class, media day, NIL deals and midterms (fail and you land on academic probation). The season has road trips, a rivalry game, a top-10 showdown and an exhibition against Kai's Grind League team, then the conference tournament, Selection Sunday and a 16-team March Madness bracket with big-arena cinematics before the Final Four and the title game. Then you declare for the Draft or stay another year.
+  - **Overseas**: pick a club (better offers need more overseas interest), an arrival cinematic in a new city, a translator, culture shock, the language barrier, grown men who don't pass to a teenager, homesickness and earning the coach's trust. Then the league title run, the Continental Cup bracket and a world showcase against Kai's Blue Ridge.
+  - **Grind League (development league)**: forty grand a year, a $28 per diem, nine-hour bus rides, Motel 9, veterans fighting for their last shot, scouts in the front row, a College vs Pros game against Kai, the league playoffs, and an NBL call-up on a ten-day contract if you earn it.
+  - **Weapon Training** unlocks on every route after a rough game against a tough opponent: Scoop offers to teach you, with missions to learn new weapons and rank up the ones you have (including jelly levels). Careers that never got the jelly at the national team learn it in their own short lesson right after.
+  - **Pickup runs** in the hub move to route courts (Campus Rec and the Quad, a Euro plaza and a harbor court, the Motel 9 court and the Warehouse Run). Two teams in similar colors no longer clash: the opponent switches to a light kit.
 - **Season system** (`js/season.js`): a reusable schedule, simulated league results, standings, playoff brackets, simulated stat lines, and a coach-trust role (Starter / Sixth Man / Bench). It's built to be reused for college, pro and overseas seasons.
 - **Game day**: big games (away trips, rivals, playoffs, story games) open with a skippable pre-game sequence (bus or flight, arriving in the city, walking in past their fans; or the locker room, tunnel walk and intros; or sizing up a pickup run), a face-off with their star and one short pre-game talk. During the game you get at most one conversation, and only after something that matters.
 - **Instant replays**: dunks, deep threes, blocks, broken ankles, and-ones and buzzer-beaters replay the actual play from two angles, the second in slow motion; tilt, zoom, speed and the second angle's subject change every time.
@@ -88,18 +94,17 @@ Download the code and double-click **`index.html`**. There's no install, no buil
   - **Street Calls** (Chapter 1): Lou teaches four streetball calls before the Summer Jam (see above).
 - **Audio**: music and effects are synthesized with the Web Audio API; the crowd uses real recordings (one venue loop, capped reactions). 🔊 mutes everything.
 
-*Coming in later builds: College/Overseas/G-League routes (Chapter 3), the Draft, the 30-team pro league, overseas leagues, legacy endings.*
+*Coming in later builds: the Draft (Chapter 4), the 30-team pro league, legacy endings.*
 
 **Future-chapter features are ready to plug in.** Their data, hub tabs and introduction scenes are already in `js/data-features.js` (`FEATURE_SCENES`). When a chapter is built (ids in `CHAPTER_ORDER`), its scene nodes are added to it automatically; the chapter only routes a `next` into the scene and sets where the scene goes. **Any new feature follows the same pattern:** a story node with `fx: { unlock: 'id' }` and an entry in `FEATURES`.
 
 | Feature | Chapter id | Data |
 |---|---|---|
-| Weapon Training — Scoop DeLuca offers after a rough loss (`wt_intro`) · missions: new weapons, free ranks, Reverse and Under-the-Arm Jelly) | `college` | `WEAPON_TRAINING` |
 | Combine Leaderboard — your agent shows you the rankings at the combine (`combine_intro`) | `draft` | `COMBINE` |
 | Signature Shoe — a sneaker brand meeting (`shoe_intro`) | `pro` | `SHOE` |
 | Rivalry System — a heated post-game confrontation with your first rival (`rival_intro`) | `pro` | `RIVALRY` |
 
-Careers that skip the national team learn the jelly in Weapon Training.
+Weapon Training is introduced in Chapter 3 (`cc_wt`, `oo_wt`, `gg_wt`). Careers that skip the national team learn the jelly there too.
 
 ## For tinkerers: editing the game
 
@@ -115,6 +120,8 @@ All content lives in plain, commented JavaScript objects. Edit them in any text 
 | `js/data-game.js` | Attributes, positions (Overall weights, height ranges), height and wingspan caps, **rarity odds and roll counts**, **archetypes** (with passives), **weapons**, **badges**, difficulty, XP tuning, training drills, achievements, **shop items** |
 | `js/data-leagues.js` | Teams used in story games and seasons (`LOCAL_TEAMS`: playground crews, Metro Prep League high schools, AAU teams) with a `rating` for sims, fictional `COLLEGES` (prestige, coach, minutes/exposure/development), the 30 `NBL_TEAMS` and the `OVERSEAS_CLUBS` |
 | `js/data-story-ch2.js` | Chapter 2 (high school): new characters, season definitions, endings |
+| `js/data-story-ch3.js` / `-overseas.js` / `-dev.js` | Chapter 3: the College, Overseas and Grind League routes (story nodes and season definitions) |
+| `js/data-ch3-world.js` | Chapter 3 world: college teams and arenas, overseas clubs, Grind League teams, route courts, characters, cinematics |
 | `js/season.js` | Reusable season engine: schedule, sims, standings, playoffs |
 | `js/data-features.js` | **Every unlockable feature and the scene that introduces it** (`FEATURES`, `FEATURE_SCENES`), playbook, chemistry duos, celebrations, mixtape values, future-chapter data, the jelly story nodes |
 | `js/features.js` | Unlock checks, the unlock cinematic, feature hub tabs, after-game hooks, the jelly lesson |
@@ -178,7 +185,7 @@ Overall grows from three sources: **skill points** (from XP; upgrade costs rise 
 |---|---|---|
 | End of Chapter 1 (age 16) | ~48 | tested: bot runs land 44–48 |
 | End of high school (age 18) | ~58 | tested: bot runs land 56–58 |
-| End of college / overseas / Grind League | ~68 | defined, for Chapter 3 |
+| End of college / overseas / Grind League (Chapter 3) | ~68 | tested: sim-heavy bot runs from a weak 51 save land 58–59 (stage performance ~40%) |
 | End of rookie season | ~74 | defined |
 | Prime | 85–95 | defined |
 | 99 | GOAT-level runs only | defined |

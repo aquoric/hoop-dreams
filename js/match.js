@@ -1268,14 +1268,27 @@ const Match = (() => {
     street: { periods: 2, periodMin: 10, pts: 38, label: 'H', shot: 20, bg: .25, xp: 60 },
     hs:     { periods: 4, periodMin: 8,  pts: 58, label: 'Q', shot: 30, bg: .5, xp: 80 },
     pro:    { periods: 4, periodMin: 12, pts: 108, label: 'Q', shot: 24, bg: 1, xp: 150 },
+    college: { periods: 2, periodMin: 20, pts: 72, label: 'H', shot: 30, bg: .7, xp: 115 },   // Chapter 3 routes
+    euro:   { periods: 4, periodMin: 10, pts: 80, label: 'Q', shot: 24, bg: .75, xp: 120 },
+    dev:    { periods: 4, periodMin: 12, pts: 104, label: 'Q', shot: 24, bg: .85, xp: 120 },
   };
   /* Names keep their capitalization; every sentence starts with a capital letter. */
   const properName = n => String(n || '').replace(/(^|[\s\-'’.])([a-z])/g, (m, a, b) => a + b.toUpperCase());
   const sentence = t => String(t).replace(/^((?:\s|<[^>]+>|[^\w<])*)([a-z])/, (m, a, b) => a + b.toUpperCase());
   const escH = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+  /* two teams in near-identical colors: the opponent wears its alternate (light) kit */
+  function kits(cfg) {
+    const rgb = h => { h = (h || '#000').replace('#', ''); if (h.length === 3) h = h.replace(/./g, c => c + c); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
+    const d = (a, b) => { const x = rgb(a), y = rgb(b); return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]); };
+    const u = cfg.us && cfg.us.colors, t = cfg.them && cfg.them.colors;
+    if (!u || !t || d(u[0], t[0]) > 120) return;
+    const alt = [t[1], t[2], '#f8fafc'].find(c => c && d(c, u[0]) > 140) || '#f8fafc';
+    cfg.them = Object.assign({}, cfg.them, { colors: [alt, t[0], t[2] || t[1]] });
+  }
   async function play(cfg) {
     const s = Game.state, D = DIFFICULTY[s.difficulty];
+    kits(cfg);
     /* cfg.target = "first to N" pickup game (normal mode); cfg.size = players per side (3 = 3v3, 1 = 1v1) */
     const L = cfg.target ? Object.assign({}, LEVELS[cfg.level] || LEVELS.street, { pts: cfg.target * 1.7, bg: 0 }) : (LEVELS[cfg.level] || LEVELS.street);
     const size = Math.max(1, Math.min(5, cfg.size || 5));
@@ -2061,10 +2074,11 @@ const Match = (() => {
     const coachId = cfg.level === 'street' ? (PICK ? null : 'lou') : s.career.hs === 'lincoln' ? 'brennan' : s.career.hs === 'westbrook' ? 'graves' : 'coach';
     const refId = cfg.level === 'street' ? null : pick(['ref_dawkins', 'ref_vance', 'ref_ortiz']);
     const rivalId = star.name === 'Kai Sterling' ? 'kai' : star.name === 'Bastien Mbaye' ? 'mbaye' : ['hothead', 'iceman', 'showman'][Weapons.hash(star.name) % 3];   // each star keeps the same voice
+    const MATE_LOOK = () => Object.assign({}, TMATE().look, { jersey: cfg.us.colors[0], trim: cfg.us.colors[1], outfit: 'jersey' });   // your teammate wears your colors in talks
     const TMATE = () => US.filter(p => !p.isUser).sort((a, b) => (b.rating || 0) - (a.rating || 0))[0], mateId = US.some(p => /Tariq/.test(p.full || p.name || '')) ? 'tariq' : ['mate_vet', 'mate_hype'][Weapons.hash(cfg.us.name || 'x') % 2];
     /* in-game conversations happen in about 1 game in 3 (BALANCE.talk.every), never more than once */
     const talkOK = !cfg.practice && ((s.talkGap == null ? 99 : s.talkGap) >= ((BALANCE.talk && BALANCE.talk.every) || 3) - 1);
-    const talkLook = id => { const P = TK && TK.personalities[id]; if (!P) return null; if (P.kind === 'rival') return Object.assign({}, STAR.look, { jersey: cfg.them.colors[0], trim: cfg.them.colors[1], outfit: 'jersey' }); if (P.kind === 'mate') return TMATE() ? TMATE().look : Art.lookFromSeed(id, P.look || {}); if (P.char && STORY.characters[P.char]) return UI.charLook(P.char); return Art.lookFromSeed(P.name || id, P.look || {}); };
+    const talkLook = id => { const P = TK && TK.personalities[id]; if (!P) return null; if (P.kind === 'rival') return Object.assign({}, STAR.look, { jersey: cfg.them.colors[0], trim: cfg.them.colors[1], outfit: 'jersey' }); if (P.kind === 'mate') return TMATE() ? MATE_LOOK() : Art.lookFromSeed(id, P.look || {}); if (P.char && STORY.characters[P.char]) return UI.charLook(P.char); return Art.lookFromSeed(P.name || id, P.look || {}); };
     const talkName = id => { const P = TK.personalities[id]; return P.kind === 'rival' ? STAR.full : P.kind === 'mate' ? (TMATE() ? TMATE().full || TMATE().name : 'Teammate') : P.char && STORY.characters[P.char] ? STORY.characters[P.char].name : P.name || 'Coach'; };
     /* ask for a conversation at the next dead ball (with probability p) */
     function queueTalk(type, p = 1, topic) { if (!TK || tutOn() || !talkOK || st.talkQ || st.done || st.talkN >= ((BALANCE.talk && BALANCE.talk.perGame) ?? 1) || Math.random() > p) return; if (type === 'coach' && !coachId) return; if (type === 'ref' && !refId) return; if (type === 'ref') st.talkEv = 'bad_call'; st.talkQ = { type, topic }; if (type === 'coach' && typeof Cutscene !== 'undefined') Cutscene.prep(talkLook(coachId)); }
@@ -2596,8 +2610,8 @@ const Match = (() => {
       const top = STAR.stats ? Object.entries(STAR.stats).filter(([, v]) => typeof v === 'number').sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => [k.slice(0, 3).toUpperCase(), Math.round(v)]) : [];
       const ctx = { team: cfg.us, them: cfg.them, usAbbr: cfg.us.abbr, themAbbr: cfg.them.abbr, themName: cfg.them.name, venue: court.venueId, city: cfg.them.city, night: VD.sky === 'night' || VD.style === 'arena' || VD.style === 'gym',
         homeCols: kind === 'away' ? cfg.them.colors : cfg.us.colors, homeScene: VD.style === 'arena' ? 'arena' : 'gym',
-        looks: { star: Object.assign({}, STAR.look, { jersey: cfg.them.colors[0], trim: cfg.them.colors[1], outfit: 'jersey' }), coach: coachId ? talkLook(coachId) : null, mate: TMATE() ? TMATE().look : null }, names: { star: STAR.full, coach: coachId ? talkName(coachId) : 'Coach', mate: TMATE() ? TMATE().full || TMATE().name : 'Teammate' } };
-      try { cnt('pregames'); await Cutscene.pregame({ kind, tier: pgTier, flight: kind === 'away' && /college|pro/.test(cfg.level || ''), city: cfg.them.city, place: vName, starName: STAR.full, starSub: cfg.starSub || `${cfg.them.name}'s best player`, starStats: top }, ctx);
+        looks: { star: Object.assign({}, STAR.look, { jersey: cfg.them.colors[0], trim: cfg.them.colors[1], outfit: 'jersey' }), coach: coachId ? talkLook(coachId) : null, mate: TMATE() ? MATE_LOOK() : null }, names: { star: STAR.full, coach: coachId ? talkName(coachId) : 'Coach', mate: TMATE() ? TMATE().full || TMATE().name : 'Teammate' } };
+      try { cnt('pregames'); await Cutscene.pregame({ kind, tier: pgTier, flight: kind === 'away' && /college|pro|euro/.test(cfg.level || ''), city: cfg.them.city, place: vName, starName: STAR.full, starSub: cfg.starSub || `${cfg.them.name}'s best player`, starStats: top }, ctx);
       SFX.music('game'); Pixel.ambient(court.V, court.excite);
       if (TK && !cfg.practice && ((cfg.importance || 1) >= 2 || rivalId === 'kai')) { const who = kind === 'pickup' ? (Math.random() < .6 ? 'rival' : 'mate') : kind === 'away' ? (rivalId === 'kai' || oppR >= usR + 3 ? 'rival' : 'coach') : (Math.random() < .5 || !coachId ? 'mate' : 'coach');
         await talk(who === 'coach' && !coachId ? 'mate' : who === 'mate' && !TMATE() ? 'rival' : who, null, true); }

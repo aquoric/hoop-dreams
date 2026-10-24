@@ -15,7 +15,7 @@
 const Season = (() => {
   const rnd = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const LEVEL_AVG = { street: 42, hs: 50, aau: 55, college: 66, pro: 76 };
+  const LEVEL_AVG = { street: 42, hs: 50, aau: 55, college: 62, euro: 64, dev: 62, pro: 76 };
 
   /* ---------- ratings ---------- */
   function baseRating(se, id) { return (se.ratings && se.ratings[id]) || (LOCAL_TEAMS[id] && LOCAL_TEAMS[id].rating) || 50; }
@@ -101,8 +101,10 @@ const Season = (() => {
       .sort((x, y) => (y.w - x.w) || ((y.pf - y.pa) - (x.pf - x.pa)));
   }
   function buildPlayoffs(s, se) {
-    const P = se.def.playoff, seeds = table(se).slice(0, P.teams).map(t => t.id);
-    const order = P.teams === 8 ? [[0, 7], [3, 4], [1, 6], [2, 5]] : P.teams === 4 ? [[0, 3], [1, 2]] : [[0, 1]];
+    const P = se.def.playoff;
+    let seeds = table(se).slice(0, P.teams).map(t => t.id);
+    if (P.userSeed) { const others = se.teams.filter(t => t !== se.user).sort((x, y) => baseRating(se, y) - baseRating(se, x)).slice(0, P.teams - 1); others.splice(Math.min(P.teams, P.userSeed) - 1, 0, se.user); seeds = others; }   // a seeded field (the March bracket)
+    const order = P.teams === 16 ? [[0, 15], [7, 8], [3, 12], [4, 11], [1, 14], [6, 9], [2, 13], [5, 10]] : P.teams === 8 ? [[0, 7], [3, 4], [1, 6], [2, 5]] : P.teams === 4 ? [[0, 3], [1, 2]] : [[0, 1]];
     const r0 = order.map(([i, j]) => ({ a: seeds[i], b: seeds[j], sa: null, sb: null, winner: null, seedA: i + 1, seedB: j + 1 }));
     se.playoffs = { seeds, rounds: [r0], round: 0, names: P.rounds };
     se.phase = 'playoffs';
@@ -127,7 +129,7 @@ const Season = (() => {
     const m = userMatch(se), opp = oppOf(se, m);
     setResult(m, se.user, opp, us, them); addStats(se, box, us > them);
     simRound(s, se);
-    if (us < them) { simRestOfPlayoffs(s, se); se.result = 'eliminated'; se.phase = 'done'; return 'eliminated'; }
+    if (us < them) { se.outRound = se.playoffs.round; simRestOfPlayoffs(s, se); se.result = 'eliminated'; se.phase = 'done'; return 'eliminated'; }
     if (!advance(se)) { se.result = 'champion'; se.phase = 'done'; return 'champion'; }
     return 'advanced';
   }

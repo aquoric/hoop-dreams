@@ -52,7 +52,7 @@ const Game = {
   runNode() {
     const s = this.state, { ch, node } = this.node();
     if (!ch || !node) { console.error('Missing story node', s.story); UI.toast('Story node missing: ' + s.story.chapter + '/' + s.story.node, 'bad'); return UI.title(); }
-    s.career.stage = ch.stage;
+    s.career.stage = typeof ch.stage === 'function' ? ch.stage(s) : ch.stage;   // Chapter 3: College / Overseas Pro / Grind League
     Features.check(s);   // new chapter / story beat → feature unlocks (popup waits for a calm screen)
     // node entry effects (applied once, even across reloads)
     const nid = s.story.chapter + ':' + s.story.node;
@@ -131,7 +131,12 @@ const Game = {
     if (fx.camp && s.usa) { s.usa.pts += fx.camp; changes.push({ label: 'Camp points', v: fx.camp }); }
     if (fx.unlock) [].concat(fx.unlock).forEach(id => Features.unlock(s, id));   // a story scene introduces a feature (js/features.js)
     if (fx.celeb) Features.setCeleb(s, fx.celeb);
-    if (fx.jam) s.jam = Object.assign(s.jam || {}, fx.jam);   // Summer Jam: your third man, game plan, practice boost
+    if (fx.jam) s.jam = Object.assign(s.jam || {}, fx.jam);
+    /* Chapter 3 */
+    if (fx.club) { s.career.club = fx.club; s.career.path = 'overseas'; }
+    if (fx.marchSeed) { const se = (s.career.seasons || []).slice(-1)[0] || { w: 4, l: 4, result: 'eliminated' }, pct = se.w / Math.max(1, se.w + se.l);
+      s.career.marchSeed = Math.max(1, Math.min(14, se.result === 'champion' ? 2 : Math.round(13 - pct * 10 - (s.flags.usa_made ? 1 : 0)))); }
+    if (fx.ageUp) s.player.age += fx.ageUp;   // Summer Jam: your third man, game plan, practice boost
     if (fx.count) for (const k in fx.count) s.counters[k] = (s.counters[k] || 0) + fx.count[k];
     if (fx.draftStock) { s.meta.draftStock = (s.meta.draftStock || 0) + fx.draftStock; changes.push({ label: 'Draft stock', v: fx.draftStock }); }
     if (fx.overseas) { s.meta.overseas = (s.meta.overseas || 0) + fx.overseas; changes.push({ label: 'Overseas interest', v: fx.overseas }); }
@@ -148,7 +153,8 @@ const Game = {
   /* context for cutscenes: real score, teams, ending title, injury */
   csCtx(nodeId) {
     const s = this.state, g = s.lastGame || {}, END = { crash2: 'crash', c2_broken: 'broken', c2_scheme2: 'locked' };
-    const team = s.career.hs && LOCAL_TEAMS[s.career.hs];
+    const c3 = s.story.chapter === 'college' && LOCAL_TEAMS[s.career.path === 'overseas' ? s.career.club : s.career.path === 'grind' ? 'gl_ignition' : s.career.college];   // Chapter 3: your new team's colors
+    const team = c3 || (s.career.hs && LOCAL_TEAMS[s.career.hs]);
     return { score: g.us != null ? `${g.us}-${g.them}` : '', usAbbr: g.usAbbr, themAbbr: g.themAbbr, ending: END[nodeId] && STORY.endings[END[nodeId]].title, injury: s.meta.injury && s.meta.injury.name, team: team ? { colors: team.colors } : null, them: g.themColors ? { colors: g.themColors } : null, venue: g.venue || (s.career.hs && VENUES['gym_' + s.career.hs] ? 'gym_' + s.career.hs : null), play: g.play || null, playCtx: g.ctx || null };
   },
   gradeOf(gs) { return gs >= 92 ? 'A+' : gs >= 85 ? 'A' : gs >= 80 ? 'A-' : gs >= 75 ? 'B+' : gs >= 68 ? 'B' : gs >= 62 ? 'B-' : gs >= 56 ? 'C+' : gs >= 50 ? 'C' : gs >= 44 ? 'C-' : gs >= 36 ? 'D' : 'F'; },
@@ -168,11 +174,13 @@ const Game = {
      Sometimes the run moves to a street court you haven't played yet, which unlocks it. */
   async pickup() {
     const s = this.state; if (!s.hub || s.hub.ap <= 0) return UI.toast('No actions left.', 'bad');
-    const size = 3, target = 21, o = Engine.ovr(s), home = LOCAL_TEAMS[s.career.hs] || LOCAL_TEAMS.halsey;
-    let court = s.pickupCourt && Venues.unlocked(s).includes(s.pickupCourt) ? s.pickupCourt : 'street_night';
-    const fresh = ['cage', 'rooftop', 'beach', 'rain_night'].filter(id => !Venues.unlocked(s).includes(id));
+    const route = s.story.chapter === 'college' && typeof ROUTE_COURTS !== 'undefined' && ROUTE_COURTS[s.career.path] ? s.career.path : null;   // Chapter 3: runs where you live now
+    const size = 3, target = 21, o = Engine.ovr(s), home = (route && LOCAL_TEAMS[route === 'college' ? s.career.college : route === 'overseas' ? s.career.club : 'gl_ignition']) || LOCAL_TEAMS[s.career.hs] || LOCAL_TEAMS.halsey;
+    const pool = route ? ROUTE_COURTS[route] : ['cage', 'rooftop', 'beach', 'rain_night'];
+    let court = s.pickupCourt && Venues.unlocked(s).includes(s.pickupCourt) && (!route || pool.includes(s.pickupCourt)) ? s.pickupCourt : route ? pool[0] : 'street_night';
+    const fresh = pool.filter(id => !Venues.unlocked(s).includes(id) && id !== court);
     if (fresh.length && Math.random() < .3) { court = Engine.pick(fresh); UI.toast(`📍 The run moved tonight: <b>${VENUES[court].name}</b>`, 'ach', 3500); }
-    const r = await Match.play({ us: Object.assign({}, home, { id: 'yourrun', name: 'Your Run', abbr: 'YOU' }), them: this.team('pickup_crew'), oppRating: o - 2, mateRating: o - 3, moments: 7, level: 'street', size, target, fullArcade: true, venueId: court, title: 'Pickup Run', sub: `${VENUES[court].name} · ${size}v${size}, first to ${target}` });
+    const r = await Match.play({ us: Object.assign({}, home, { id: 'yourrun', name: 'Your Run', abbr: 'YOU' }), them: this.team(route ? ROUTE_CREW[route] : 'pickup_crew'), oppRating: o - 2, mateRating: o - 3, moments: 7, level: 'street', size, target, fullArcade: true, venueId: court, title: 'Pickup Run', sub: `${VENUES[court].name} · ${size}v${size}, first to ${target}` });
     this.unlockVenue(r.venueId);
     s.hub.ap--;
     const k = Engine.pick(['three', 'finish', 'handle', 'perD', 'reb']);
@@ -224,7 +232,8 @@ const Game = {
   },
 
   /* ---------- one-off story matches ---------- */
-  team(id) { const t = LOCAL_TEAMS[id]; return Object.assign({ id }, t); },
+  team(id) { const s = this.state; if (id === '@club') id = s.career.club; else if (id === '@college') id = s.career.college; else if (id === '@gl') id = 'gl_ignition';   // Chapter 3: your team on each route
+    const t = LOCAL_TEAMS[id]; return Object.assign({ id }, t); },
   async playMatch(node, ch) {
     const s = this.state;
     const cfg = {
@@ -315,11 +324,11 @@ const Game = {
 
   /* ---------- seasons (see season.js) ---------- */
   runSeason(node, ch) {
-    const s = this.state, def = node.season;
+    const s = this.state, def = typeof node.season === 'function' ? node.season(s) : node.season;   // Chapter 3 builds seasons around your school / club
     if (!s.season || s.season.id !== def.id) {
       s.season = Season.create(s, def);
       s.season.home = { chapter: s.story.chapter, node: s.story.node };
-      Engine.post(s, { by: 'recruit', text: `🏀 ${def.name} tips off. Eyes on {name} at {hs}.` });
+      Engine.post(s, { by: 'ehn', text: `🏀 ${def.name} tips off. Eyes on {name} at ${(LOCAL_TEAMS[def.user] || {}).name || '{hs}'}.` });
       this.save();
     }
     this.seasonStep();
@@ -329,7 +338,7 @@ const Game = {
     if (se.phase === 'regular') {
       if (se.week >= def.schedule.length) {
         Season.buildPlayoffs(s, se); this.save();
-        return UI.seasonScreen(se, 'standings', () => se.phase === 'done' ? this.seasonStep() : UI.seasonScreen(se, 'bracket', () => this.seasonStep()));
+        return UI.seasonScreen(se, def.schedule.length ? 'standings' : 'bracket', () => se.phase === 'done' ? this.seasonStep() : UI.seasonScreen(se, 'bracket', () => this.seasonStep()));
       }
       const intr = def.interrupts && def.interrupts[se.week];
       if (intr && !se.shown['i' + se.week]) { se.shown['i' + se.week] = 1; return this.goto(home, intr); }
@@ -386,8 +395,8 @@ const Game = {
       cfg.jellyMoment = this.jellyPayoff(cfg.importance);
       // venue: home / away alternates through the season; the final is played at a neutral arena
       const finalGame = g.playoff && se.playoffs && se.playoffs.rounds[se.playoffs.round].length === 1;
-      cfg.venue = (se.week + (g.opp || '').length) % 2 ? 'away' : 'home';
-      cfg.venueId = finalGame ? (se.level === 'hs' ? 'college_arena' : 'tournament') : Venues.forMatch(cfg);
+      cfg.venue = g.away ? 'away' : g.home ? 'home' : (se.week + (g.opp || '').length) % 2 ? 'away' : 'home';
+      cfg.venueId = finalGame ? (def.finalVenue || (se.level === 'hs' ? 'college_arena' : 'tournament')) : g.venue && VENUES[g.venue] ? g.venue : Venues.forMatch(cfg);
       r = await Match.play(cfg);
       this.unlockVenue(r.venueId);
       await this.bigMoment(r);
@@ -421,7 +430,7 @@ const Game = {
   finishSeason() {
     const s = this.state, se = s.season, def = se.def, homeNode = STORY.chapters[se.home.chapter].nodes[se.home.node];
     const st = se.stats, gp = st.gp || 1, P = se.playoffs;
-    const resText = se.result === 'champion' ? 'Champions' : se.result === 'missed' ? 'Missed playoffs' : `Lost in ${P ? (P.names || [])[P.round] || 'playoffs' : 'playoffs'}`;
+    const resText = se.result === 'champion' ? 'Champions' : se.result === 'missed' ? 'Missed playoffs' : `Lost in ${P ? (P.names || [])[se.outRound != null ? se.outRound : P.round] || 'playoffs' : 'playoffs'}`;
     const summary = { id: se.id, name: se.name, team: se.user, w: st.w, l: st.l, gp: st.gp, ppg: +(st.pts / gp).toFixed(1), rpg: +(st.reb / gp).toFixed(1), apg: +(st.ast / gp).toFixed(1), result: se.result, resText, ovr: Engine.ovr(s), age: s.player.age };
     s.career.seasons.push(summary);
     if (se.result === 'champion' && def.champFlag) s.flags[def.champFlag] = true;
