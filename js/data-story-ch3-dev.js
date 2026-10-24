@@ -8,7 +8,7 @@ C3.glTeams = () => ['gl_ignition', 'gl_ropers', 'gl_thunder', 'gl_gators', 'gl_v
 Object.assign(STORY.chapters.college.nodes, {
   gg_start: { scene: 'home', fx: { log: 'Chapter 3: the Grind League.' },
     lines: [
-      ['narrator', 'Your first paycheck comes in July. After taxes it buys groceries and half a car payment.'],
+      ['narrator', 'Your first paycheck comes in August. After taxes it buys groceries and half a car payment.'],
       ['narrator', 'The Ignition program: a team of teenagers in a league of grown men who want your spot.'],
       ['nia', 'Fun fact: Kai\'s NIL deal at Blue Ridge pays more than your whole team. I checked.', 'smile'],
       ['narrator', 'Grind League scouts kept calling after the national team summer. That\'s how you got the last roster spot with a guaranteed deal.', null, { flag: 'usa_made' }],

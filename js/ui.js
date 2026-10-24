@@ -706,7 +706,7 @@ const UI = (() => {
           <ul class="log">${recap.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
         </div></div>
       <div class="ce-next glass"><b>NEXT: ${o.next ? esc(o.next.title + ' — ' + o.next.name) : esc(node.nextTitle || 'Next chapter')}</b><span>${esc(o.next ? (o.next.blurb || '') : (node.teaser || 'Not in this build yet — your save is ready to carry over.'))}</span></div>
-      <div class="row center wrap">${o.onNext ? `<button class="btn big glow" id="ceNext">Start ${esc(o.next.title)} ›</button>` : ''}<button class="btn big ${o.onNext ? 'ghost' : 'glow'}" id="ceHub">Train in the Hub</button><button class="btn big ghost" id="ceMenu">Save & Main Menu</button></div>
+      <div class="row center wrap">${o.onNext ? `<button class="btn big glow" id="ceNext">Start ${esc(o.next.cta || o.next.title)} ›</button>` : ''}<button class="btn big ${o.onNext ? 'ghost' : 'glow'}" id="ceHub">Train in the Hub</button><button class="btn big ghost" id="ceMenu">Save & Main Menu</button></div>
     </div>`, 'chend');
     $('#ceHub').onclick = o.onHub; $('#ceMenu').onclick = () => { Game.save(); title(); };
     if (o.onNext) $('#ceNext').onclick = o.onNext;
@@ -755,6 +755,21 @@ const UI = (() => {
     $('#ssCont').onclick = () => { SFX.play('click'); onContinue(); };
   }
   /* Short summary for a simulated game */
+  /* several simulated regular-season games in one screen (seasons with autoSim) */
+  function simStretch(list, se, onContinue) {
+    if (!list.length) return onContinue();
+    const P = S().player, me = LOCAL_TEAMS[se.user], rec = se.standings[se.user] || { w: 0, l: 0 };
+    const hi = (r, opp) => { const b = r.box; return b.pts >= 28 ? `${P.last} drops ${b.pts} on ${opp.name}.` : b.ast >= 9 ? `${b.ast} assists — ${P.last} runs the show.` : b.reb >= 11 ? `${b.reb} boards. Nobody else touches the glass.` : b.stl + b.blk >= 5 ? `${b.stl} steals, ${b.blk} blocks: a defensive clinic.` : r.win ? Engine.pick([`A grind-it-out win over ${opp.name}.`, `Business as usual against ${opp.name}.`, `${P.last} closes it at the line.`]) : Engine.pick([`${opp.name} get hot from three.`, `Cold shooting night in a loss.`, `Foul trouble, then a late run that falls short.`]); };
+    const xp = list.reduce((t, x) => t + (x.sum.xp || 0), 0);
+    const m = modal(`<div class="simres"><div class="ce-tag">AROUND THE SEASON · ${list.length} GAME${list.length > 1 ? 'S' : ''} SIMULATED</div>
+      <h3>${esc(se.name)} highlights</h3>
+      <div class="sim-list">${list.map(({ r, g }) => { const opp = LOCAL_TEAMS[g.opp || r.cfg.them.id] || r.cfg.them; return `<div class="sim-row ${r.win ? 'w' : 'l'}">${Art.logo(opp, 30)}<div><b>${r.win ? 'W' : 'L'} ${r.us}-${r.them} vs ${esc(opp.name)}</b><small>${r.box.pts} pts · ${r.box.reb} reb · ${r.box.ast} ast — ${esc(hi(r, opp))}</small></div><span class="grade-s g${r.grade[0]}">${r.grade}</span></div>`; }).join('')}</div>
+      <div class="pg-changes"><span class="chg">${me ? Art.logo(me, 22) : ''} Record <b>${rec.w}-${rec.l}</b></span><span class="chg">XP <b>+${xp}</b></span></div>
+      <div class="row end"><button class="btn glow" id="simCont">Continue ›</button></div></div>`, { noClose: true, cls: 'sim' });
+    if (list.some(x => x.sum.levels)) levelBurst();
+    SFX.play(list.filter(x => x.r.win).length >= list.length / 2 ? 'good' : 'bad');
+    $('#simCont', m.el).onclick = () => { m.close(); onContinue(); };
+  }
   function simResult(r, g, summary, onContinue) {
     const b = r.box, opp = LOCAL_TEAMS[g.opp], me = LOCAL_TEAMS[Game.state.season ? Game.state.season.user : r.cfg.us.id] || r.cfg.us;
     const head = r.win ? Engine.pick([`${S().player.last} leads the way in a ${r.us}-${r.them} win`, `Business as usual: W over ${opp.name}`, `${S().player.last} gets buckets, team rolls`]) : Engine.pick([`Off night as ${opp.name} pull away`, `${opp.name} hand you a loss`, `Not enough: ${r.them}-${r.us} defeat`]);
@@ -792,5 +807,5 @@ const UI = (() => {
     const n = $('#npName'); if (n) n.textContent = e.detail.name;
   });
 
-  return { setFullscreen, isFull, fsPref, $, $$, esc, showScreen, setBg, toast, fxToasts, levelBurst, confetti, modal, confirmBox, card, cardFromState, radar, bar, charLook, title, create, story, hub, refreshHub, renderTop, trainingModal, postGame, chapterEnd, ending, settingsModal, loadMenu, settings, fmtChange, seasonScreen, simResult, standingsHTML, bracketHTML, scheduleHTML };
+  return { setFullscreen, isFull, fsPref, $, $$, esc, showScreen, setBg, toast, fxToasts, levelBurst, confetti, modal, confirmBox, card, cardFromState, radar, bar, charLook, title, create, story, hub, refreshHub, renderTop, trainingModal, postGame, chapterEnd, ending, settingsModal, loadMenu, settings, fmtChange, seasonScreen, simResult, simStretch, standingsHTML, bracketHTML, scheduleHTML };
 })();

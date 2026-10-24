@@ -15,7 +15,7 @@ C3.starFor = s => { const me = s.career.club, pac = ['tokyo', 'sydney', 'beijing
 Object.assign(STORY.chapters.college.nodes, {
   oo_start: { scene: 'home', fx: { overseas: 1, log: 'Chapter 3: overseas.' },
     lines: [
-      ['narrator', 'Your agent calls on the first of July. Clubs on three continents want you.'],
+      ['narrator', 'Your agent calls the day you get home. Clubs on three continents want you.'],
       ['priya', 'Priya Shah — I work with guys who skip college. Your national team film made my phone explode.', 'smile', { flag: 'usa_made' }],
       ['priya', 'Priya Shah, agent. Europe doesn\'t care who cut you in June, only what you do in October.', null, { flag: 'usa_cut' }],
       ['priya', 'Priya Shah, agent: going pro at eighteen takes guts. Let\'s get you paid for them.', 'smile', { notFlag: ['usa_made', 'usa_cut'] }],

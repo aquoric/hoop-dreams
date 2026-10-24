@@ -15,7 +15,7 @@
    FEATURE_SCENES: ready-made scenes for chapters that aren't built yet. When a chapter exists, its scene nodes
      are added to it automatically; the chapter just routes a `next` into the scene (and sets the scene's `next`).
    ===================================================================== */
-const CHAPTER_ORDER = ['street', 'highschool', 'usa', 'college', 'draft', 'pro'];   // 'usa' is the optional interlude; 'college', 'draft', 'pro' = Chapters 3–5
+const CHAPTER_ORDER = ['street', 'highschool', 'usa', 'college', 'draft', 'pro'];   // 'usa' = the national team summer after high school; 'college', 'draft', 'pro' = Chapters 3–5
 
 const FEATURES = [
   { id: 'street_calls', name: 'Street Calls', icon: '📣', chapter: 'Chapter 1 · Summer Jam', tab: null, color: '#f97316', scene: 'street:jam_calls',

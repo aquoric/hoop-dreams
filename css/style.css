@@ -1283,3 +1283,9 @@ body.fs[data-screen=match] .corner .icon-btn { width: 30px; height: 30px; font-s
 @keyframes tabArrow { to { transform: translate(-50%, 4px); } }
 /* portrait box used by feature cards (Chemistry) */
 .f-av { width: 56px; height: 56px; overflow: hidden; background: #0b0f1c; border: 2px solid #1e293b; display: grid; place-items: center; } .f-av svg { width: 100%; height: 100%; }
+
+/* simulated stretch of a season: one row per game */
+.sim-list { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; max-height: 46vh; overflow: auto; }
+.sim-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; background: rgba(255, 255, 255, .04); border-left: 3px solid var(--line); text-align: left; }
+.sim-row.w { border-left-color: #22c55e; } .sim-row.l { border-left-color: #ef4444; }
+.sim-row > div { flex: 1; display: flex; flex-direction: column; } .sim-row small { color: var(--muted); font-size: .78rem; }

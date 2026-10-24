@@ -21,14 +21,28 @@ STORY.chapters.college = {
   blurb: 'College, overseas or the Grind League — one year to prove you belong in the Draft.',
   board: s => { const t = LOCAL_TEAMS[s.career.path === 'overseas' ? s.career.club : s.career.path === 'grind' ? 'gl_ignition' : s.career.college]; return t ? t.name.toUpperCase() : 'GAME NIGHT'; },   // arena jumbotron in story scenes
   nodes: {
-    start: { type: 'branch', fx: { age: 18 }, branches: [{ if: { path: 'overseas' }, next: 'oo_start' }, { if: { path: 'grind' }, next: 'gg_start' }], else: 'cc_start' },
+    /* older saves already picked a path in Chapter 2; everyone else decides here, after the national team summer */
+    start: { type: 'branch', fx: { age: 18 }, branches: [{ if: { path: 'overseas' }, next: 'oo_start' }, { if: { path: 'grind' }, next: 'gg_start' }, { if: { path: 'college' }, next: 'cc_start' }], else: 'c3_crossroads' },
+    c3_crossroads: { scene: 'home', fx: { recruit: true, offers: true },
+      lines: [
+        ['narrator', 'August. The offer letters cover the kitchen table, and three roads lead out of Halsey Street.'],
+        ['nia', 'Every school that saw you in Riga called. Even the ones that never called before.', 'smile', { flag: 'usa_made' }],
+        ['nia', 'A couple of schools went quiet after the cut. I wrote their names down for you.', 'sad', { flag: 'usa_cut' }],
+        ['priya', 'Priya Shah, agent. Europe wants you, and so does the Grind League. College is the safe road.', null, { minOvr: 54 }],
+        ['mom', 'Whatever you pick, baby, pick it for you.'],
+      ],
+      choices: [
+        { t: 'Go to college. Pick from your offers.', hint: 'Season · March Madness · NIL', fx: { path: 'college' }, next: 'cc_start' },
+        { t: 'Skip college: sign with a club overseas.', hint: 'Pro money · grown men', req: { minOvr: 54 }, fx: { path: 'overseas', flag: 'path_overseas', money: 25000, rep: 3, post: { by: 'recruit', text: '✈️ {name} is skipping college to turn pro overseas. Bold.' } }, next: 'oo_start' },
+        { t: 'Skip college: join the Grind League\'s Ignition program.', hint: 'Develop vs. pros · paid', req: { minStars: 4 }, fx: { path: 'grind', flag: 'path_grind', money: 50000, rep: 3, post: { by: 'recruit', text: '⚙️ {name} signs with the Grind League\'s Ignition program. Straight to the pros.' } }, next: 'gg_start' },
+      ] },
 
     /* ================================================================
        COLLEGE
        ================================================================ */
     cc_start: { scene: 'home', fx: { recruit: true, offers: 'final', log: 'Chapter 3: college.' },
       lines: [
-        ['narrator', 'July. Your letter of intent isn\'t signed until August, and the phone won\'t stop ringing.'],
+        ['narrator', 'Your letter of intent is due Friday, and the phone won\'t stop ringing.'],
         ['nia', 'Blue Ridge called TWICE — they saw the gold medal.', 'smile', { flag: 'usa_gold' }],
         ['nia', 'Coaches who never called before are calling now. The national team did that.', 'smile', { flag: 'usa_made', notFlag: 'usa_gold' }],
         ['narrator', 'The national team cut you, and some schools stopped calling. You wrote their names down.', null, { flag: 'usa_cut' }],

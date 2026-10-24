@@ -51,6 +51,7 @@ const Game = {
   node() { const st = this.state.story, ch = STORY.chapters[st.chapter]; return { ch, node: ch && ch.nodes[st.node] }; },
   runNode() {
     const s = this.state, { ch, node } = this.node();
+    if (ch && !node && ch.moved && ch.moved[s.story.node]) return this.goto(s.story.chapter, ch.moved[s.story.node]);   // cut or merged node (older saves)
     if (!ch || !node) { console.error('Missing story node', s.story); UI.toast('Story node missing: ' + s.story.chapter + '/' + s.story.node, 'bad'); return UI.title(); }
     s.career.stage = typeof ch.stage === 'function' ? ch.stage(s) : ch.stage;   // Chapter 3: College / Overseas Pro / Grind League
     Features.check(s);   // new chapter / story beat → feature unlocks (popup waits for a calm screen)
@@ -82,11 +83,11 @@ const Game = {
         s.flags['done_' + s.story.chapter] = true; this.recordOvr(ch.title + ' end');
         if (!(s.career.milestones || (s.career.milestones = [])).some(m => m.chapter === s.story.chapter)) s.career.milestones.push({ chapter: s.story.chapter, label: ch.title + ' end', ovr: Engine.ovr(s), age: s.player.age });
         this.save();
-        const next = STORY.chapters[node.nextChapter];
+        const nextId = typeof node.nextChapter === 'function' ? node.nextChapter(s) : node.nextChapter, next = STORY.chapters[nextId];
         return UI.chapterEnd(ch, node, {
-          dev: s.lastDevelop, next,
-          onHub: () => this.openHub({ title: next ? 'Offseason' : 'Offseason', intro: next ? `Train up before ${next.title}: ${next.name}.` : (node.teaser || 'The next chapter arrives in a later build. Your career is saved and will carry over — keep training if you like.'), locked: true, nextChapter: node.nextChapter }, ch),
-          onNext: next ? () => this.startChapter(node.nextChapter) : null,
+          dev: node.fx && node.fx.develop ? s.lastDevelop : null, next,   // only chapters that grow you show the development box
+          onHub: () => this.openHub({ title: next ? 'Offseason' : 'Offseason', intro: next ? `Train up before ${next.title}: ${next.name}.` : (node.teaser || 'The next chapter arrives in a later build. Your career is saved and will carry over — keep training if you like.'), locked: true, nextChapter: nextId }, ch),
+          onNext: next ? () => this.startChapter(nextId) : null,
         });
       }
       default:
@@ -125,6 +126,10 @@ const Game = {
     }
     if (fx.recruitOpen && !s.recruit) { s.recruit = { stars: 1, rank: 9999, score: 0, offers: [], ppg: 0 }; this.updateRecruit(true); }
     if (fx.recruit) this.updateRecruit();
+    if (fx.trimOffers && s.recruit) {   // national team cut: programs above your new level stop calling
+      const R = s.recruit, keep = R.offers.filter(id => id === 'metrocc' || !COLLEGES[id] || COLLEGES[id].prestige <= R.stars), lost = R.offers.length - keep.length;
+      if (lost && keep.length) { R.offers = keep; changes.push({ label: 'College offers withdrawn', v: -lost }); }
+    }
     if (fx.offers) this.checkOffers(fx.offers === 'final');
     /* national team arc (js/data-usa.js) */
     if (fx.campStart) { s.usa = { pts: 0, start: Engine.ovr(s), day: 1, cut: [], prev: {} }; if (s.recruit && s.recruit.stars >= 5) s.usa.pts += 2; }
@@ -287,7 +292,7 @@ const Game = {
     if (r.win && r.cfg.them.star && r.cfg.them.star.name === 'Kai Sterling') s.flags.beat_kai = true;
     s.lastGame = { us: r.us, them: r.them, usAbbr: r.cfg.us.abbr, themAbbr: r.cfg.them.abbr, themColors: r.cfg.them.colors, venue: r.venueId, play: r.win ? r.winPlay || null : null, ctx: r.win && r.winPlay ? this.playCtx(r) : null };   // the deciding play (story cutscenes replay it)
     // XP + meta
-    const xp = Math.round((L.xp * (0.6 + rate) + r.successes * 8) * (r.win ? 1.25 : 1) * gm * (1 + (imp - 1) * .35));
+    const xp = Math.round((L.xp * (0.6 + rate) + r.successes * 8) * (r.win ? 1.25 : 1) * gm * (1 + (imp - 1) * .35) * ((STORY.chapters[s.story.chapter] || {}).xpBoost || 1));   // shorter chapters pay a little more per game
     const xr = Engine.addXP(s, xp);
     const fx = {
       rep: (r.win ? 2 * imp : 0) + (r.grade[0] === 'A' ? 2 : r.grade[0] === 'F' ? -1 : 0),
@@ -331,6 +336,11 @@ const Game = {
       Engine.post(s, { by: 'ehn', text: `🏀 ${def.name} tips off. Eyes on {name} at ${(LOCAL_TEAMS[def.user] || {}).name || '{hs}'}.` });
       this.save();
     }
+    else if (typeof node.season !== 'function' && s.season.phase === 'regular' && JSON.stringify(s.season.def.schedule) !== JSON.stringify(def.schedule)) {   // older save, season since shortened
+      if (s.season.week === 0) s.season.def = def;
+      else ['autoSim', 'simXp', 'hubAP'].forEach(k => { if (def[k] != null) s.season.def[k] = def[k]; });
+      this.save();
+    }
     this.seasonStep();
   },
   seasonStep() {
@@ -345,6 +355,7 @@ const Game = {
       if (def.promote && !s.flags.starter && s.meta.trust >= 60 && !se.shown.promote) { se.shown.promote = 1; return this.goto(home, def.promote); }
       const g = def.schedule[se.week]; se.nextOpp = g.opp;
       if (g.pre && !se.shown['p' + se.week]) { se.shown['p' + se.week] = 1; return this.goto(home, g.pre); }
+      if (def.autoSim && !g.key) return this.simStretch();   // regular-season games between the big ones: simmed, one highlights screen
       return this.seasonHub();
     }
     if (se.phase === 'playoffs') {
@@ -366,7 +377,7 @@ const Game = {
   seasonHub() {
     const s = this.state, se = s.season, g = this.seasonGame(), opp = LOCAL_TEAMS[g.opp], st = se.standings[g.opp] || { w: 0, l: 0 };
     const key = `season:${se.id}:${se.phase}:${se.phase === 'regular' ? se.week : se.playoffs.round}`;
-    if (!s.hub || s.hub.key !== key) s.hub = { key, ap: PROGRESSION.seasonHubActions };
+    if (!s.hub || s.hub.key !== key) s.hub = { key, ap: se.def.hubAP || PROGRESSION.seasonHubActions };
     this.save();
     const rec = se.standings[se.user];
     const when = se.phase === 'playoffs' ? `${se.def.playoff.name} · ${Season.roundName(se)}` : `Week ${se.week + 1} of ${se.def.schedule.length}`;
@@ -378,6 +389,23 @@ const Game = {
       next: { opp: g.opp, key: g.key, label: g.sub },
     };
     UI.hub(this.hubCtx);
+  },
+  /* def.autoSim: every non-key game until the next key game, story beat or the playoffs is simmed in one go */
+  simStretch() {
+    const s = this.state, se = s.season, def = se.def, out = [];
+    while (se.phase === 'regular' && se.week < def.schedule.length) {
+      const g = def.schedule[se.week];
+      if (out.length && ((def.interrupts && def.interrupts[se.week] && !se.shown['i' + se.week]) || (g.pre && !se.shown['p' + se.week]) || (def.promote && !s.flags.starter && s.meta.trust >= 60 && !se.shown.promote))) break;
+      if (g.key) break;
+      se.nextOpp = g.opp;
+      const sg = this.seasonGame(); Engine.applyFx(s, { fatigue: -8 });
+      const r = Season.simUserGame(s, se, g.opp); r.cfg = { us: this.team(se.user), them: this.team(g.opp), title: se.name, sub: sg.sub }; r.importance = 1; r.level = se.level;
+      const sum = this.applySim(r, sg);
+      Season.finishUserWeek(s, se, r.us, r.them, r.box);
+      out.push({ r, g: sg, sum });
+    }
+    s.hub = null; this.updateRecruit(); this.save();
+    UI.simStretch(out, se, () => this.seasonStep());
   },
   async playSeasonGame(sim) {
     const s = this.state, se = s.season, g = this.seasonGame();
@@ -396,7 +424,7 @@ const Game = {
       // venue: home / away alternates through the season; the final is played at a neutral arena
       const finalGame = g.playoff && se.playoffs && se.playoffs.rounds[se.playoffs.round].length === 1;
       cfg.venue = g.away ? 'away' : g.home ? 'home' : (se.week + (g.opp || '').length) % 2 ? 'away' : 'home';
-      cfg.venueId = finalGame ? (def.finalVenue || (se.level === 'hs' ? 'college_arena' : 'tournament')) : g.venue && VENUES[g.venue] ? g.venue : Venues.forMatch(cfg);
+      cfg.venueId = finalGame ? (se.def.finalVenue || (se.level === 'hs' ? 'college_arena' : 'tournament')) : g.venue && VENUES[g.venue] ? g.venue : Venues.forMatch(cfg);
       r = await Match.play(cfg);
       this.unlockVenue(r.venueId);
       await this.bigMoment(r);
@@ -421,7 +449,7 @@ const Game = {
     s.counters.rebounds += b.reb; s.counters.assists += b.ast; s.counters.steals += b.stl; s.counters.blocks += b.blk;
     s.counters.gradePts += this.gradeValue(r.grade); s.counters.gradeN++;
     this.healTick();
-    const xr = Engine.addXP(s, Math.round(L.xp * 1.2 * PROGRESSION.simXpFactor * (r.win ? 1.2 : 1)));
+    const xr = Engine.addXP(s, Math.round(L.xp * 1.2 * ((s.season && s.season.def.simXp) || PROGRESSION.simXpFactor) * (r.win ? 1.2 : 1)));
     const changes = Engine.applyFx(s, { morale: r.win ? 3 : -3, fatigue: 8, fans: Math.round(b.pts * 6 * (1 + s.meta.rep / 50)), trust: r.grade[0] === 'A' ? 2 : r.grade[0] === 'D' ? -2 : 0, rep: r.win ? 1 : 0 });
     s.career.games.push({ label: `${r.cfg.title} · ${r.cfg.sub} (sim)`, opp: r.cfg.them.name, us: r.us, them: r.them, win: r.win, pts: b.pts, reb: b.reb, ast: b.ast, grade: r.grade });
     this.recordOvr(r.cfg.sub);
@@ -452,7 +480,7 @@ const Game = {
     const nextCh = node.nextChapter && STORY.chapters[node.nextChapter];
     this.hubCtx = {
       key, title: node.title, intro: node.intro, chapter: ch.title + ' · ' + ch.name,
-      cta: node.locked ? (nextCh ? { label: `Start ${nextCh.title} ›`, action: () => this.startChapter(node.nextChapter) } : { label: 'Next Chapter — Coming Soon', disabled: true, action: () => { } }) : { label: 'Continue Story ›', action: () => this.leaveHub(node) },
+      cta: node.locked ? (nextCh ? { label: `Start ${nextCh.cta || nextCh.title} ›`, action: () => this.startChapter(node.nextChapter) } : { label: 'Next Chapter — Coming Soon', disabled: true, action: () => { } }) : { label: 'Continue Story ›', action: () => this.leaveHub(node) },
     };
     UI.hub(this.hubCtx);
   },

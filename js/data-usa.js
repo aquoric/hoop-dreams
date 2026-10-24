@@ -1,6 +1,7 @@
 /* =====================================================================
    DATA-USA.JS — INTERLUDE: THE U.S. YOUTH NATIONAL TEAM
-   The summer after high school (before Chapter 3) — or, for top-ranked recruits, the summer before senior year.
+   Always the summer after high school: Chapter 2 → this interlude → Chapter 3 (where you pick college, overseas or
+   the Grind League — so the results here move your offers). Ends with its own chapter-complete screen (usa_end).
    Same node format as data-story.js. Extra node types (js/usa.js):
      type:'drill'  — a drill session in the gym: runs minigames (drills:[...]), scores each 0–100 and ranks you
                      against the other campers; adds camp points. { title, drills, next }
@@ -163,21 +164,11 @@ window.EXTRA_CUTSCENES = Object.assign(window.EXTRA_CUTSCENES || {}, {
    ===================================================================== */
 const USA_GAME = (them, title, sub, o = {}) => Object.assign({ type: 'match', us: 'usa', them, ratingRel: 2, mateRel: 2, moments: 10, level: 'hs', importance: 2, venue: 'wyhc_arena', venueSide: 'away', title, sub }, o);
 STORY.chapters.usa = {
-  title: 'Interlude', name: 'Red, White & Hoops', stage: 'National Team', start: 'invite_check',
-  blurb: 'Selection camp, cut days, Kai Sterling as a teammate, and the World Youth Championship.',
+  title: 'Interlude', name: 'Red, White & Hoops', stage: 'National Team', start: 'invite_check', cta: 'the National Team',
+  blurb: 'The summer after high school: selection camp, cut days, Kai as a teammate, and the World Youth Championship. How it goes shapes your offers.',
   nodes: {
     /* ---------------- getting in ---------------- */
-    early_offer: { scene: 'home', fx: { flag: 'usa_early' },
-      lines: [
-        ['narrator', 'A number you don\'t know. A voice that sounds like it\'s never wasted a word.'],
-        ['reyes', 'This is Dana Reyes, U.S. Youth National Team. We want you at selection camp this month.'],
-        ['nia', '(mouthing) WHO IS IT. WHO. IS. IT.', 'smile'],
-      ],
-      choices: [
-        { t: '"I\'ll be there, Coach."', fx: { rel: { reyes: 4 }, flag: 'usa_camp', log: 'Invited to the national team camp (junior summer).' }, next: 'invite_home' },
-        { t: '"Not this summer — I need to get stronger first."', fx: { unflag: 'usa_early', morale: -2 }, next: 'decline' },
-      ] },
-    decline: { scene: 'home', lines: [['reyes', 'Respect. The door stays open — be ready next year.'], ['narrator', 'You hang up and stare at the phone for a long time.']], next: 'highschool:c2_nia_bday' },
+    /* older saves only: cut during a junior-summer camp (that version is gone), invited back after graduation */
     second_chance: { scene: 'home', fx: { unflag: ['usa_early', 'usa_cut', 'usa_done', 'usa_made'], flag: 'usa_returned', log: 'Invited back to the national team camp.' },
       lines: [
         ['reyes', '(on the phone) Told you we keep a list. You got better — I watched.'],
@@ -204,7 +195,7 @@ STORY.chapters.usa = {
       ],
       choices: [
         { t: 'Go to the open tryout.', fx: { morale: 2 }, next: 'tryout_pre' },
-        { t: 'Skip it. Rest up for next season.', fx: { flag: 'usa_skipped' }, next: 'return_home' },
+        { t: 'Skip it. Rest up before the fall.', fx: { flag: 'usa_skipped' }, next: 'return_home' },
       ] },
     tryout_pre: { scene: 'gym',
       lines: [
@@ -222,7 +213,7 @@ STORY.chapters.usa = {
     not_this_year: { scene: 'street_night', fx: { flag: 'usa_missed', morale: -3, log: 'Missed the national team camp.' },
       lines: [
         ['moreno', 'Not this year. Get stronger. We keep a list.'],
-        ['narrator', 'Halsey Street, after dark. You shoot until the lights go out. Next summer, then.'],
+        ['narrator', 'Halsey Street, after dark. You shoot until the lights go out. The fall can\'t come fast enough.'],
       ], next: 'return_home' },
     late_invite: { scene: 'gym', fx: { flag: 'usa_camp', rep: 2, log: 'Earned a late invite to the national team camp.' },
       lines: [
@@ -344,7 +335,7 @@ STORY.chapters.usa = {
         ['narrator', 'The equipment manager hands you a jersey with your name on the back. Navy, red trim, stars at the collar.'],
         ['narrator', 'It\'s yours now — find it in your Shop tab, under Jerseys.'],
       ], next: 'travel' },
-    cut_home: { scene: 'locker', fx: { flag: 'usa_cut', morale: -6, log: 'Cut from the national team camp.' },
+    cut_home: { scene: 'locker', fx: { flag: 'usa_cut', morale: -6, recruit: true, trimOffers: true, log: 'Cut from the national team camp.' },
       lines: [
         ['reyes', 'You\'re not on the twelve. It was close. Close is still a no.'],
         ['reyes', 'Here\'s what I need to see next time: be the same player on day three as on day one.'],
@@ -429,6 +420,20 @@ STORY.chapters.usa = {
         ['kai', '(at the gate) See you on the other side, teammate.', 'neutral', { flag: 'kai_teammate' }],
         ['narrator', 'The flight home is twelve hours. You sleep for eleven of them.'],
       ], next: 'return_home' },
-    return_home: { type: 'branch', branches: [{ if: { flag: 'usa_early', notFlag: 'usa_returned' }, next: 'highschool:c2_nia_bday' }], else: 'highschool:ch_end' },
+    /* older saves: a junior-summer camp goes back to high school; one that started after graduation still owes the Chapter 2 ending */
+    return_home: { type: 'branch', fx: { flag: 'usa_over' }, branches: [{ if: { flag: 'usa_early', notFlag: ['usa_returned', 'done_highschool'] }, next: 'highschool:c2_nia_bday' }, { if: { notFlag: 'done_highschool' }, next: 'highschool:ch_end' }], else: 'usa_end' },
+    usa_end: { type: 'chapterEnd', nextChapter: 'college', fx: { recruit: true },
+      summary: 'The national team summer is over. Now the real decision: college, overseas, or the Grind League.',
+      recap: [
+        { if: { flag: 'usa_gold' }, t: '🥇 World Youth Championship gold' },
+        { if: { flag: 'usa_medal' }, t: '🏅 Medal at the World Youth Championship' },
+        { if: { flag: 'usa_made' }, t: '🇺🇸 Made the U.S. Youth National Team — offers and scouts followed' },
+        { if: { flag: 'usa_cut' }, t: '✂️ Cut at selection camp — some schools stopped calling' },
+        { if: { flag: 'usa_missed' }, t: '🏠 Missed the camp — a chip on your shoulder' },
+        { if: { flag: 'usa_skipped' }, t: '🏠 Skipped the open tryout' },
+        { if: { flag: 'kai_teammate' }, t: '🤝 Set screens for Kai Sterling' },
+        { if: { flag: 'jelly' }, t: '🍯 Learned the jelly from Scoop DeLuca' },
+      ] },
   },
+  moved: { early_offer: 'highschool:c2_nia_bday', decline: 'highschool:c2_nia_bday' },   // the junior-summer invite is gone
 };

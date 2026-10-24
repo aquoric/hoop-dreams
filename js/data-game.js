@@ -290,8 +290,8 @@ const PROGRESSION = {
 const RECRUITING = {
   starAt: [0, 25, 42, 58, 74],        // score needed for 1..5 stars
   // score = (OVR-40)*2.2 + rep*0.15 + season PPG*0.6 + bonuses below
-  bonus: { summer_champ: 3, beat_kai: 3, aau_champ: 6, state_champ: 9, city_champ: 4, viral: 4, starter: 3 },
-  penalty: { police_record: -5, booster_scandal: -10, benched_fight: -4 },
+  bonus: { summer_champ: 3, beat_kai: 3, aau_champ: 6, state_champ: 9, city_champ: 4, viral: 4, starter: 3, usa_made: 6, usa_medal: 3, usa_gold: 6 },   // national team results move your Chapter 3 offers
+  penalty: { police_record: -5, booster_scandal: -10, benched_fight: -4, usa_cut: -4 },
 };
 
 /* ---------- TRAINING DRILLS ----------
