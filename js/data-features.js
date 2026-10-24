@@ -1,78 +1,84 @@
 /* =====================================================================
-   DATA-FEATURES.JS — every unlockable feature, when it switches on, and its data.
+   DATA-FEATURES.JS — every unlockable feature, the story scene that introduces it, and its data.
    Logic + screens: js/features.js. Numbers that change success % live in js/balance.js.
 
-   FEATURES: one entry per feature, in unlock order.
-     id, name, icon (emoji), chapter (label), tab (hub tab id, or null), color
-     when:  conditions, ALL must hold (an empty object = always):
-            chapter:'id'     — you've reached that chapter (CHAPTER_ORDER). A chapter that isn't in the game yet
-                               never matches, so future-chapter features switch on by themselves once it's built.
-            flag:'x'|[..]    — story flags · anyFlag:[..] — at least one
-            minLevel:n · minCount:{counter:n} · minFans:n · usaCamp:true (you're at the national team camp)
-            anyOf:[{..},{..}] — any one of these condition sets
-     what:  the one-screen explanation for the "NEW FEATURE UNLOCKED" cinematic: [title line, ...3 bullets]
+   HOW A FEATURE UNLOCKS (use the same pattern for every feature added later)
+     1. A story node introduces it — a character shows it to you in a short scene (1–2 sentence lines).
+     2. That node (or the choice you make in it) has  fx: { unlock: 'featureId' }.
+     3. When the scene ends, a small "NEW FEATURE UNLOCKED" card explains it in one screen; if the feature has
+        a hub tab, the tab glows with an arrow until you open it. Skipping the dialogue still unlocks it.
+     Old saves keep everything they had already unlocked (no scene is replayed).
+
+   FEATURES: id, name, icon (emoji), chapter (label), tab (hub tab id, or null), color,
+     scene: where it's introduced (story node, for reference) · what: [tagline, ...3 short how-to lines]
+     legacy: the old automatic rule — used ONCE to migrate saves from before story unlocks (silently)
+   FEATURE_SCENES: ready-made scenes for chapters that aren't built yet. When a chapter exists, its scene nodes
+     are added to it automatically; the chapter just routes a `next` into the scene (and sets the scene's `next`).
    ===================================================================== */
 const CHAPTER_ORDER = ['street', 'highschool', 'usa', 'college', 'draft', 'pro'];   // 'usa' is the optional interlude; 'college', 'draft', 'pro' = Chapters 3–5
 
 const FEATURES = [
-  { id: 'rep_map', name: 'Court Rep Map', icon: '🗺', chapter: 'Chapter 1', tab: 'repmap', color: '#f97316',
-    when: { minCount: { games: 1 } },
-    what: ['Every court has a legend. Take his crown.', 'Challenge a court legend to 1-on-1, first to 11 (uses 1 action).', 'Beat him for Rep and fans, and the next court on the map opens up.', 'Six courts, six legends. Find them in the Rep Map tab.'] },
-  { id: 'celebrations', name: 'Celebrations', icon: '🕺', chapter: 'All chapters', tab: 'celebs', color: '#ec4899',
-    when: { anyOf: [{ minLevel: 3 }, { minCount: { wins: 2 } }] },
-    what: ['Make a play? Let them know.', 'Pick your celebration in the Celebrations tab.', 'It plays after your big buckets in matches and arcade games.', 'Unlock more by leveling up and winning big games.'] },
-  { id: 'playbook', name: 'Playbook', icon: '📋', chapter: 'Chapter 2', tab: 'playbook', color: '#38bdf8',
-    when: { chapter: 'highschool' },
-    what: ['Your coach has a playbook. Learn it.', 'Practice with Coach in the hub (1 action) to learn one set play at a time.', 'Learned plays show up as new options when you have the ball.', 'Each play has its own % and its own animation.'] },
-  { id: 'mixtape', name: 'Highlight Mixtape', icon: '📼', chapter: 'Chapter 2', tab: 'mixtape', color: '#a855f7',
-    when: { chapter: 'highschool', minCount: { games: 4 } },
-    what: ['The cameras are rolling. Every game.', 'Your best plays are saved to your mixtape on their own.', 'Release it once a season from the Mixtape tab.', 'Better clips = a bigger jump in recruit ranking, followers and Rep.'] },
-  { id: 'chemistry', name: 'Chemistry Links', icon: '🔗', chapter: 'Youth National Team', tab: 'chem', color: '#22c55e',
-    when: { usaCamp: true },
-    what: ['Some teammates just get you.', 'Play with them and build a link (matches, assists, story choices).', 'Max a link to unlock a duo move with that teammate.', 'Duo moves show up in matches and arcade games when he\'s on the floor.'] },
-  { id: 'jelly', name: 'Jelly Layups', icon: '🍯', chapter: 'Youth National Team', tab: 'playbook', color: '#facc15',
-    when: { flag: 'jelly' },
-    what: ['You can\'t go through him. Go around him.', 'After you beat your man, pick JELLY when help or a big is coming.', 'In the air: flick it to the side AWAY from his arm (← / →), then tap at the glass.', 'Arcade: drive at the rim with a defender close, hold MOVE and shoot.'] },
-  { id: 'weapon_training', name: 'Weapon Training', icon: '🥋', chapter: 'Chapter 3', tab: 'mentor', color: '#f43f5e',
-    when: { chapter: 'college' },
-    what: ['Scoop DeLuca is back. And he brought homework.', 'Mentor missions teach you new weapons and upgrade the ones you have.', 'Level up the jelly: Reverse Jelly, then Under-the-Arm.', 'Find your missions in the Mentor tab.'] },
-  { id: 'combine', name: 'Combine Leaderboard', icon: '⏱', chapter: 'Chapter 4', tab: 'combine', color: '#eab308',
-    when: { chapter: 'draft' },
-    what: ['Every scout in the league is holding a stopwatch.', 'Run the combine events: sprint, vertical, shooting, agility.', 'See where you rank against this draft class.', 'Beat an all-time record and the whole league hears about it.'] },
-  { id: 'shoe', name: 'Signature Shoe', icon: '👟', chapter: 'Chapter 5', tab: 'shoe', color: '#14b8a6',
-    when: { chapter: 'pro' },
-    what: ['A shoe company wants your name on a sneaker.', 'Design it: silhouette, colors, logo, name.', 'Wear it on your avatar and in the media.', 'Sales bring money and fans every season — so play like a star.'] },
-  { id: 'rivalry', name: 'Rivalry System', icon: '⚔', chapter: 'Chapter 5', tab: 'rivals', color: '#ef4444',
-    when: { chapter: 'pro' },
+  { id: 'street_calls', name: 'Street Calls', icon: '📣', chapter: 'Chapter 1 · Summer Jam', tab: null, color: '#f97316', scene: 'street:jam_calls',
+    legacy: { flag: 'done_street' },
+    what: ['Three-on-three is a thinking game. Call it.', 'At some dead balls in the Summer Jam you call the next play.', 'Give-and-go, iso for you, feed the hot hand, or clear out.', 'The call sets up your next live possession.'] },
+  { id: 'celebrations', name: 'Celebrations', icon: '🕺', chapter: 'All chapters', tab: 'celebs', color: '#ec4899', scene: 'street:jam_celebrate',
+    legacy: { anyOf: [{ minLevel: 3 }, { minCount: { wins: 2 } }] },
+    what: ['Make a play? Let them know.', 'Your celebration plays after big buckets, live and in replays.', 'Swap it any time in the Celebrations tab.', 'Unlock more with levels, titles and big plays.'] },
+  { id: 'playbook', name: 'Playbook', icon: '📋', chapter: 'Chapter 2', tab: 'playbook', color: '#38bdf8', scene: 'highschool:L_playbook / W_playbook',
+    legacy: { chapter: 'highschool' },
+    what: ['Your coach has a playbook. Learn it.', 'Learned plays show up as options when you have the ball.', 'Practice with Coach in the hub (1 action) to learn the next one.', 'Each play has its own % and its own animation.'] },
+  { id: 'mixtape', name: 'Highlight Mixtape', icon: '📼', chapter: 'Chapter 2', tab: 'mixtape', color: '#a855f7', scene: 'highschool:c2_viral_jr',
+    legacy: { chapter: 'highschool', minCount: { games: 4 } },
+    what: ['Nia is filming everything now.', 'Your best plays are saved to your mixtape after every game.', 'Drop a tape once a season from the Mixtape tab.', 'Better clips = a bigger jump in recruiting, followers and Rep.'] },
+  { id: 'chemistry', name: 'Chemistry Links', icon: '🔗', chapter: 'Youth National Team', tab: 'chem', color: '#22c55e', scene: 'usa:chem_dre',
+    legacy: { usaCamp: true },
+    what: ['Some teammates just get you.', 'Play with them and build a link — games, wins and how you treat them.', 'Max a link to unlock a duo move with that teammate.', 'Duo moves show up in matches and arcade play when he\'s on the floor.'] },
+  { id: 'jelly', name: 'Jelly Layups', icon: '🍯', chapter: 'Youth National Team', tab: 'playbook', color: '#facc15', scene: 'usa:jelly_learned / jelly_cut_learned',
+    legacy: { flag: 'jelly' },
+    what: ['You can\'t go through him. Go around him.', 'After you beat your man, pick JELLY when help or a big is coming.', 'In the air: flick it AWAY from his arm (← / →), then tap at the glass.', 'Arcade: drive at the rim with a defender close, hold MOVE and shoot.'] },
+  { id: 'weapon_training', name: 'Weapon Training', icon: '🥋', chapter: 'Chapter 3', tab: 'mentor', color: '#f43f5e', scene: 'college:wt_intro (FEATURE_SCENES)',
+    what: ['Scoop DeLuca is back. And he brought homework.', 'Mentor missions teach you new weapons and rank up the ones you have.', 'Level up the jelly: Reverse Jelly, then Under-the-Arm.', 'Find your missions in the Mentor tab.'] },
+  { id: 'combine', name: 'Combine Leaderboard', icon: '⏱', chapter: 'Chapter 4', tab: 'combine', color: '#eab308', scene: 'draft:combine_intro (FEATURE_SCENES)',
+    what: ['Every scout in the league is holding a stopwatch.', 'Run the combine events: sprint, lane agility, vertical, shooting, bench.', 'See where you rank against this draft class.', 'Beat an all-time record and the whole league hears about it.'] },
+  { id: 'shoe', name: 'Signature Shoe', icon: '👟', chapter: 'Chapter 5', tab: 'shoe', color: '#14b8a6', scene: 'pro:shoe_intro (FEATURE_SCENES)',
+    what: ['Your name. On a shoe.', 'Design it: silhouette, colors, logo, name.', 'You wear it on your avatar and in the media.', 'Sales bring money and fans every season — so play like a star.'] },
+  { id: 'rivalry', name: 'Rivalry System', icon: '⚔', chapter: 'Chapter 5', tab: 'rivals', color: '#ef4444', scene: 'pro:rival_intro (FEATURE_SCENES)',
     what: ['Some games are personal.', 'Rivals build heat from trash talk, big games and how you play them.', 'Grudge matches open with a face-off and get their own story beats.', 'Track every rivalry in the Rivals tab.'] },
 ];
 const FEATURE_BY_ID = Object.fromEntries(FEATURES.map(f => [f.id, f]));
 
-/* ---------- Chapter 1 · COURT REP MAP ----------
-   Courts in order; beat the legend to open the next one. rel = his rating relative to your Overall when you play him.
-   rep / fans / xp = the prize. The 1-on-1 is a full arcade game (first to `to`). */
-const COURT_LEGENDS = [
-  { court: 'street_night', id: 'lg_riggs', name: 'Old Man Riggs', title: 'King of Halsey Street', rel: -2, to: 11, rep: 3, fans: 400, xp: 70,
-    look: { skin: '#5a3420', hair: 'bald', hairColor: '#d6d3d1', beard: 'full', build: 'strong', jersey: '#57534e', trim: '#facc15', num: 0 }, weapons: ['post_fade'],
-    intro: 'Forty-nine years old. Never lost on this court.', taunt: 'Young legs. Old tricks. Ball\'s yours, rookie.', beat: 'Hm. Tell \'em Riggs said you\'re alright.' },
-  { court: 'park_day', id: 'lg_sunny', name: 'Sunny Diaz', title: 'The Park\'s Sharpshooter', rel: 0, to: 11, rep: 3, fans: 600, xp: 80,
-    look: { skin: '#c68a5c', hair: 'ponytail', hairColor: '#1c1917', headband: '#f97316', jersey: '#f97316', trim: '#f8fafc', num: 30 }, weapons: ['logo_three'],
-    intro: 'Shoots from the parking lot. Makes it.', taunt: 'Stay close. Doesn\'t matter.', beat: 'Okay, you can guard. Respect.' },
-  { court: 'cage', id: 'lg_warden', name: 'The Warden', title: 'Nobody Leaves the Cage', rel: 2, to: 11, rep: 4, fans: 900, xp: 95,
-    look: { skin: '#8d5a3b', hair: 'buzz', hairColor: '#0f0d0c', build: 'strong', jersey: '#111827', trim: '#ef4444', num: 99 }, weapons: ['destroyer', 'hammer_board'],
-    intro: 'Six-nine. No fouls in the Cage. Bring a mouthguard.', taunt: 'In here, I make the rules.', beat: 'Get out of my cage. …Come back tomorrow.' },
-  { court: 'rooftop', id: 'lg_shay', name: 'Skyline Shay', title: 'Forty Floors Up', rel: 3, to: 11, rep: 4, fans: 1400, xp: 110,
-    look: { skin: '#6b3d25', hair: 'braids', hairColor: '#0f0d0c', jersey: '#7c3aed', trim: '#f8fafc', num: 1, build: 'lean' }, weapons: ['lightning_dribble', 'step_back'],
-    intro: 'Handles like a magician. Twelve million views.', taunt: 'Smile — you\'re about to be in my next video.', beat: 'Delete that. Delete all of that.' },
-  { court: 'beach', id: 'lg_benny', name: 'Boardwalk Benny', title: 'Sand King', rel: 4, to: 11, rep: 5, fans: 2000, xp: 125,
-    look: { skin: '#eac4a6', hair: 'curly', hairColor: '#facc15', jersey: '#0ea5e9', trim: '#facc15', num: 8, sleeve: '#f8fafc' }, weapons: ['floater', 'euro_step'],
-    intro: 'Plays barefoot. Has never once been tired.', taunt: 'Sand\'s slow, bro. I\'m not.', beat: 'The tide always turns. Today it turned on me.' },
-  { court: 'rain_night', id: 'lg_vane', name: '"Monsoon" Marcus Vane', title: 'The Last Legend', rel: 6, to: 11, rep: 7, fans: 4000, xp: 160,
-    look: { skin: '#4a2a19', hair: 'dreads', hairColor: '#0f0d0c', beard: 'goatee', jersey: '#0f172a', trim: '#38bdf8', num: 23, build: 'strong' }, weapons: ['vanishing_drive', 'chase_block'],
-    intro: 'Played overseas ten years. Came home to run the rain games.', taunt: 'Rain don\'t stop. Neither do I.', beat: 'The city\'s yours now. Don\'t waste it.' },
-];
-
-COURT_LEGENDS.forEach(g => { PLAYER_WEAPONS[g.name] = g.weapons; });
+/* ---------- scenes for chapters that aren't built yet (added to the chapter automatically once it exists) ---------- */
+const FEATURE_SCENES = {
+  college: {
+    wt_intro: { scene: 'gym', fx: { unlock: 'weapon_training' },
+      lines: [
+        ['narrator', 'After the loss, the gym empties out. One man is still sitting in the bleachers.'],
+        ['sal', 'Rough night. He took away everything you had. So — get more.', 'smile'],
+        ['sal', 'Every morning, six a.m. I\'ll teach you weapons nobody\'s seen from you yet.'],
+      ], next: null },
+  },
+  draft: {
+    combine_intro: { scene: 'arena', fx: { unlock: 'combine' },
+      lines: [
+        ['narrator', 'The combine. Sixty prospects, four hundred scouts, one giant screen of numbers.'],
+        ['narrator', 'Your agent turns her tablet around. Your name is on a leaderboard, in eleventh.'],
+        ['narrator', '"Every one of these events moves you up or down a draft board," she says. "Let\'s move up."'],
+      ], next: null },
+  },
+  pro: {
+    shoe_intro: { scene: 'locker', fx: { unlock: 'shoe' },
+      lines: [
+        ['narrator', 'A conference room forty floors up. Mood boards, foam prototypes, your number on everything.'],
+        ['narrator', '"We don\'t sign players," the designer says. "We sign stories. Let\'s build your shoe."'],
+      ], next: null },
+    rival_intro: { scene: 'arena', fx: { unlock: 'rivalry' },
+      lines: [
+        ['narrator', 'Post-game. He walks straight past his own bench and finds you in the tunnel.'],
+        ['narrator', '"Enjoy it. Next time it\'s different." Then he\'s gone, and every camera got it.'],
+      ], next: null },
+  },
+};
+for (const ch in FEATURE_SCENES) if (STORY.chapters[ch]) Object.keys(FEATURE_SCENES[ch]).forEach(id => { if (!STORY.chapters[ch].nodes[id]) STORY.chapters[ch].nodes[id] = FEATURE_SCENES[ch][id]; });
 
 /* ---------- Chapter 2 · PLAYBOOK ----------
    Set plays your coach teaches one at a time (hub: Practice with Coach). Each is a new option on offense.
@@ -110,7 +116,7 @@ const CHEM_DUOS = [
 ];
 
 /* ---------- All chapters · CELEBRATIONS ----------
-   pose = sprite animation (js/pixel.js) · when = unlock conditions (same format as FEATURES.when) */
+   pose = sprite animation (js/pixel.js) · when = unlock conditions (same format as FEATURES.legacy) */
 const CELEBRATIONS = [
   { id: 'flex', name: 'The Flex', pose: 'flex', when: {}, desc: 'Both arms. Every muscle.' },
   { id: 'point', name: 'Point to the Crowd', pose: 'point', when: {}, desc: 'That one was for them.' },
@@ -127,7 +133,7 @@ const CELEBRATIONS = [
    score = sum of the best 8 clips; boosts scale with it. */
 const MIXTAPE = {
   keep: 12, release: 8, minClips: 3,
-  clipValue: { poster: 9, gameWinner: 10, jelly: 8, dunk: 5, three: 3, deep: 6, ankles: 6, block: 5, alleyoop: 6, buzzer: 9, halfcourt: 12, duo: 6, legend: 7, weapon: 5, bigGame: 4 },
+  clipValue: { poster: 9, gameWinner: 10, jelly: 8, dunk: 5, three: 3, deep: 6, ankles: 6, block: 5, alleyoop: 6, buzzer: 9, halfcourt: 12, duo: 6, weapon: 5, bigGame: 4 },
   boost: { recruit: .18, fans: 900, rep: .12 },   // × mixtape score
   titles: ['Certified', 'Day One', 'No Days Off', 'Concrete to Hardwood', 'Built Different', 'The Proof', 'Film Don\'t Lie', 'Main Character'],
 };
@@ -180,7 +186,6 @@ WEAPONS.jelly_layup = { name: 'Jelly Layup', rarity: 'epic', type: 'drive', char
 Object.assign(PLAYER_WEAPONS, {
   'Kai Sterling': (PLAYER_WEAPONS['Kai Sterling'] || ['step_back']).filter(id => id !== 'jelly_layup').concat('jelly_layup'),   // the class's best player has one too
   'Lachie Doyle': ['lightning_dribble', 'jelly_layup'], 'Tomás Ferraro': ['step_back', 'jelly_layup'], 'Marc Ribera': ['no_look', 'jelly_layup'],
-  'Skyline Shay': ['lightning_dribble', 'jelly_layup'],
 });
 STORY.commentary.jelly_make = [
   'JELLY! {me} flicks it off the glass and the big man swats air!',
@@ -208,6 +213,13 @@ Object.assign(STORY.characters, {
 if (STORY.chapters.usa) {
   const N = STORY.chapters.usa.nodes;
   Object.assign(N, {
+    /* Chemistry Links: Dre after the Red-White scrimmage */
+    chem_dre: { scene: 'locker', fx: { unlock: 'chemistry', rel: { dre: 3 } },
+      lines: [
+        ['dre', 'Yo. That second half? I didn\'t even have to look. I knew where you were going.', 'smile'],
+        ['dre', 'Let\'s make it a thing. I hit you, you cut, I hit you back. Every time.'],
+        ['milo', 'Meanwhile I\'m in the corner like a lamp. Somebody link with ME.', 'smile'],
+      ], next: 'jelly_stuffed' },
     jelly_stuffed: { scene: 'gym',
       lines: [
         ['narrator', 'Third quarter. You blow past Jet and rise for the layup —'],
@@ -234,7 +246,7 @@ if (STORY.chapters.usa) {
         ['sal', 'His arm comes up one side. You flick it off the glass on the OTHER side. Soft.'],
       ], next: 'jelly_lesson' },
     jelly_lesson: { type: 'flick', scene: 'gym', title: 'COURT TWO · THE JELLY', coach: 'sal', reps: 6, need: 2, win: 'jelly_learned' },
-    jelly_learned: { scene: 'gym', fx: { flag: 'jelly', rel: { sal: 5 }, attrs: { finish: 1 }, xp: 120, log: 'Learned the jelly layup from Scoop DeLuca.' },
+    jelly_learned: { scene: 'gym', fx: { flag: 'jelly', unlock: 'jelly', rel: { sal: 5 }, attrs: { finish: 1 }, xp: 120, log: 'Learned the jelly layup from Scoop DeLuca.' },
       lines: [
         ['sal', 'THERE it is. Feel that? That\'s a jelly.', 'smile'],
         ['sal', 'Don\'t show it yet. Wait till the big man commits.'],
@@ -262,7 +274,7 @@ if (STORY.chapters.usa) {
         ['sal', 'You were gonna leave without your lesson? Ten minutes. Grab a ball.', 'smile'],
       ], next: 'jelly_cut_lesson' },
     jelly_cut_lesson: { type: 'flick', scene: 'street_night', title: 'PARKING LOT · THE JELLY', coach: 'sal', reps: 6, need: 2, venue: 'street_night', win: 'jelly_cut_learned' },
-    jelly_cut_learned: { scene: 'street_night', fx: { flag: ['jelly', 'jelly_payoff'], rel: { sal: 6 }, attrs: { finish: 1 }, xp: 120, log: 'Scoop DeLuca taught you the jelly before you left camp.' },
+    jelly_cut_learned: { scene: 'street_night', fx: { flag: ['jelly', 'jelly_payoff'], unlock: 'jelly', rel: { sal: 6 }, attrs: { finish: 1 }, xp: 120, log: 'Scoop DeLuca taught you the jelly before you left camp.' },
       lines: [
         ['sal', 'That\'s it. Now you\'ve got something they don\'t.', 'smile'],
         ['sal', 'Next big game, a big man\'s gonna jump at you. Make him remember your name.'],
@@ -271,7 +283,7 @@ if (STORY.chapters.usa) {
       lines: [['sal', '(a text) Cut\'s not the end. You\'ve got the jelly. Next big game — use it.']], next: 'cut_lou' },
   });
   // splice: Ike stuffs you in the day-2 scrimmage → the lesson after the first cut → the morning run → day 3; cut → parking-lot lesson
-  N.day2_scrim_win.next = 'jelly_stuffed'; N.day2_scrim_loss.next = 'jelly_stuffed';
+  N.day2_scrim_win.next = 'chem_dre'; N.day2_scrim_loss.next = 'chem_dre';
   N.cut1_safe.next = 'jelly_lesson_pre';
   N.cut_home.next = 'jelly_cut_check';
   // the tournament payoff: a key jelly over France's 7-footer in the final

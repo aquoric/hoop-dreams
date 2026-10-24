@@ -98,7 +98,7 @@ STORY.chapters.highschool = {
         ['brennan', 'Starting five: Hollis, Cole, Pike, Miles.'],
         ['brennan', '…And {last}.'],
         ['narrator', 'Brick Hollis stares at you like you just stole his car. Tariq is trying very hard not to scream.'],
-      ], next: 'L_season1' },
+      ], next: 'L_playbook' },
     L_bench: { scene: 'gym', fx: { trust: -4, morale: -3 },
       lines: [
         ['brennan', 'You made varsity — barely. You\'ll come off the bench.'],
@@ -106,9 +106,16 @@ STORY.chapters.highschool = {
         ['narrator', 'Tariq freezes, then looks at you. Your best friend just took the spot that was supposed to be yours.'],
       ],
       choices: [
-        { t: '"Happy for you, T. For real."', fx: { rel: { tariq: 8 }, chem: 6 }, next: 'L_season1' },
-        { t: '"…That should\'ve been me."', fx: { rel: { tariq: -10 }, morale: 3 }, next: 'L_season1' },
+        { t: '"Happy for you, T. For real."', fx: { rel: { tariq: 8 }, chem: 6 }, next: 'L_playbook' },
+        { t: '"…That should\'ve been me."', fx: { rel: { tariq: -10 }, morale: 3 }, next: 'L_playbook' },
       ] },
+    L_playbook: { scene: 'locker', fx: { unlock: 'playbook' },
+      lines: [
+        ['narrator', 'Locker room. Coach Brennan uncaps a marker that\'s older than you.'],
+        ['brennan', 'Thirty-one years, one rule: we run plays. This is the first one.', 'determined'],
+        ['narrator', 'Two circles, an X, an arrow curling around a screen. Pick-and-roll.'],
+        ['brennan', 'Learn this and I\'ll teach you the next. Ignore it and you\'ll learn the bench.'],
+      ], next: 'L_season1' },
 
     L_season1: { type: 'season', then: { champion: 'L_jr_champ', eliminated: 'L_jr_out', missed: 'L_jr_out' },
       season: {
@@ -192,7 +199,7 @@ STORY.chapters.highschool = {
       ],
       choices: [
         { t: 'Push through the crowd and check on Kai.', fx: { rel: { kai: 10 }, flag: 'saw_silk' }, next: 'L_kai_hall' },
-        { t: 'Stay with your team. This is Lincoln\'s night.', fx: { chem: 8, rep: 2 }, next: '@season' },
+        { t: 'Stay with your team. This is Lincoln\'s night.', fx: { chem: 8, rep: 2 }, next: 'c2_cel_check' },
       ] },
     L_kai_hall: { scene: 'locker',
       lines: [
@@ -280,11 +287,26 @@ STORY.chapters.highschool = {
         ['tariq', '(text) we play yall in like a month. dont go easy on me'],
       ],
       choices: [
-        { t: '"Come watch our opener. I\'ll get you a seat behind the bench."', fx: { rel: { tariq: 8 } }, next: 'W_season1' },
-        { t: '"Never easy on you. Love you bro."', fx: { rel: { tariq: 5 }, morale: 2 }, next: 'W_season1' },
-        { t: '(Leave him on read. You\'re exhausted.)', fx: { rel: { tariq: -8 }, fatigue: -5 }, next: 'W_season1' },
+        { t: '"Come watch our opener. I\'ll get you a seat behind the bench."', fx: { rel: { tariq: 8 } }, next: 'W_playbook' },
+        { t: '"Never easy on you. Love you bro."', fx: { rel: { tariq: 5 }, morale: 2 }, next: 'W_playbook' },
+        { t: '(Leave him on read. You\'re exhausted.)', fx: { rel: { tariq: -8 }, fatigue: -5 }, next: 'W_playbook' },
       ] },
 
+    W_playbook: { scene: 'locker', fx: { unlock: 'playbook' },
+      lines: [
+        ['narrator', 'Film room, 6 a.m. Coach Graves has already filled a whiteboard with diagrams.'],
+        ['graves', 'Westbrook runs a system. You will learn it one piece at a time.'],
+        ['narrator', 'He draws a screen, a roll, two arrows. Pick-and-roll.'],
+        ['kai', '(not looking up from his phone) He\'s gonna mess it up.', 'smile'],
+      ], next: 'W_season1' },
+    c2_cel_check: { type: 'branch', branches: [{ if: { notFlag: 'feat_celebrations' }, next: 'c2_celebrate' }], else: '@season' },
+    c2_celebrate: { scene: 'gym',
+      lines: [['narrator', 'The student section spills onto the floor. Somebody hands you a microphone you don\'t want.'], ['tariq', 'First real win in front of a real crowd. Give them something!', 'smile']],
+      choices: [
+        { t: 'Flex for the student section.', fx: { unlock: 'celebrations', celeb: 'flex' }, next: '@season' },
+        { t: 'Point at the scoreboard.', fx: { unlock: 'celebrations', celeb: 'point' }, next: '@season' },
+        { t: 'Thump your chest. Twice.', fx: { unlock: 'celebrations', celeb: 'thump' }, next: '@season' },
+      ] },
     W_season1: { type: 'season', then: { champion: 'W_jr_champ', eliminated: 'W_jr_out', missed: 'W_jr_out' },
       season: {
         id: 'junior_westbrook', name: 'Junior Season', level: 'hs', user: 'westbrook', mateRating: 55, teams: METRO, champFlag: 'city_champ',
@@ -343,7 +365,7 @@ STORY.chapters.highschool = {
       lines: [
         ['tariq', 'Proud of you, man. Still hate you — mostly proud though.', 'smile', { rel: { tariq: 50 } }],
         ['tariq', 'Hope it was worth it, {first}. Hope Westbrook was worth it.', 'sad', { maxRel: { tariq: 49 } }],
-      ], next: '@season' },
+      ], next: 'c2_cel_check' },
     W_tariq_loss: { scene: 'gym', fx: { trust: -6, morale: -4, rel: { tariq: 5 }, post: { by: 'tariq', text: 'LINCOLN OVER WESTBROOK. I hit the game winner over my best friend and I will be talking about it at his wedding.' } },
       lines: [
         ['narrator', 'Lincoln upsets Westbrook. Tariq hits the game-winner — over you.'],
@@ -367,12 +389,13 @@ STORY.chapters.highschool = {
     /* ================================================================
        SUMMER — rankings, Nia, Lou, Marcus, the Peach Slam
        ================================================================ */
-    c2_viral_jr: { scene: 'home', fx: { flag: 'viral', fans: 8000, rep: 3, recruit: true },
+    c2_viral_jr: { scene: 'home', fx: { flag: 'viral', fans: 8000, rep: 3, recruit: true, unlock: 'mixtape' },
       lines: [
         ['nia', '{first} — FIRST — wake UP.', 'smile'],
         ['nia', 'I made a mixtape of your season — music, slow-mo, everything. Four hundred thousand views.', 'smile'],
         ['nia', 'CourtVision reposted it. Somebody made a remix with a duck.', 'smile'],
         ['nia', 'People asked who runs your page and I said me. That was okay, right… that was okay.'],
+        ['nia', 'From now on I\'m filming every game. You drop a real tape once a season. Deal?', 'smile'],
       ],
       choices: [
         { t: '"You\'re officially my manager. Ten percent."', fx: { rel: { nia: 12 }, fans: 5000, flag: 'nia_manager' }, next: '@season' },

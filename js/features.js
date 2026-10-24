@@ -1,9 +1,9 @@
 /* =====================================================================
-   FEATURES.JS — the feature unlock system: checks FEATURES (js/data-features.js) after every story beat,
-   game and level-up, shows the "NEW FEATURE UNLOCKED" cinematic, and runs each feature:
-   hub tabs (Rep Map, Playbook, Mixtape, Chemistry, Celebrations, and the future-chapter ones),
-   match hooks (afterMatch), and the jelly lesson node (type:'flick').
-   State: s.features = { on:{id:t}, queue:[], legends:{}, plays:[], mix:{clips,released}, chem:{}, duos:{}, celebs:[], celeb, jelly:{lvl} }
+   FEATURES.JS — the feature unlock system and every feature's screens. Features unlock in the story:
+   a scene's fx { unlock: 'id' } calls Features.unlock(); when the scene is over, a small "NEW FEATURE UNLOCKED"
+   card explains it and its hub tab glows until you open it. Also: hub tabs (Playbook, Mixtape, Chemistry,
+   Celebrations, and the future-chapter ones), match hooks (afterMatch), and the jelly lesson node (type:'flick').
+   State: s.features = { v, on:{id:t}, queue:[], newTabs:{}, plays:[], mix:{clips,released}, chem:{}, duos:{}, celebs:[], celeb, jelly:{lvl} }
    ===================================================================== */
 const Features = (() => {
   const esc = UI.esc, sleep = ms => new Promise(r => setTimeout(r, ms)), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -11,7 +11,7 @@ const Features = (() => {
 
   function state(s) {
     const F = s.features || (s.features = { v: 0 });
-    for (const [k, v] of Object.entries({ on: {}, queue: [], legends: {}, plays: [], mix: { clips: [], released: [] }, chem: {}, duos: {}, celebs: [], jelly: { lvl: 0 }, missions: {}, combine: {}, rivals: {} })) if (F[k] == null) F[k] = JSON.parse(JSON.stringify(v));
+    for (const [k, v] of Object.entries({ on: {}, queue: [], newTabs: {}, plays: [], mix: { clips: [], released: [] }, chem: {}, duos: {}, celebs: [], jelly: { lvl: 0 }, missions: {}, combine: {}, rivals: {} })) if (F[k] == null) F[k] = JSON.parse(JSON.stringify(v));
     return F;
   }
   const on = (s, id) => !!(s && s.features && s.features.on[id]);
@@ -31,45 +31,68 @@ const Features = (() => {
     return true;
   }
 
-  /* ---------- the check: run after story fx, games, training, level-ups and on load ---------- */
-  function check(s) {
-    if (!s || !s.player) return [];
-    const F = state(s), first = !F.v, got = [];
-    F.v = 1; F.maxCh = Math.max(F.maxCh || 0, chIdx(s.story && s.story.chapter));
-    for (const f of FEATURES) if (!F.on[f.id] && cond(s, f.when)) { F.on[f.id] = Date.now(); got.push(f.id); }
-    if (got.length) { F.queue.push(first && got.length > 1 ? { ids: got, retro: true } : null, ...got.map(id => first && got.length > 1 ? null : { ids: [id] })); F.queue = F.queue.filter(Boolean); }
-    // starters + unlocks inside features
+  /* ---------- unlock (from a story scene: fx { unlock }) ---------- */
+  function unlock(s, id, opts = {}) {
+    const F = state(s), f = FEATURE_BY_ID[id]; if (!f) return false;
+    s.flags['feat_' + id] = true;                       // story branches can ask "already unlocked?"
+    if (F.on[id]) return false;
+    F.on[id] = Date.now();
+    const after = s.story ? s.story.chapter + ':' + s.story.node : null;   // the card waits until this scene is over
+    F.queue.push({ ids: [id], after });
+    if (f.tab) F.newTabs[f.tab] = true;                 // the hub tab glows until you open it
+    starters(s); setTimeout(flush, 400);
+    return true;
+  }
+  function setCeleb(s, id) { const F = state(s), c = CELEBRATIONS.find(x => x.id === id); if (!c) return; if (!F.celebs.includes(id)) F.celebs.push(id); F.celeb = id; }
+  /* things a feature starts with, and unlocks inside features (more celebrations, duo moves) */
+  function starters(s, quiet) {
+    const F = state(s);
     if (on(s, 'playbook') && !F.plays.length) F.plays.push(PLAYBOOK[0].id);
     if (on(s, 'celebrations')) {
-      CELEBRATIONS.forEach(c => { if (!F.celebs.includes(c.id) && cond(s, c.when)) { F.celebs.push(c.id); if (F.celeb && !first) UI.toast(`🕺 New celebration: <b>${esc(c.name)}</b>`, 'ach', 3200); } });
+      CELEBRATIONS.forEach(c => { if (!F.celebs.includes(c.id) && cond(s, c.when)) { F.celebs.push(c.id); if (F.celeb && !quiet) UI.toast(`🕺 New celebration: <b>${esc(c.name)}</b>`, 'ach', 3200); } });
       if (!F.celeb) F.celeb = F.celebs[0];
     }
-    if (on(s, 'chemistry')) CHEM_DUOS.forEach(d => { if (!F.duos[d.id] && link(s, d) >= d.need) { F.duos[d.id] = Date.now(); if (!first) { UI.toast(`🔗 Chemistry maxed with <b>${esc(d.short)}</b> — duo move unlocked: <b>${esc(d.move)}</b>`, 'ach', 4500); SFX.play('perfect'); } } });
-    if (s.flags.jelly && !on(s, 'jelly')) F.on.jelly = Date.now();
+    if (on(s, 'chemistry')) CHEM_DUOS.forEach(d => { if (!F.duos[d.id] && link(s, d) >= d.need) { F.duos[d.id] = Date.now(); if (!quiet) { UI.toast(`🔗 Chemistry maxed with <b>${esc(d.short)}</b> — duo move unlocked: <b>${esc(d.move)}</b>`, 'ach', 4500); SFX.play('perfect'); } } });
+  }
+  /* ---------- the check (after story fx, games, training, level-ups and on load): no automatic unlocks anymore ----------
+     Saves from before story unlocks (v < 2) keep what they had earned under the old rules, silently. */
+  function check(s) {
+    if (!s || !s.player) return [];
+    const F = state(s), got = [];
+    F.maxCh = Math.max(F.maxCh || 0, chIdx(s.story && s.story.chapter));
+    if ((F.v || 0) < 2) {
+      for (const f of FEATURES) if (!F.on[f.id] && f.legacy && cond(s, f.legacy)) { F.on[f.id] = Date.now(); got.push(f.id); if (f.tab) F.newTabs[f.tab] = true; }
+      delete F.on.rep_map; delete F.legends; F.queue = (F.queue || []).filter(q => q.ids && q.ids.every(id => FEATURE_BY_ID[id]));   // the Court Rep Map is gone
+      F.v = 2;
+    }
+    Object.keys(F.on).forEach(id => { s.flags['feat_' + id] = true; });
+    starters(s, got.length > 0);
     setTimeout(flush, 500);
     return got;
   }
 
-  /* ---------- the "NEW FEATURE UNLOCKED" cinematic (only on calm screens: story or hub, never mid-game) ---------- */
+  /* ---------- the "NEW FEATURE UNLOCKED" card: right after the scene that introduced it (never mid-game) ---------- */
   let showing = false;
-  const calm = () => ['hubscreen', 'story'].includes(document.body.dataset.screen) && !document.querySelector('.cs-cv, .arc, .tkc, #modals .modal, .feat-pop');
+  const calm = () => ['hubscreen', 'story'].includes(document.body.dataset.screen) && !document.querySelector('.cs-cv, .arc, .tkc, #modals .modal, .feat-pop, .tut');
   function flush() {
     const s = Game.state; if (!s || !s.features || showing || !s.features.queue.length) return;
-    if (!calm()) return setTimeout(flush, 1200);
-    const item = s.features.queue.shift(); Game.save();
+    const item = s.features.queue[0], here = s.story ? s.story.chapter + ':' + s.story.node : null;
+    if (!calm() || (item.after && item.after === here && document.body.dataset.screen === 'story')) return setTimeout(flush, 900);   // still in the scene
+    s.features.queue.shift(); Game.save();
     showing = true; popup(item).then(() => { showing = false; if (s.features.queue.length) setTimeout(flush, 400); });
   }
   function popup(item) {
     const list = item.ids.map(id => FEATURE_BY_ID[id]).filter(Boolean); if (!list.length) return Promise.resolve();
     const one = list.length === 1 ? list[0] : null, inHub = document.body.dataset.screen === 'hubscreen';
     const el = document.createElement('div'); el.className = 'feat-pop'; el.style.setProperty('--fc', one ? one.color : '#f97316');
-    el.innerHTML = `<div class="fp-stripes"></div><div class="fp-card">
-      <div class="fp-kicker">${item.retro ? 'YOUR CAREER UNLOCKED' : 'NEW FEATURE UNLOCKED'}</div>
+    el.innerHTML = `<div class="fp-card">
+      <div class="fp-kicker">NEW FEATURE UNLOCKED</div>
       ${one ? `<div class="fp-icon">${one.icon}</div><h2>${esc(one.name)}</h2><span class="fp-ch">${esc(one.chapter)}</span>
         <p class="fp-tag">${esc(Engine.text(one.what[0], Game.state))}</p><ul>${one.what.slice(1).map(t => `<li>${esc(t)}</li>`).join('')}</ul>`
       : `<h2>${list.length} NEW FEATURES</h2><p class="fp-tag">Things you've already earned in this career.</p><div class="fp-list">${list.map(f => `<div style="--fc:${f.color}"><i>${f.icon}</i><b>${esc(f.name)}</b><small>${esc(f.what[1])}</small></div>`).join('')}</div>`}
-      <div class="fp-btns">${one && one.tab && inHub ? `<button class="btn ghost" data-k="go">Open ${esc(one.name)} ›</button>` : ''}<button class="btn glow" data-k="ok">Got it</button></div></div>`;
-    document.body.appendChild(el); SFX.play('stinger'); setTimeout(() => SFX.play('levelup'), 350);
+      ${one && one.tab && !inHub ? `<p class="fp-where">Find it in the <b>${esc(TAB_NAMES[one.tab] || one.name)}</b> tab next time you're in the hub.</p>` : ''}
+      <div class="fp-btns">${one && one.tab && inHub ? `<button class="btn ghost" data-k="go">Open ${esc(TAB_NAMES[one.tab] || one.name)} ›</button>` : ''}<button class="btn glow" data-k="ok">Got it</button></div></div>`;
+    document.body.appendChild(el); SFX.play('levelup');
     requestAnimationFrame(() => el.classList.add('in'));
     return new Promise(res => {
       const close = k => { removeEventListener('keydown', kd); el.classList.remove('in'); el.classList.add('out'); setTimeout(() => el.remove(), 320); SFX.play('click');
@@ -81,11 +104,12 @@ const Features = (() => {
   }
 
   /* ---------- hub tabs ---------- */
-  const TAB_NAMES = { repmap: 'Rep Map', playbook: 'Playbook', mixtape: 'Mixtape', chem: 'Chemistry', celebs: 'Celebrations', mentor: 'Mentor', combine: 'Combine', shoe: 'Shoe', rivals: 'Rivals' };
+  const seenTab = (s, tab) => { if (s.features && s.features.newTabs && s.features.newTabs[tab]) { delete s.features.newTabs[tab]; Game.save(); } };
+  const TAB_NAMES = { playbook: 'Playbook', mixtape: 'Mixtape', chem: 'Chemistry', celebs: 'Celebrations', mentor: 'Mentor', combine: 'Combine', shoe: 'Shoe', rivals: 'Rivals' };
   function tabs(s) {
     if (!s.features) return [];
     const seen = new Set(), out = [];
-    FEATURES.forEach(f => { if (f.tab && on(s, f.id) && !seen.has(f.tab)) { seen.add(f.tab); out.push([f.tab, f.tab === 'playbook' && !on(s, 'playbook') ? 'Jelly' : TAB_NAMES[f.tab] || f.name, true]); } });
+    FEATURES.forEach(f => { if (f.tab && on(s, f.id) && !seen.has(f.tab)) { seen.add(f.tab); out.push([f.tab, f.tab === 'playbook' && !on(s, 'playbook') ? 'Jelly' : TAB_NAMES[f.tab] || f.name, s.features.newTabs && s.features.newTabs[f.tab] ? 'new' : true]); } });
     return out;
   }
   const hub = () => Game.hubCtx, ap = s => s.hub ? s.hub.ap : 0;
@@ -94,18 +118,6 @@ const Features = (() => {
   function render(tab, s) {
     const F = state(s);
     switch (tab) {
-      case 'repmap': {
-        const L = COURT_LEGENDS, beat = i => !!F.legends[L[i].id], open = i => i === 0 || beat(i - 1), n = L.filter((x, i) => beat(i)).length;
-        return `<p class="muted glass panel">Every court has a legend. Beat him 1-on-1 (first to 11, <b>1 action</b>) for Rep and fans — and the next court on the map opens up. <b>${n} / ${L.length}</b> crowns.</p>
-          <div class="repmap">${L.map((g, i) => { const V = VENUES[g.court], b = beat(i), o = open(i), rec = F.legends[g.id];
-            return `<div class="rm-node glass ${b ? 'beat' : o ? 'open' : 'locked'}"><div class="rm-pin">${b ? '👑' : o ? i + 1 : '🔒'}</div>
-              <div class="rm-av">${o ? portrait(Object.assign({}, g.look)) : '<span>?</span>'}</div>
-              <div class="rm-info"><b>${o ? esc(g.name) : '???'}</b><small>${esc(V ? V.name : g.court)}${o ? ' · ' + esc(g.title) : ''}</small>
-                <em>${b ? `Beaten ${rec.score || ''}` : o ? `${esc(g.intro)}` : `Beat ${esc(L[i - 1].name)} to find him.`}</em>
-                ${o ? `<span class="rm-prize">+${g.rep} Rep · +${Engine.fmtFans(g.fans)} fans · +${g.xp} XP${b ? ' · rematch: XP only' : ''}</span>` : ''}</div>
-              ${o ? `<button class="btn sm ${b ? 'ghost' : 'glow'}" data-legend="${i}" ${ap(s) <= 0 ? 'disabled' : ''}>${b ? 'Rematch' : 'Challenge'}</button>` : ''}</div>`; }).join('<div class="rm-link"></div>')}</div>
-          ${ap(s) <= 0 ? '<p class="warn-text center">No actions left. Continue the story to refresh.</p>' : ''}`;
-      }
       case 'playbook': {
         const def = avgDef(s), ME = Balance.userStats(s), next = PLAYBOOK.find(p => !F.plays.includes(p.id));
         const pctOf = (a, x = {}) => Balance.pct(a, ME, Object.assign({ def, diff: s.difficulty }, x)).pct;
@@ -131,7 +143,7 @@ const Features = (() => {
       }
       case 'chem': return `<p class="muted glass panel">Chemistry grows every game you play together (+2, +1 more for a win), and with how you treat him in the story. Max the link to unlock a duo move — it shows up in matches and arcade games when he's on the floor.</p>
         <div class="chem-grid">${CHEM_DUOS.map(d => { const v = link(s, d), got = F.duos[d.id], ch = STORY.characters[d.id];
-          return `<div class="chem glass ${got ? 'got' : ''}"><div class="rm-av">${portrait(ch ? UI.charLook(d.id) : Art.lookFromSeed(d.name))}</div><div><b>${esc(d.short)}</b><small>${esc(ch ? ch.role : '')}</small>
+          return `<div class="chem glass ${got ? 'got' : ''}"><div class="f-av">${portrait(ch ? UI.charLook(d.id) : Art.lookFromSeed(d.name))}</div><div><b>${esc(d.short)}</b><small>${esc(ch ? ch.role : '')}</small>
             <div class="chem-bar"><i style="width:${Math.min(100, v / d.need * 100)}%"></i></div><span class="small">${got ? `🔗 <b>${d.icon} ${esc(d.move)}</b> unlocked` : `${Math.min(v, d.need)} / ${d.need} link`}</span><em class="muted small">${esc(d.desc)}</em></div></div>`; }).join('')}</div>`;
       case 'celebs': return `<p class="muted glass panel">Your celebration plays after big buckets — dunks, threes, jellies and game-winners — in matches and arcade games.</p>
         <div class="celeb-grid">${CELEBRATIONS.map(c => { const got = F.celebs.includes(c.id), eq = F.celeb === c.id;
@@ -146,7 +158,6 @@ const Features = (() => {
     return '';
   }
   function bind(tab, body, s, rerender) {
-    body.querySelectorAll('[data-legend]').forEach(b => b.onclick = () => legend(+b.dataset.legend));
     body.querySelectorAll('[data-practice]').forEach(b => b.onclick = () => practice());
     body.querySelectorAll('[data-release]').forEach(b => b.onclick = () => release());
     body.querySelectorAll('[data-mission]').forEach(b => b.onclick = () => mission(b.dataset.mission));
@@ -162,32 +173,6 @@ const Features = (() => {
       const R = Pixel.renderer(g, Object.assign({ W: 64 }, V)), loop = () => { if (!cv.isConnected) return; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, 64, 64); g.setTransform(1.8, 0, 0, 1.8, -22, -47); p.act = { type: pose, t: (performance.now() / 1000) % 1, T: 1, hold: true }; try { R.player(p, {}); } catch (e) { return; } requestAnimationFrame(loop); };   // ×1.8, centered
       loop();
     } catch (e) { }
-  }
-
-  /* ---------- Rep Map: 1-on-1 vs a court legend (uses an action) ---------- */
-  async function legend(i) {
-    const s = Game.state, g = COURT_LEGENDS[i], F = state(s); if (!g || !s.hub || s.hub.ap <= 0) return UI.toast('No actions left.', 'bad');
-    const first = !F.legends[g.id], o = Engine.ovr(s), home = LOCAL_TEAMS[s.career.hs] || LOCAL_TEAMS.halsey;
-    const them = { id: g.id, name: g.name, abbr: 'LGD', colors: [g.look.jersey, g.look.trim, '#0b0f1c'], logo: { shape: 'circle', icon: 'crown' }, roster: [g.name], star: { name: g.name, perD: o + g.rel, intD: o + g.rel }, looks: { [g.name]: g.look } };
-    const r = await Match.play({ us: Object.assign({}, home, { id: 'yourrun', name: 'You', abbr: 'YOU', roster: [] }), them, oppRating: o + g.rel, mateRating: o, moments: 6, level: 'street', size: 1, target: g.to, fullArcade: true, venueId: g.court,
-      title: g.title, sub: `${g.name} · 1-on-1, first to ${g.to}`, starSub: `${g.title} · ${g.intro}`, legend: g });
-    s.hub.ap--; Game.unlockVenue(r.venueId);
-    for (const c in r.counters) s.counters[c] = (s.counters[c] || 0) + r.counters[c];
-    afterMatch(s, r, { title: g.title });
-    let fx;
-    if (r.win) {
-      fx = first ? { rep: g.rep, fans: g.fans, xp: g.xp, morale: 4, fatigue: 8 } : { xp: Math.round(g.xp * .4), fatigue: 8 };
-      F.legends[g.id] = { t: Date.now(), score: `${r.us}-${r.them}` };
-      if (first) {
-        addClip(s, { k: 'legend', t: `Took ${g.name}'s crown`, game: VENUES[g.court] ? VENUES[g.court].name : '' });
-        Engine.post(s, { by: 'streetball', text: `👑 NEW KING: {name} just beat ${g.name} at ${VENUES[g.court] ? VENUES[g.court].name : 'the court'}, ${r.us}-${r.them}. ${g.beat}` });
-        const nx = COURT_LEGENDS[i + 1];
-        if (nx) { Game.unlockVenue(nx.court); UI.toast(`🗺 Rep Map: a new legend is waiting at <b>${esc(VENUES[nx.court].name)}</b>`, 'ach', 4500); }
-      }
-    } else fx = { xp: 35, fatigue: 10, morale: -2 };
-    const changes = Game.applyFx(fx);
-    UI.toast(r.win ? `👑 You beat <b>${esc(g.name)}</b> ${r.us}–${r.them}. "${esc(g.beat)}"` : r.them < g.to ? `You walked off. ${esc(g.name)} keeps his court.` : `${esc(g.name)} holds his court, ${r.them}–${r.us}. "${esc(g.taunt)}"`, r.win ? 'good' : 'bad', 4200); UI.fxToasts(changes);
-    Game.checkAch(); Game.save(); UI.hub(Object.assign({}, Game.hubCtx, { tab: 'repmap' }));
   }
 
   /* ---------- Playbook: Practice with Coach teaches the next set play ---------- */
@@ -208,7 +193,7 @@ const Features = (() => {
   }
 
   /* ---------- Mixtape ---------- */
-  const CLIP_ICONS = { poster: '💥', gameWinner: '🎯', jelly: '🍯', dunk: '🔨', three: '👌', deep: '🌌', ankles: '🦶', block: '🚫', alleyoop: '🚀', buzzer: '⏰', halfcourt: '🌠', duo: '🔗', legend: '👑', weapon: '⚔', bigGame: '🏟' };
+  const CLIP_ICONS = { poster: '💥', gameWinner: '🎯', jelly: '🍯', dunk: '🔨', three: '👌', deep: '🌌', ankles: '🦶', block: '🚫', alleyoop: '🚀', buzzer: '⏰', halfcourt: '🌠', duo: '🔗', weapon: '⚔', bigGame: '🏟' };
   const clipIcon = k => CLIP_ICONS[k] || '🎬';
   const score = clips => clips.slice().sort((a, b) => b.v - a.v).slice(0, MIXTAPE.release).reduce((t, c) => t + c.v, 0);
   const seasonKey = s => s.season ? s.season.id : `${s.story.chapter}:${(s.career.seasons || []).length}:${s.player.age}`;
@@ -231,7 +216,7 @@ const Features = (() => {
   const link = (s, d) => (state(s).chem[d.id] || 0) + Math.max(0, Math.floor((s.rel[d.id] || 0) / 10));
   const duoOf = (s, name) => { if (!on(s, 'chemistry')) return null; const d = CHEM_DUOS.find(x => x.name === name); return d && state(s).duos[d.id] ? d : null; };
 
-  /* ---------- after every game (story, season, pickup, legend) ---------- */
+  /* ---------- after every game (story, season, pickup) ---------- */
   function afterMatch(s, r, node = {}) {
     if (!s || !r) return; state(s);
     const c = r.counters || {}, label = `${node.title || (r.cfg && r.cfg.title) || 'Game'}${r.cfg && r.cfg.them ? ' vs ' + r.cfg.them.name : ''}`;
@@ -307,7 +292,7 @@ const Features = (() => {
     s.hub.ap--;
     if (ok) {
       F.missions[m.id] = Date.now();
-      if (m.teaches === 'jelly') { if (!s.flags.jelly) s.flags.jelly = true; else F.jelly.lvl = Math.max(F.jelly.lvl, m.level || 0); }
+      if (m.teaches === 'jelly') { if (!s.flags.jelly) { s.flags.jelly = true; unlock(s, 'jelly'); } else F.jelly.lvl = Math.max(F.jelly.lvl, m.level || 0); }
       else if (m.teaches && WEAPONS[m.teaches]) { Engine.weapons(s); if (!s.player.weapons.some(x => x.id === m.teaches)) s.player.weapons.push({ id: m.teaches, rank: 1 }); }
       if (m.upgrades) { const w = Engine.weapons(s)[0]; if (w) s.player.weapons.find(x => x.id === w.id).rank = Math.min(BALANCE.weapons.ranks.max, w.rank + 1); }
     }
@@ -315,5 +300,5 @@ const Features = (() => {
     Game.checkAch(); Game.save(); await new Promise(r => md.card.querySelector('#tDone').onclick = r); md.close(); UI.hub(Object.assign({}, Game.hubCtx, { tab: 'mentor' }));
   }
 
-  return { state, on, cond, check, flush, tabs, render, bind, afterMatch, addClip, jellyOn, jellyLevel, celebPose, duoOf, link, lesson, legend, practice, release, mission, seasonKey };
+  return { state, on, cond, check, flush, tabs, render, bind, afterMatch, addClip, jellyOn, jellyLevel, celebPose, duoOf, link, lesson, unlock, setCeleb, seenTab, practice, release, mission, seasonKey };
 })();

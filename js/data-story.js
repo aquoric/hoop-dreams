@@ -315,7 +315,7 @@ STORY.chapters.street = {
         { t: 'Smile. Let her watch.', fx: { morale: 4 }, next: 'jam_calls' },
       ] },
     /* ---- the Summer Jam: street calls, your crew, a game plan each round (the games mix live arcade with choice moments) ---- */
-    jam_calls: { scene: 'playground', fx: { flag: 'street_calls' },
+    jam_calls: { scene: 'playground', fx: { flag: 'street_calls', unlock: 'street_calls' },
       lines: [
         ['lou', 'Three-on-three is a thinking game, kid. Somebody has to call it.'],
         ['lou', 'Give-and-go. Iso. Feed the hot hand. Clear out. Four calls — that\'s all you need out here.'],
@@ -348,7 +348,20 @@ STORY.chapters.street = {
       lines: [
         ['mc', 'HALSEY STREET MOVES ON! Somebody check on Hammer Jones, he\'s been posterized emotionally!'],
         ['hammer', 'Respect, little man. You\'re tougher than you look.', 'smile'],
-      ], next: 'jam_rest' },
+      ], next: 'jam_cel_check' },
+    /* Celebrations: the block hypes you up after your first big win and you pick your first one */
+    jam_cel_check: { type: 'branch', branches: [{ if: { notFlag: 'feat_celebrations' }, next: 'jam_celebrate' }], else: 'jam_rest' },
+    jam_celebrate: { scene: 'playground',
+      lines: [
+        ['narrator', 'The whole fence is shaking. Kids from the block are chanting your number.'],
+        ['tariq', 'Bro, they want something! You can\'t just walk off after THAT.', 'smile'],
+        ['mc', 'GIVE THE PEOPLE WHAT THEY WANT, NUMBER {num}!'],
+      ],
+      choices: [
+        { t: 'Flex for the fence. Both arms.', fx: { unlock: 'celebrations', celeb: 'flex', fans: 60 }, next: 'jam_rest' },
+        { t: 'Point at Nia in the crowd.', fx: { unlock: 'celebrations', celeb: 'point', rel: { nia: 4 } }, next: 'jam_rest' },
+        { t: 'Throw your head back and scream.', fx: { unlock: 'celebrations', celeb: 'scream', morale: 3 }, next: 'jam_rest' },
+      ] },
     m2_loss: { scene: 'playground', fx: { fatigue: 15, attrs: { stam: 2 }, morale: -2 },
       lines: [
         ['narrator', 'Hammer Jones puts you on the asphalt on the final possession. No call — pickup rules.'],
@@ -479,8 +492,19 @@ STORY.chapters.street = {
         ['kai', '…Good game. For real this time.'],
       ],
       choices: [
-        { t: 'Dap him up: "Good game. See you at the next level."', fx: { rel: { kai: 12 }, flag: 'kai_respect' }, next: 'scout_branch' },
-        { t: '"Tell your dad I said hi."', fx: { rel: { kai: -10 }, rep: 4, fans: 200 }, next: 'scout_branch' },
+        { t: 'Dap him up: "Good game. See you at the next level."', fx: { rel: { kai: 12 }, flag: 'kai_respect' }, next: 'jam_final_cel' },
+        { t: '"Tell your dad I said hi."', fx: { rel: { kai: -10 }, rep: 4, fans: 200 }, next: 'jam_final_cel' },
+      ] },
+    jam_final_cel: { type: 'branch', branches: [{ if: { notFlag: 'feat_celebrations' }, next: 'jam_celebrate2' }], else: 'scout_branch' },
+    jam_celebrate2: { scene: 'playground',
+      lines: [
+        ['narrator', 'Somebody\'s little brother is on your shoulders. You don\'t remember picking him up.'],
+        ['tariq', 'CHAMPIONS! Do something! Anything! They\'re filming!', 'smile'],
+      ],
+      choices: [
+        { t: 'Flex. Every muscle you have.', fx: { unlock: 'celebrations', celeb: 'flex' }, next: 'scout_branch' },
+        { t: 'Point to the sky.', fx: { unlock: 'celebrations', celeb: 'point' }, next: 'scout_branch' },
+        { t: 'Scream until your voice goes.', fx: { unlock: 'celebrations', celeb: 'scream' }, next: 'scout_branch' },
       ] },
     m3_loss: { scene: 'playground', fx: { rep: 4, fans: 300, xp: 60 },
       lines: [

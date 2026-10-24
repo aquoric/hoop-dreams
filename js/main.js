@@ -129,6 +129,8 @@ const Game = {
     /* national team arc (js/data-usa.js) */
     if (fx.campStart) { s.usa = { pts: 0, start: Engine.ovr(s), day: 1, cut: [], prev: {} }; if (s.recruit && s.recruit.stars >= 5) s.usa.pts += 2; }
     if (fx.camp && s.usa) { s.usa.pts += fx.camp; changes.push({ label: 'Camp points', v: fx.camp }); }
+    if (fx.unlock) [].concat(fx.unlock).forEach(id => Features.unlock(s, id));   // a story scene introduces a feature (js/features.js)
+    if (fx.celeb) Features.setCeleb(s, fx.celeb);
     if (fx.jam) s.jam = Object.assign(s.jam || {}, fx.jam);   // Summer Jam: your third man, game plan, practice boost
     if (fx.count) for (const k in fx.count) s.counters[k] = (s.counters[k] || 0) + fx.count[k];
     if (fx.draftStock) { s.meta.draftStock = (s.meta.draftStock || 0) + fx.draftStock; changes.push({ label: 'Draft stock', v: fx.draftStock }); }

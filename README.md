@@ -79,25 +79,25 @@ Download the code and double-click **`index.html`**. There's no install, no buil
 - **Halsey Summer Jam** (Chapter 1): 3x3 played live in arcade, with 3–5 choice moments at dead balls: street calls Lou teaches you before the tournament (give-and-go, iso, feed the hot hand, clear out) that set up your next possession, picking who you guard, key possessions played as decisions with a minigame, and a clutch possession near 21. Before the tournament you pick your third man (Big Rudy, Smoke or Lil' Dez); before each round you choose a game plan (run and gun, slow it down, lock in on D); between rounds you rest or get shots up. Each opponent has its own style and a star with weapons. Numbers in `BALANCE.jam`. Other pickup games stay full arcade.
 - **Conversations** (`js/data-talk-lines.js`): in-game talks happen in about one game in three (never more than one), pre-game talks only in big games and against Kai. Every character has their own voice and a large pool of lines that fit the moment: the score, what just happened (a dunk on him, a missed free throw, a bad call), your history with that player and the story so far ("You still remember Halsey Park?"). A line doesn't repeat until its pool is used up.
 - **Perfect releases** (`BALANCE.perfect`): a green release goes in most of the time: about 90–94% open at the rim and mid-range, 87–89% from three, 70–80% contested, around 63% from deep, about 17% from halfcourt, and 98% at the line. This applies to every shooter in matches and arcade play. Good-but-not-perfect timing stays near the normal %, bad timing drops it a lot.
-- **Feature unlocks** (`js/data-features.js`, `js/features.js`): each chapter opens something new with a **NEW FEATURE UNLOCKED** cinematic (it waits for a calm screen, never mid-game) and its own hub tab. Old saves get one combined popup for everything they'd already earned. The Career tab lists every feature and when it unlocks.
-  - **Court Rep Map** (Chapter 1): six court legends, from Old Man Riggs on Halsey Street to "Monsoon" Marcus Vane in the rain. Beat each one 1-on-1 (arcade, first to 11) for Rep and fans; that opens the next court.
-  - **Playbook** (Chapter 2): your coach teaches set plays one at a time (Practice with Coach, 1 action): Pick-and-Roll, Backdoor Cut, Isolation, Post Entry, Flare Screen, Horns. Learned plays become offense options in team games, each with its own % and court animation.
-  - **Highlight Mixtape** (Chapter 2): your best plays are saved after every game; release a tape once a season for a recruiting, follower and Rep boost based on how good the clips are.
-  - **Chemistry Links** (national team): play with Dre, Jet, Malik, Milo or Kai and build a link. Max it for a duo move (give-and-go, Jet Lob, High-Low, Drive & Kick, Two-Man Game) in matches and arcade play.
+- **Feature unlocks** (`js/data-features.js`, `js/features.js`): every feature is introduced in the story by a character, in a short scene. When the scene ends, a small **NEW FEATURE UNLOCKED** card explains it in one screen, and its hub tab glows with an arrow until you open it. Skipping the dialogue still unlocks it. Old saves keep what they already had. The Career tab lists every feature and when it unlocks.
+  - **Playbook** (Chapter 2): your coach draws the pick-and-roll on the locker-room whiteboard (Brennan or Graves). After that he teaches one set play at a time (Practice with Coach, 1 action): Pick-and-Roll, Backdoor Cut, Isolation, Post Entry, Flare Screen, Horns. Learned plays become offense options in team games, each with its own % and court animation.
+  - **Highlight Mixtape** (Chapter 2): Nia's video of your season goes viral, and she talks you into dropping a real tape once a season. Your best plays are saved after every game; releasing one boosts recruiting, followers and Rep based on how good the clips are.
+  - **Chemistry Links** (national team): after the Red-White scrimmage Dre wants to make your give-and-go a thing. Play with Dre, Jet, Malik, Milo or Kai and build a link; max it for a duo move (give-and-go, Jet Lob, High-Low, Drive & Kick, Two-Man Game) in matches and arcade play.
   - **Jelly Layups** (national team): Big Ike stuffs you at camp, assistant coach **Scoop DeLuca** teaches you the jelly on court two at night, it drops in the next morning run, and the payoff comes over France's 7-footer in the final (or in your next big game if you're cut; he teaches you in the parking lot before you leave). After you beat your man, pick **JELLY** when help is coming: in slow motion his arm swings up one side, flick to the other side (←/→), then tap as the ring closes on the glass. Arcade: drive at the rim with a defender close, **hold MOVE and shoot**. Kai and a few international stars have it too. Numbers in `BALANCE.jelly`.
-  - **Celebrations** (all chapters): unlocked by levels, wins, posters, game-winners and titles; yours plays after big buckets in matches and arcade play.
+  - **Celebrations** (all chapters): the crowd demands something after your first big win (the Summer Jam, or your first rivalry win in high school), and you pick your first celebration on the spot. More unlock with levels, wins, posters, game-winners and titles; yours plays after big buckets in matches and arcade play.
+  - **Street Calls** (Chapter 1): Lou teaches four streetball calls before the Summer Jam (see above).
 - **Audio**: music and effects are synthesized with the Web Audio API; the crowd uses real recordings (one venue loop, capped reactions). 🔊 mutes everything.
 
 *Coming in later builds: College/Overseas/G-League routes (Chapter 3), the Draft, the 30-team pro league, overseas leagues, legacy endings.*
 
-**Future-chapter features switch on by themselves.** Their data and hub tabs are already in `js/data-features.js` / `js/features.js`; each one waits on `when: { chapter: '…' }` and unlocks the first time a player reaches that chapter, once it exists in `STORY.chapters` (ids in `CHAPTER_ORDER`):
+**Future-chapter features are ready to plug in.** Their data, hub tabs and introduction scenes are already in `js/data-features.js` (`FEATURE_SCENES`). When a chapter is built (ids in `CHAPTER_ORDER`), its scene nodes are added to it automatically; the chapter only routes a `next` into the scene and sets where the scene goes. **Any new feature follows the same pattern:** a story node with `fx: { unlock: 'id' }` and an entry in `FEATURES`.
 
 | Feature | Chapter id | Data |
 |---|---|---|
-| Weapon Training (Scoop DeLuca's missions: new weapons, free ranks, Reverse and Under-the-Arm Jelly) | `college` | `WEAPON_TRAINING` |
-| Combine Leaderboard (you vs the draft class + all-time records) | `draft` | `COMBINE` |
-| Signature Shoe (designer, avatar, sales → money and fans) | `pro` | `SHOE` |
-| Rivalry System (heat, grudge matches, face-offs) | `pro` | `RIVALRY` |
+| Weapon Training — Scoop DeLuca offers after a rough loss (`wt_intro`) · missions: new weapons, free ranks, Reverse and Under-the-Arm Jelly) | `college` | `WEAPON_TRAINING` |
+| Combine Leaderboard — your agent shows you the rankings at the combine (`combine_intro`) | `draft` | `COMBINE` |
+| Signature Shoe — a sneaker brand meeting (`shoe_intro`) | `pro` | `SHOE` |
+| Rivalry System — a heated post-game confrontation with your first rival (`rival_intro`) | `pro` | `RIVALRY` |
 
 Careers that skip the national team learn the jelly in Weapon Training.
 
@@ -116,7 +116,7 @@ All content lives in plain, commented JavaScript objects. Edit them in any text 
 | `js/data-leagues.js` | Teams used in story games and seasons (`LOCAL_TEAMS`: playground crews, Metro Prep League high schools, AAU teams) with a `rating` for sims, fictional `COLLEGES` (prestige, coach, minutes/exposure/development), the 30 `NBL_TEAMS` and the `OVERSEAS_CLUBS` |
 | `js/data-story-ch2.js` | Chapter 2 (high school): new characters, season definitions, endings |
 | `js/season.js` | Reusable season engine: schedule, sims, standings, playoffs |
-| `js/data-features.js` | **Every unlockable feature and when it unlocks** (`FEATURES`), court legends, playbook, chemistry duos, celebrations, mixtape values, future-chapter data, the jelly story nodes |
+| `js/data-features.js` | **Every unlockable feature and the scene that introduces it** (`FEATURES`, `FEATURE_SCENES`), playbook, chemistry duos, celebrations, mixtape values, future-chapter data, the jelly story nodes |
 | `js/features.js` | Unlock checks, the unlock cinematic, feature hub tabs, after-game hooks, the jelly lesson |
 | `js/data-story.js` | **Characters** (portraits are generated from their `look`), **story chapters**, play-by-play commentary, social-feed accounts and templates, post-game reactions, endings |
 | `js/art.js` | Procedural art: avatars, team logos, badge icons, scene backgrounds |
