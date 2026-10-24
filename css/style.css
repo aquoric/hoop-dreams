@@ -1243,3 +1243,7 @@ body.fs[data-screen=match] .corner .icon-btn { width: 30px; height: 30px; font-s
   .pb-next { grid-template-columns: 40px 1fr; } .pb-next .btn { grid-column: 1 / -1; }
   .dv-pick button { min-width: 0; }
 }
+/* game-winner cutscenes: the score bug updates on the make, the clock turns red at 0.0 */
+.cs-score b.bump { animation: csBump .45s cubic-bezier(.2, 1.8, .4, 1); }
+@keyframes csBump { 40% { transform: scale(1.35); color: #fde68a; } }
+.cs-score i.zero { color: #ef4444; text-shadow: 0 0 8px rgba(239, 68, 68, .8); }

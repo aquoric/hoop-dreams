@@ -294,7 +294,7 @@ const Arcade = (() => {
         return new Promise(res => {
           const skip = e => { if (performance.now() - T0 > 250) { if (e && e.preventDefault) e.preventDefault(); done(); } }, vis = () => { if (document.hidden) done(); };
           const done = () => { if (!G.rp) return; clearTimeout(G.rp.safe); root.removeEventListener('pointerdown', skip); removeEventListener('keydown', skip, true); document.removeEventListener('visibilitychange', vis); G.rp = null; FR.n = 0; root.classList.remove('rp'); res(); };
-          G.rp = { f: 0, T: 0, frames, slowAt, caption: (caption || '').toUpperCase(), name: (name || '').toUpperCase(), col: (cols || ['#f97316'])[0], cam: null, done };
+          G.rp = { f: 0, T: 0, frames, slowAt: n * rnd(.5, .7), z1: rnd(1.35, 1.75), z2: rnd(1.9, 2.6), rot: (Math.random() < .5 ? -1 : 1) * rnd(.02, .08), oy: rnd(.48, .62), caption: (caption || '').toUpperCase(), name: (name || '').toUpperCase(), col: (cols || ['#f97316'])[0], cam: null, done };
           G.rp.safe = setTimeout(done, 5000); root.classList.add('rp');   // never stuck
           root.addEventListener('pointerdown', skip); addEventListener('keydown', skip, true); document.addEventListener('visibilitychange', vis); SFX.play('whoosh');
         });
@@ -303,11 +303,11 @@ const Arcade = (() => {
         const R = G.rp; R.T += rdt; const slow = R.f >= R.slowAt; R.f += rdt * 30 * (slow ? .32 : .6);
         if (R.f >= R.frames.length - 1) { R.f = R.frames.length - 1; if ((R.hold = (R.hold || 0) + rdt) > .5) return R.done(); }
         if (slow && !R.cut) { R.cut = 1; R.cutF = 1; SFX.play('impact'); }
-        const idx = R.frames[Math.floor(R.f)], fr = FR.cv[idx], fo = FR.foc[idx], tz = slow ? 2.2 : 1.55, rot = slow ? -.05 : 0;
+        const idx = R.frames[Math.floor(R.f)], fr = FR.cv[idx], fo = FR.foc[idx], tz = slow ? R.z2 : R.z1, rot = slow ? R.rot : 0;
         if (!R.cam || R.cutF === 1) R.cam = { x: fo.x, y: fo.y, z: tz * (slow ? 1.1 : .95), r: rot };
         const m = Math.min(1, rdt * 5); R.cam.x += (fo.x - R.cam.x) * m; R.cam.y += (fo.y - R.cam.y) * m; R.cam.z += (tz - R.cam.z) * Math.min(1, rdt * 2); R.cam.r += (rot - R.cam.r) * Math.min(1, rdt * 2);
         c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#05060a'; c.fillRect(0, 0, VW, A.H);
-        c.save(); c.translate(VW / 2, A.H * .56); c.rotate(R.cam.r); c.scale(R.cam.z, R.cam.z); c.translate(-R.cam.x, -R.cam.y); c.drawImage(fr, 0, 0); c.restore();
+        c.save(); c.translate(VW / 2, A.H * R.oy); c.rotate(R.cam.r); c.scale(R.cam.z, R.cam.z); c.translate(-R.cam.x, -R.cam.y); c.drawImage(fr, 0, 0); c.restore();
         c.fillStyle = '#000'; c.fillRect(0, 0, VW, 16); c.fillRect(0, A.H - 16, VW, 16);
         if (Math.floor(R.T * 3) % 2 === 0) { c.fillStyle = '#ef4444'; c.fillRect(8, 5, 5, 5); } Pixel.text(c, slow ? 'REPLAY · SLOW-MO' : 'REPLAY', 17, 4, '#f8fafc', 1, 'left');
         if (slow && R.caption) { R.capAt = R.capAt == null ? R.T : R.capAt; const e = Math.min(1, (R.T - R.capAt) / .2), sc = Pixel.textWidth(R.caption, 3) < VW - 24 ? 3 : 2; c.save(); c.translate(VW / 2, A.H - 46); c.scale(e, e); Pixel.text(c, R.caption, 0, 0, '#fde68a', sc, 'center', '#0a0a12'); c.restore();
@@ -397,14 +397,22 @@ const Arcade = (() => {
         return blocker;
       }
       function blocked(q, shooter) {
-        q.box.blk++; ball.shot = null; ball.owner = null; ball.state = 'loose';
+        q.box.blk++; stopRec('block', q, shooter); ball.shot = null; ball.owner = null; ball.state = 'loose';
         ball.x = shooter.x + shooter.face * 4; ball.y = shooter.y; ball.z = Math.max(18, shooter.z + 26); ball.vx = (q.x < shooter.x ? 1 : -1) * rnd(50, 110); ball.vy = rnd(10, 60); ball.vz = 50;
         pop(pick(A.lines.block), '#38bdf8', true); SFX.play('dunk'); SFX.play('crowd', 1.5); impact(.13, 7, .25, .06, '186,230,253'); E.hype = Math.min(1, E.hype + .3); burst(ball.x, ball.y - ball.z, '#e0f2fe', 16); RD.ring(ball.x, ball.y - ball.z, '#bae6fd', 140, .3); RD.sweat(shooter.x, shooter.y - shooter.z - 22, 5); RD.cheer(.8);
         if (q === me) highlight('block', q, pick(A.lines.block), 140);
         shooter.streak = 0; if (shooter.fire) shooter.fire = 0;
         logLine(`${q.name} blocks ${shooter.name}!`);
       }
+      /* ---- the record of each play (game-winner cutscenes rebuild the real one) ---- */
+      const pdata = p => p ? { name: p.name, num: p.num, look: p.look, isUser: !!p.isUser, team: p.team } : null;
+      function noteShot(p, sc, action) {
+        const lp = ball.lastPasser, ast = lp && lp.team === p.team && lp !== p && G.time - ball.passT < 3.5 ? lp : null;
+        p.lastShot = { x: p.x, y: p.y, ft: sc.ft, action, def: nearestDef(p), ast, putback: p.orebT != null && G.time - p.orebT < 2.2 };
+      }
+      const stopRec = (kind, by, vs) => { G.lastStop = { team: by.team, kind, by: pdata(by), vs: pdata(vs), x: vs ? vs.x : by.x, y: vs ? vs.y : by.y, clock: Math.max(0, G.clock) }; };
       function launch(p, sc, q) {
+        noteShot(p, sc, sc.action);
         const ct = contest(p, 'shot'); if (ct.block) { p.box.fga++; if (sc.three) p.box.tpa++; G.lastShooter = p; return blocked(ct.by, p); }
         showContest(p, ct);
         const pct = Balance.apply(sc.action, sc.pct, q, sc.ft) * cutBy(ct, 'shot'), made = Math.random() * 100 < pct;
@@ -430,16 +438,18 @@ const Arcade = (() => {
         const def = nearestDef(p), lv = BALANCE.jelly.levels[clamp(p.jellyLvl || 0, 0, BALANCE.jelly.levels.length - 1)];
         const bonus = bonusOf(p, 'jelly').concat(lv.bonus ? [{ label: lv.name, v: lv.bonus }] : []);
         const pct = Balance.pct('jelly', p.st, { def: def ? def.st : null, diff: p.team === me.team ? diff : '_none', contest: contestFor(p) === 'open' ? 'open' : 'normal', dist: 3, fatigue: 100 - p.stamina, bonus }).pct;   // like shotChance: the live contest (cut / block) is applied at release
-        const side = p.x >= A.hoop.x ? 1 : -1;
+        const side = p.x >= A.hoop.x ? 1 : -1; noteShot(p, sc, 'jelly');
         p.act = { type: 'layup', t: 0, T: .8, sc: Object.assign({}, sc, { action: 'jelly', pct }), from: { x: p.x, y: p.y }, released: false, foul: foulCheck(p), jelly: { side } };
         p.face = A.hoop.x >= p.x ? 1 : -1; armBlockers(p); G.jellyTries = (G.jellyTries || 0) + (p === me ? 1 : 0);
         RD.dust(p.x, p.y, 6); SFX.play('whoosh'); if (p === me) tag('JELLY…', p, '#fde68a'); else tag(p.short.toUpperCase() + ' — JELLY!', p, '#fca5a5');
       }
       function startLayup(p, sc) {
+        noteShot(p, sc, 'layup');
         p.act = { type: 'layup', t: 0, T: .7, sc, from: { x: p.x, y: p.y }, released: false, foul: foulCheck(p) };
         p.face = A.hoop.x >= p.x ? 1 : -1; armBlockers(p);
       }
       function startDunk(p, sc) {
+        noteShot(p, sc, 'dunk');
         const poster = players.some(q => q.team !== p.team && q.stun <= 0 && toHoop(q) < 22);
         const big = BREAK || poster || p.st.dunk >= 70 || Math.random() < .35;
         p.act = { type: 'dunk', t: 0, T: 1.05, sc, from: { x: p.x, y: p.y }, big, poster, foul: foulCheck(p) };
@@ -452,6 +462,9 @@ const Arcade = (() => {
 
       /* ---- scoring ---- */
       function scoreBasket(p, pts, kind, foul) {
+        const L = p.lastShot || { x: p.x, y: p.y, ft: 3, action: kind };
+        G.lastPlay = { team: p.team, by: pdata(p), kind: L.putback ? 'putback' : kind === 'jelly' ? 'jelly' : kind === 'dunk' ? 'dunk' : L.action === 'layup' ? 'layup' : pts === 3 ? (L.ft >= 27 ? 'deep' : 'three') : 'mid',
+          x: L.x, y: L.y, ft: L.ft, def: pdata(L.def), ast: pdata(L.ast), clock: Math.max(0, G.clock), pts, buzzer: !!(SEGM && SEG.untilClock && G.clock <= .05) };
         G.score[p.team] += pts; p.box.pts += pts; p.box.fgm++; if (pts === 3) p.box.tpm++; if (kind === 'dunk') p.box.dunks++;
         G.lastScorer = p;
         let assist = null;
@@ -520,7 +533,7 @@ const Arcade = (() => {
         if (p !== me) aiWeapon(p, 'steal');
         const pct = pctOf('steal', p, h) * .62 * (busy ? .6 : 1); spendWeapon(p, 'steal');
         if (Math.random() * 100 < pct) {
-          h.box.to++; p.box.stl++; pop(pick(A.lines.steal), '#38bdf8'); SFX.play('whoosh'); SFX.play('slap'); E.hype = Math.min(1, E.hype + .25); burst(h.x + h.face * 5, h.y - 12, '#7dd3fc', 8, 40); G.kick = Math.max(G.kick, .03);
+          h.box.to++; p.box.stl++; stopRec('steal', p, h); pop(pick(A.lines.steal), '#38bdf8'); SFX.play('whoosh'); SFX.play('slap'); E.hype = Math.min(1, E.hype + .25); burst(h.x + h.face * 5, h.y - 12, '#7dd3fc', 8, 40); G.kick = Math.max(G.kick, .03);
           logLine(`${p.name} picks ${h.name}'s pocket!`);
           if (Math.random() < .5) { h.act = null; giveBall(p); changePossession(p.team, 'stl', p); }
           else { h.act = null; looseBall(h.x + p.face * -4, h.y, (p.x - h.x) * 3 + rnd(-20, 20), rnd(-10, 20), 22); ball.stripFrom = h.team; }
@@ -962,7 +975,7 @@ const Arcade = (() => {
             const rc = P.to; giveBall(rc); ball.lastPasser = P.intercept ? null : P.from; ball.passT = G.time; ball.pass = null;
             if (canAct(rc) && rc.z === 0) rc.act = { type: 'catch', t: 0, T: .2 };
             if (!P.intercept && rc.duo && P.from === me && rc.team === me.team) duoCatch(rc);
-            if (P.intercept) { P.from.box.to++; rc.box.stl++; pop(pick(A.lines.steal), '#38bdf8'); logLine(`${rc.name} jumps the passing lane!`); changePossession(rc.team, 'stl', rc); }
+            if (P.intercept) { P.from.box.to++; rc.box.stl++; stopRec('steal', rc, P.from); pop(pick(A.lines.steal), '#38bdf8'); logLine(`${rc.name} jumps the passing lane!`); changePossession(rc.team, 'stl', rc); }
           }
         } else if (ball.state === 'shot' && ball.shot) {
           const S = ball.shot; S.t += dt; const k = clamp(S.t / S.T, 0, 1);
@@ -1026,7 +1039,7 @@ const Arcade = (() => {
           logLine(`${got.name} comes up with the loose ball.`); if (got.team === me.team) got.box.stl += got === me ? 1 : 0;
           return;
         }
-        giveBall(got); if (fromShot) got.box.reb++; ball.lastPasser = null;
+        giveBall(got); if (fromShot) got.box.reb++; ball.lastPasser = null; if (fromShot && got.team === G.off) got.orebT = G.time;   // a put-back if he goes right back up
         if (fromShot) logLine(`${got.name} grabs the ${got.team === G.off ? 'offensive ' : ''}rebound.`);
         if (got.team !== G.off) {
           if (SEGM) return endSoon({ end: G.off === 0 ? (fromShot ? 'miss' : 'to') : 'stop' }, .8);
@@ -1171,12 +1184,12 @@ const Arcade = (() => {
           const scorer = extra.scorer || null;
           res = { kind: SEG.kind, ptsUs: G.score[0], ptsThem: G.score[1], pts: G.score[0], end: extra.end || 'miss', offense: G.off, scorer: role(scorer), scorerName: scorer && scorer.name, me: Object.assign({}, me.box),
             foul: extra.foul || null, fouled: role(extra.fouled || (extra.foul && scorer)), dunk: !!extra.dunk, buzzer: !!extra.buzzer, stamina: Math.round(G.stamUsed + (100 - me.stamina) * .3), log: G.log.slice(), ankles: G.anklesBy || 0,
-            all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice(), jellies: G.jellies || 0, jellyTries: G.jellyTries || 0, jellyBlocks: G.jellyBlocks || 0, duos: G.duos || 0 };
+            all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice(), play: G.lastPlay || null, stop: G.lastStop || null, jellies: G.jellies || 0, jellyTries: G.jellyTries || 0, jellyBlocks: G.jellyBlocks || 0, duos: G.duos || 0 };
           banner = res.ptsUs ? (extra.foul ? 'AND ONE!' : extra.buzzer ? 'AT THE BUZZER!' : `+${res.ptsUs}`) : res.ptsThem ? (extra.foul ? 'AND ONE — THEM' : 'THEY SCORE') :
             ({ foul: res.foul && res.foul.team === 1 ? 'FOUL ON YOU' : 'FOUL — TO THE LINE', to: 'TURNOVER', set: 'DEFENSE SET', oreb: 'RESET', miss: 'NO GOOD', stop: 'STOP!', buzzer: 'BUZZER' })[res.end] || 'NO GOOD';
         } else {
           const win = extra.forfeit ? false : G.score[0] > G.score[1];
-          res = { jellies: G.jellies || 0, jellyTries: G.jellyTries || 0, jellyBlocks: G.jellyBlocks || 0, duos: G.duos || 0, win, score: G.score.slice(), box: me.box, fire: G.anyFire, shatter: E.shatter, forfeit: !!extra.forfeit, ankles: G.anklesBy || 0, fatigue: clamp(Math.round(G.stamUsed / 5 + 15), 15, 60), all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice() };
+          res = { play: G.lastPlay || null, stop: G.lastStop || null, jellies: G.jellies || 0, jellyTries: G.jellyTries || 0, jellyBlocks: G.jellyBlocks || 0, duos: G.duos || 0, win, score: G.score.slice(), box: me.box, fire: G.anyFire, shatter: E.shatter, forfeit: !!extra.forfeit, ankles: G.anklesBy || 0, fatigue: clamp(Math.round(G.stamUsed / 5 + 15), 15, 60), all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice() };
           banner = win ? 'YOU WIN!' : 'GAME OVER'; sub = `${G.score[0]} – ${G.score[1]}`;
         }
         intro.className = 'arc-intro on'; intro.innerHTML = `<b>${banner}</b>${sub ? `<small>${sub}</small>` : ''}`;
