@@ -147,13 +147,13 @@ const Arcade = (() => {
       const teamOf = t => players.filter(p => p.team === t);
       const ball = { state: 'held', owner: null, x: 192, y: 160, z: 10, vx: 0, vy: 0, vz: 0, spin: 0, shot: null, pass: null, lastPasser: null, passT: -9, sx: 0, sy: 0, sz: 0 };
       const G = { score: [0, 0], off: 0, clock: SEGM ? SEG.clock : PACE.shotClock, over: false, paused: true, started: false, time: 0, real: 0, cam: (A.W - VW) / 2,
-        slowT: 0, zoom: 1, zf: { x: A.hoop.x, y: 40 }, shake: 0, flash: 0, speedT: 0, stop: 0, kick: 0, vt: 0, cutAt: -99, cuts: 0, flashCol: '255,255,255', wlog: [], callT: 0,
+        slowT: 0, ts: 1, jel: null, jelA: 0, tiltC: 0, zoom: 1, zf: { x: A.hoop.x, y: 40 }, shake: 0, flash: 0, speedT: 0, stop: 0, kick: 0, vt: 0, cutAt: -99, cuts: 0, flashCol: '255,255,255', wlog: [], callT: 0,
         anyFire: false, mustClear: false, endAt: 0, pending: null, log: [], stamUsed: 0, lastScorer: null, lastShooter: null, fbStart: 0 };
       const RD = Pixel.renderer(c, VEN), E = RD.E;
       E.onLand = (p, h) => { if (h > 14) SFX.play('thud', p === me ? .9 : .45); };
       if (typeof Cutscene !== 'undefined' && Cutscene.prep) Cutscene.prep(me.look || Engine.look(Game.state));   // portrait for highlight close-ups
       const input = { jx: 0, jy: 0, shoot: false };
-      if (window.__arcDebug) window.__arcDebug = { players, ball, G, me, input };   // automated tests only
+      if (window.__arcDebug) window.__arcDebug = { players, ball, G, me, input, A, jelly: (p, lvl) => { p.jellyLvl = lvl; const sc = shotChance(p); sc.action = 'layup'; startJelly(p, sc); } };   // automated tests only
 
       /* ---------- setup ---------- */
       function resetP(p) { p.z = 0; p.vz = 0; p.vx = 0; p.vy = 0; p.stun = 0; p.act = null; p.goal = null; p.burst = 0; p.slide = 0; p.celebNext = null; p.bumpTo = null; }
@@ -252,8 +252,9 @@ const Arcade = (() => {
       const pctOf = (action, p, def, extra = {}) => Balance.pct(action, p.st, Object.assign({ def: def ? def.st : null, diff: p.team === me.team ? diff : '_none', fatigue: 100 - p.stamina, bonus: bonusOf(p, action) }, extra)).pct;
 
       /* ---------- text pops ---------- */
-      function pop(text, color = '#facc15', big) {
-        const el = document.createElement('div'); el.className = 'arc-msg' + (big ? ' big' : ''); el.style.color = color; el.textContent = text;
+      function pop(text, color = '#facc15', big, cls) {
+        const el = document.createElement('div'); el.className = 'arc-msg' + (big ? ' big' : '') + (cls ? ' ' + cls : ''); el.style.color = color;
+        if (cls === 'jelly') [...text].forEach((ch, i) => { const sp = document.createElement('span'); sp.textContent = ch; sp.style.animationDelay = (i * .035) + 's'; el.appendChild(sp); }); else el.textContent = text;
         popEl.appendChild(el); setTimeout(() => el.remove(), 1600);
       }
       function tag(text, p, color = '#fff') {  // small text above a player
@@ -464,9 +465,15 @@ const Arcade = (() => {
         const bonus = bonusOf(p, 'jelly').concat(lv.bonus ? [{ label: lv.name, v: lv.bonus }] : []);
         const pct = Balance.pct('jelly', p.st, { def: def ? def.st : null, diff: p.team === me.team ? diff : '_none', contest: contestFor(p) === 'open' ? 'open' : 'normal', dist: 3, fatigue: 100 - p.stamina, bonus }).pct;   // like shotChance: the live contest (cut / block) is applied at release
         const side = p.x >= A.hoop.x ? 1 : -1; noteShot(p, sc, 'jelly');
-        p.act = { type: 'layup', t: 0, T: .8, sc: Object.assign({}, sc, { action: 'jelly', pct }), from: { x: p.x, y: p.y }, released: false, foul: foulCheck(p), jelly: { side } };
+        const lvl = clamp(p.jellyLvl || 0, 0, 2), first = p === me && !(Game.state && Game.state.counters && Game.state.counters.jellies) && !G.jellies;
+        const drama = p === me && (first || (SEGM && (SEG.kind === 'final' || (SEG.untilClock && G.clock < 3))) || (!SEGM && G.score[p.team] + 2 >= target));
+        p.act = { type: 'layup', t: 0, T: .8, sc: Object.assign({}, sc, { action: 'jelly', pct }), from: { x: p.x, y: p.y }, released: false, foul: foulCheck(p), ju: 0, jelly: { side, lvl, drama, def } };
         p.face = A.hoop.x >= p.x ? 1 : -1; armBlockers(p); G.jellyTries = (G.jellyTries || 0) + (p === me ? 1 : 0);
-        RD.dust(p.x, p.y, 6); SFX.play('whoosh'); if (p === me) tag('JELLY…', p, '#fde68a'); else tag(p.short.toUpperCase() + ' — JELLY!', p, '#fca5a5');
+        // the jelly controller: slow-motion ramp, camera (focus, push-in, tilt) and the slow-mo look — the full drama only for big moments
+        G.jel = { p, def, lvl, drama, ts: 1, rate: drama ? 4 : 7, zoom: 1, t: 0, cam: pick(['ball', 'ball', 'rim', 'low']), tilt: (Math.random() < .5 ? -1 : 1) * rnd(.012, drama ? .05 : .035), mine: p.team === me.team };
+        if (def) def.poseAct = { type: 'jellyD', u: 0, lift: 0 };
+        p.burst = Math.max(p.burst, .2); p.bdx = (A.hoop.x + side * 14 - p.x) / (dist(p, { x: A.hoop.x + side * 14, y: A.hoop.y + 12 }) || 1); p.bdy = .4;   // the long, low last stride
+        RD.dust(p.x, p.y, 8); SFX.play('squeak'); if (p === me) tag('JELLY…', p, '#fde68a'); else tag(p.short.toUpperCase() + ' — JELLY!', p, '#fca5a5');
       }
       function startLayup(p, sc) {
         noteShot(p, sc, 'layup');
@@ -919,7 +926,14 @@ const Arcade = (() => {
           }
           case 'layup': {
             const H = A.hoop;
-            if (a.t > .18 && !a.jumped) { a.jumped = true; p.vz = PACE.jump(p.st.vert) * (a.jelly ? .9 : .8); p.z = .1; a.apex = .18 + p.vz / PACE.gravity; if (a.jelly) { G.slowT = Math.max(G.slowT, .7); G.zoomT = 1; p.face = -a.jelly.side * (A.hoop.x >= p.x ? 1 : -1) || p.face; } }
+            if (a.t > .18 && !a.jumped) { a.jumped = true; p.vz = PACE.jump(p.st.vert) * (a.jelly ? .9 : .8); p.z = .1; a.apex = .18 + p.vz / PACE.gravity;
+              if (a.jelly) { p.face = -a.jelly.side * (A.hoop.x >= p.x ? 1 : -1) || p.face; RD.dust(p.x, p.y, 6); SFX.play('squeak', .8); SFX.play('whoosh');
+                if (G.jel && G.jel.p === p) { G.jel.ts = G.jel.drama ? .2 : G.jel.mine ? .46 : .6; G.jel.zoom = G.jel.drama ? 1.42 : 1.3; } } }   // gather: time ramps down, the camera pushes in
+            if (a.jelly) {   // pose progress (keyframed in js/pixel.js) + the shot blocker rising with both arms up
+              const ra = a.apex ? Math.min(a.apex, .5) : .5; a.ju = a.released ? Math.min(1, .58 + (a.t - a.relAt2) / .45 * .42) : Math.min(.55, a.t / ra * .55);
+              if (a.t > .3 * ra) p.ghost = true;
+              const d = a.jelly.def; if (d && d.poseAct && d.poseAct.type === 'jellyD') { const u = clamp(a.t / (ra * 1.05), 0, 1); d.poseAct.u = u; d.poseAct.lift = a.released ? Math.max(0, d.poseAct.lift - 40 * dt) : 11 * clamp((u - .25) / .35, 0, 1); }
+            }
             if (a.t > .18) { const tx = a.jelly ? H.x + a.jelly.side * 16 : H.x; p.vx = (tx - p.x) * (a.jelly ? 2.6 : 2.2); p.vy = (H.y + 10 - p.y) * 2.2; }   // the jelly: a long stride to the side of the rim
             const relAt = a.apex ? Math.min(a.apex, .5) : .5;
             if (!a.released && ball.owner === p && a.t >= relAt) {
@@ -927,17 +941,27 @@ const Arcade = (() => {
               const ct = contest(p, 'layup'); p.box.fga++; G.lastShooter = p;
               const JB = BALANCE.jelly;
               if (a.jelly && ct.block && Math.random() > JB.blockFactor) { ct.block = false; if (ct.by) { tag('SWATS AIR!', ct.by, '#fde68a'); ct.by.stun = Math.max(ct.by.stun, .5); } }   // he jumps at where the ball was
-              if (ct.block) { if (a.jelly && p === me) G.jellyBlocks = (G.jellyBlocks || 0) + 1; return blocked(ct.by, p); }
+              if (ct.block) { if (a.jelly && p === me) G.jellyBlocks = (G.jellyBlocks || 0) + 1; if (a.jelly) jellyEnd(); return blocked(ct.by, p); }
               showContest(p, ct); if (ct.foul) a.foul = true;
-              if (a.jelly) { p.face = a.jelly.side * (A.hoop.x >= p.x ? 1 : -1) || -p.face; SFX.play('whoosh'); RD.ring(p.x, p.y - p.z - 30, '#fde68a', 40, .2); }   // the twist
+              if (a.jelly) {   // the flick: hit-stop on the wrist snap, a sparkle at the fingertips, afterimages behind the arm
+                a.relAt2 = a.t; if (a.jelly.lvl !== 2) p.face = a.jelly.side * (A.hoop.x >= p.x ? 1 : -1) || -p.face;
+                const J = G.jel && G.jel.p === p ? G.jel : null; G.stop = Math.max(G.stop, J && J.drama ? .2 : .1); SFX.play('flick'); if (J && J.mine) SFX.play('gasp');
+                const h = p.hand || { x: p.x, y: p.y - p.z - 30 }; burst(h.x, h.y - 2, '#ffffff', 5, 40); burst(h.x, h.y - 2, '#fde68a', 7, 55); RD.ring(h.x, h.y - 2, '#ffffff', 40, .2, 1, 1);
+                if (J) { J.zoom = J.drama ? 1.62 : 1.46; }
+              }
               const q = p === me ? (a.relT != null ? releaseQuality(p, Math.abs(a.relT - relAt), p.st.finish, 1.6) : .5) : aiGreen(p, p.st.finish) ? 1 : clamp(aiFor(p).shotQ + rnd(-.2, .2), 0, .97);
               const cutJ = a.jelly ? 1 - (ct.C || 0) * CT().cut.layup * JB.contestFactor : cutBy(ct, 'layup');
               const made = Math.random() * 100 < Balance.apply(a.jelly ? 'jelly' : 'layup', a.sc.pct, q, 3) * perfCut(q, cutJ);
               ball.owner = null; ball.state = 'shot';
               const from = { x: p.x + p.face * 3, y: p.y, z: p.z + 34 };
-              ball.shot = { by: p, from, to: { x: H.x, y: H.y, z: H.z + 1 }, t: 0, T: a.jelly ? .62 : .34, made, res: made ? (a.jelly || Math.random() < .5 ? 'swish' : 'rimin') : 'rimout', three: false, action: 'layup', peak: 6, foul: a.foul, green: p === me && q >= 1,
-                jelly: a.jelly ? { glass: { x: H.x + a.jelly.side * 9, y: H.y - 2, z: H.z + 14 }, def: ct.by } : null };
-              Object.assign(ball, from);
+              const jl = a.jelly ? a.jelly.lvl : 0, gside = a.jelly && jl === 1 ? -a.jelly.side : a.jelly ? a.jelly.side : 1, dv = a.jelly && (ct.by || a.jelly.def);
+              const glass = { x: H.x + gside * 9, y: H.y - 2, z: H.z + 14 };
+              const ctrl = !a.jelly ? null : jl === 1 ? { x: H.x + a.jelly.side * 2, y: H.y + 4, z: H.z - 6 }                                     // reverse: under the rim, up the far side
+                : jl === 2 ? { x: dv ? dv.x : from.x, y: (dv ? dv.y : from.y) - 2, z: (dv ? dv.z : 0) + 20 }                                        // under the arm: through his armpit
+                : { x: (dv ? dv.x : from.x) + a.jelly.side * 3, y: (dv ? dv.y : from.y) - 4, z: (dv ? dv.z : 0) + 52 };                               // up past his fingertips
+              ball.shot = { by: p, from, to: { x: H.x, y: H.y, z: H.z + 1 }, t: 0, T: a.jelly ? (G.jel && G.jel.drama ? .62 : .44) : .34, made, res: made ? (a.jelly || Math.random() < .5 ? 'swish' : 'rimin') : 'rimout', three: false, action: 'layup', peak: 6, foul: a.foul, green: p === me && q >= 1,
+                jelly: a.jelly ? { glass, ctrl, side: gside, def: ct.by || a.jelly.def } : null };
+              Object.assign(ball, from); if (a.jelly) { ball.jelly = true; ball.gold = made && p === me && q >= 1; }
             }
             if (a.wantRelease && a.relT == null) a.relT = a.t;
             break;
@@ -983,7 +1007,7 @@ const Arcade = (() => {
             if (a.t >= a.T) { p.face = a.id === 'spin' ? a.f0 : a.f1; p.act = null; }
             break;
           }
-          case 'catch': case 'reach': case 'stumble': case 'celebrate': case 'land': case 'flex': case 'point': case 'thump': case 'joy': case 'clap': case 'hang': case 'chestbump': if (a.t >= (a.T || .3)) p.act = null; break;
+          case 'catch': case 'reach': case 'stumble': case 'watch': case 'celebrate': case 'land': case 'flex': case 'point': case 'thump': case 'joy': case 'clap': case 'hang': case 'chestbump': if (a.t >= (a.T || .3)) p.act = null; break;
           case 'down': case 'sit': if (a.t >= a.T) p.act = null; break;
           case 'block': case 'reb': case 'jump': if (a.t > 2) p.act = null; break;
         }
@@ -1010,12 +1034,12 @@ const Arcade = (() => {
           }
         } else if (ball.state === 'shot' && ball.shot) {
           const S = ball.shot; S.t += dt; const k = clamp(S.t / S.T, 0, 1);
-          if (S.jelly) {   // hand → glass → rim
-            const Gl = S.jelly.glass, u = clamp(k / .6, 0, 1), w = clamp((k - .6) / .4, 0, 1);
-            if (k < .6) { ball.x = lerp(S.from.x, Gl.x, u); ball.y = lerp(S.from.y, Gl.y, u); ball.z = lerp(S.from.z, Gl.z, u) + Math.sin(u * Math.PI) * 6; }
-            else { if (!S.jelly.kissed) { S.jelly.kissed = true; SFX.play('kiss'); G.stop = Math.max(G.stop, .08); burst(Gl.x, Gl.y - Gl.z, '#fde68a', 10, 40); RD.ring(Gl.x, Gl.y - Gl.z, '#fde68a', 50, .25); }
-              ball.x = lerp(Gl.x, S.to.x, w); ball.y = lerp(Gl.y, S.to.y, w); ball.z = lerp(Gl.z, S.to.z, w); }
-            E.fx.push({ x: ball.x, y: ball.y - ball.z, vx: 0, vy: 0, life: .35, col: '#fde68a' });   // spin trail
+          if (S.jelly) {   // hand → (past his fingers / under the rim / under his arm) → a kiss off the glass → a soft drop into the rim
+            const Gl = S.jelly.glass, C = S.jelly.ctrl || Gl, u = clamp(k / .62, 0, 1), w = clamp((k - .62) / .38, 0, 1), qb = (a0, c1, g1) => (1 - u) * (1 - u) * a0 + 2 * (1 - u) * u * c1 + u * u * g1;
+            if (k < .62) { ball.x = qb(S.from.x, C.x, Gl.x); ball.y = qb(S.from.y, C.y, Gl.y); ball.z = qb(S.from.z, C.z, Gl.z); }
+            else { if (!S.jelly.kissed) { S.jelly.kissed = true; SFX.play('kiss'); if (S.by.team === me.team) SFX.play('ooh'); G.stop = Math.max(G.stop, .06); RD.shine(S.jelly.side); burst(Gl.x, Gl.y - Gl.z, '#fef9c3', 10, 40); RD.ring(Gl.x, Gl.y - Gl.z, '#fde68a', 50, .25); }
+              const e = w * w; ball.x = lerp(Gl.x, S.to.x, e); ball.y = lerp(Gl.y, S.to.y, e); ball.z = lerp(Gl.z, S.to.z, e); }   // rolls off the glass, soft
+            if ((S.tk = (S.tk || 0) + 1) % 2 === 0) E.fx.push({ x: ball.x + rnd(-1, 1), y: ball.y - ball.z - 2 + rnd(-1, 1), vx: 0, vy: 0, life: .12, col: S.tk % 4 ? (ball.gold ? '#facc15' : '#fde68a') : '#ffffff', sz: 1 });   // a light, sparkly trail
           } else { ball.x = lerp(S.from.x, S.to.x, k); ball.y = lerp(S.from.y, S.to.y, k); ball.z = lerp(S.from.z, S.to.z, k) + S.peak * 4 * k * (1 - k); }
           if (k >= 1) arrive(S);
         } else if (ball.state === 'roll') {   // rolling around the rim
@@ -1025,6 +1049,7 @@ const Arcade = (() => {
           else if (Math.floor(R.t * 9 / Math.PI) !== Math.floor((R.t - dt) * 9 / Math.PI)) { SFX.play('rim'); E.rim = .3; }
         } else if (ball.state === 'net') {     // dropping through the net
           ball.netT += dt; ball.x = A.hoop.x; ball.y = A.hoop.y; ball.z = A.hoop.z - ball.netT * 60;
+          if (G.jel && G.jel.made && !G.jel.snapped && ball.netT > .12) jellySnap();
           if (ball.z <= 1) { ball.state = 'dead'; ball.z = 0; ball.vx = rnd(-20, 20); ball.vy = rnd(10, 30); ball.vz = 40; }
         } else if (ball.state === 'dead' || ball.state === 'loose') {
           ball.x += ball.vx * dt; ball.y += ball.vy * dt; ball.vx *= Math.pow(.45, dt); ball.vy *= Math.pow(.45, dt);
@@ -1036,14 +1061,15 @@ const Arcade = (() => {
       }
       function arrive(S) {
         const H = A.hoop, p = S.by;
-        if (S.made && S.jelly) {   // JELLY! — hit-stop, OOOH into cheers, the big man stunned, a replay
-          ball.state = 'net'; ball.netT = 0; E.net.swish = 1; if (S.green) greenFX();
-          pop('JELLY!', '#facc15', true); SFX.play('jelly'); SFX.play('ooh'); setTimeout(() => { if (!G.over) SFX.play('roar'); }, 600); impact(.16, 5, .3, .07, '253,230,138'); burst(H.x, H.y - H.z, '#facc15', 26);
-          const v = S.jelly.def; if (v && v.team !== p.team) { v.stun = Math.max(v.stun, 1); v.act = { type: 'stumble', t: 0, T: .9 }; tag('?!', v, '#fca5a5'); }
-          if (p === me) { G.jellies = (G.jellies || 0) + 1; highlight('jelly', me, pick(['JELLY!', 'AROUND HIM!', 'SILK.']), 260); }
+        if (S.made && S.jelly) {   // JELLY! — through a slow-motion net; time snaps back in jellySnap()
+          ball.state = 'net'; ball.netT = 0; E.net.swish = 1.3; SFX.play('swish'); SFX.play('jelly');
+          if (G.jel && G.jel.p === p) Object.assign(G.jel, { made: true, S }); else jellySnap(S);
+          const v = S.jelly.def; if (v && v.team !== p.team) v.stun = Math.max(v.stun, 1.1);
+          if (p === me) G.jellies = (G.jellies || 0) + 1;
           logLine(`${p.name} — JELLY over ${v ? v.name : 'the defense'}!`);
           return scoreBasket(p, 2, 'jelly', S.foul);
         }
+        if (S.jelly) jellyEnd();   // missed: snap straight back
         if (S.made && S.res === 'swish') { ball.state = 'net'; ball.netT = 0; E.net.swish = 1; if (S.green) greenFX(S.heave); return scoreBasket(p, S.three ? 3 : 2, S.action === 'layup' ? 'layup' : 'shot', S.foul); }
         if (S.made) { ball.state = 'roll'; ball.roll = { t: 0, T: .55, made: true, by: p, three: S.three, action: S.action, foul: S.foul, green: S.green, heave: S.heave }; SFX.play('rim'); E.rim = .4; return; }
         p.streak = 0; if (p.fire) p.fire--;
@@ -1052,6 +1078,29 @@ const Arcade = (() => {
         else { SFX.play('rim'); E.rim = .7; E.net.sway = 1; looseBall(H.x, H.y + (S.res === 'back' ? -1 : 3), rnd(-75, 75), S.res === 'back' ? rnd(30, 80) : rnd(25, 70), 55); ball.z = H.z + 2; }
         if (S.foul) foulMiss(p);
         if (S.res !== 'airball') logLine(`${p.name} misses${S.three ? ' from three' : ''}.`);
+      }
+      /* the jelly drops through: time snaps back, shake, the wobbly JELLY!, his reaction, OOOH into cheers (a perfect one gets the green + gold) */
+      function jellySnap(S0) {
+        const J = G.jel || {}, S = S0 || J.S || {}, p = S.by || J.p, H = A.hoop, gold = !!(ball.gold || S.green), mine = p && p.team === me.team;
+        J.snapped = true; J.ts = 1; G.ts = 1; J.zoom = 1;
+        impact(0, J.drama ? 9 : 6, gold ? .3 : .16, .06, gold ? '250,204,21' : '253,230,138'); burst(H.x, H.y - H.z, gold ? '#facc15' : '#fde047', gold ? 40 : 24); RD.ring(H.x, H.y - H.z + 2, '#fde68a', 150, .4);
+        if (mine && navigator.vibrate) try { navigator.vibrate(gold ? [30, 40, 70] : [35, 30, 45]); } catch (e) { }
+        const lv = J.lvl || 0; pop(gold ? 'PERFECT JELLY!' : lv === 1 ? 'REVERSE JELLY!' : lv === 2 ? 'UNDER THE ARM!' : 'JELLY!', gold ? '#4ade80' : mine ? '#facc15' : '#fca5a5', true, 'jelly');
+        if (gold && S.green) greenFX(); if (gold) RD.confetti(70);
+        const v = (S.jelly && S.jelly.def) || J.def;
+        if (v && p && v.team !== p.team) {   // his reaction: never the same twice
+          v.poseAct = null; const r = pick(J.drama ? ['down', 'sit', 'watch', 'down'] : ['stumble', 'watch', 'down', 'stumble', 'sit']);
+          if (r === 'watch') { v.face = A.hoop.x >= v.x ? 1 : -1; v.act = { type: 'watch', t: 0, T: 1.3 }; v.stun = Math.max(v.stun, 1.2); tag('…', v, '#e2e8f0'); }
+          else { v.act = { type: r, t: 0, T: r === 'down' ? 1.2 : r === 'sit' ? 1.3 : .9 }; v.stun = Math.max(v.stun, r === 'stumble' ? .9 : 1.25); tag('?!', v, '#fca5a5'); RD.dust(v.x, v.y, 6); }
+        }
+        RD.cheer(1, true); if (mine) setTimeout(() => { if (!G.over) { SFX.play('roar', gold || J.drama ? 1 : .8); RD.cheer(1, true); } }, 380); else SFX.play('ooh');
+        if (p === me && J.drama) { G.cutAt = -99; highlight('jelly', me, pick(['JELLY!', 'AROUND HIM!', 'SILK.']), 420); }   // the full replay only for big moments
+        setTimeout(jellyEnd, 450);
+      }
+      function jellyEnd() {
+        const J = G.jel; if (!J) return; G.jel = null; G.ts = 1;
+        if (J.p) J.p.ghost = false; if (J.def && J.def.poseAct) J.def.poseAct = null;
+        ball.jelly = false; ball.gold = false;
       }
       function rebound() {
         const S = BALANCE.arcade.scramble, reach = p => p.diveT > 0 ? S.reach : S.grab;
@@ -1113,10 +1162,14 @@ const Arcade = (() => {
         const cam = Math.round(G.cam);
         c.setTransform(1, 0, 0, 1, 0, 0);
         // camera focus follows the action (ball / dunker); zoom = big-moment push-in + impact punch-in
-        const act = players.find(p => p.act && p.act.type === 'dunk') || (ball.owner) || null, tx = act ? act.x : ball.x, ty = act ? act.y - act.z - 14 : ball.y - ball.z;
+        const J = G.jel, H = A.hoop;
+        const act = J ? null : players.find(p => p.act && p.act.type === 'dunk') || (ball.owner) || null;
+        let tx = act ? act.x : ball.x, ty = act ? act.y - act.z - 14 : ball.y - ball.z;
+        if (J && J.p) { const sh = ball.owner === J.p ? { x: J.p.x, y: J.p.y - J.p.z - 18 } : { x: ball.x, y: ball.y - ball.z };   // the jelly camera: on the ball, on the rim, or low between him and the rim
+          if (J.cam === 'rim' && ball.owner !== J.p) { tx = H.x; ty = H.y - H.z; } else if (J.cam === 'low') { tx = (sh.x + H.x) / 2; ty = (sh.y + H.y - H.z) / 2 + 8; } else { tx = sh.x; ty = sh.y; } }
         G.zf.x += (tx - G.zf.x) * Math.min(1, rdt * 5); G.zf.y += (clamp(ty, 30, A.H - 40) - G.zf.y) * Math.min(1, rdt * 5);
         const z = G.zoom + G.kick;
-        if (z > 1.001) { const fx_ = clamp(G.zf.x - cam, 0, VW), fy = G.zf.y; c.setTransform(z, 0, 0, z, fx_ * (1 - z), fy * (1 - z)); }
+        if (z > 1.001) { const fx_ = clamp(G.zf.x - cam, 0, VW), fy = G.zf.y; c.setTransform(z, 0, 0, z, fx_ * (1 - z), fy * (1 - z)); if (Math.abs(G.tiltC || 0) > .001) { c.translate(fx_, fy); c.rotate(G.tiltC); c.translate(-fx_, -fy); } }
         if (G.shake > .3) c.translate(Math.round(rnd(-1, 1) * G.shake), Math.round(rnd(-1, 1) * G.shake));
         c.translate(-cam, 0);
         c.drawImage(VEN.bg, 0, 0);
@@ -1139,7 +1192,8 @@ const Arcade = (() => {
         c.setTransform(1, 0, 0, 1, 0, 0);
         c.drawImage(VEN.vg, cam, 0, VW, A.H, 0, 0, VW, A.H);
         if (G.flash > .05) { c.fillStyle = `rgba(${G.flashCol},${Math.min(.85, G.flash)})`; c.fillRect(0, 0, VW, A.H); }
-        if (G.slowT > 0 && G.zoomT) { c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(0, 0, VW, 12); c.fillRect(0, A.H - 12, VW, 12); }   // letterbox during slow motion
+        if (G.jelA > .02) RD.grade(VW, A.H, G.jelA);   // the jelly's slow-motion look
+        if ((G.slowT > 0 && G.zoomT) || (J && !J.snapped && G.ts < .7)) { c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(0, 0, VW, 12); c.fillRect(0, A.H - 12, VW, 12); }   // letterbox during slow motion
         // HUD values (HTML)
         $('abStam').style.width = me.stamina + '%'; $('abStam').classList.toggle('low', me.stamina < 25);
         const mv = $('abMove'), ready = me.cool <= 0; mv.classList.toggle('cd', !ready); mv.querySelector('b').textContent = ready ? (ball.owner === me ? 'READY' : G.off === me.team ? 'CUT' : 'SLIDE') : '…';
@@ -1164,11 +1218,13 @@ const Arcade = (() => {
         if (G.rp) { try { drawReplay(Math.min(.12, (now - (G.rp.last || now)) / 1000)); G.rp && (G.rp.last = now); } catch (e) { G.rp && G.rp.done(); } return; }
         // hit-stop: freeze the sim and the visuals for a few frames on big impacts
         const stopped = G.stop > 0; if (stopped) G.stop = Math.max(0, G.stop - rdt);
-        const vdt = stopped ? 0 : rdt * (G.slowT > 0 ? Math.max(.45, PACE.slowmo) : 1); G.vt += vdt;
+        const J = G.jel; if (J) { G.ts += (J.ts - G.ts) * (1 - Math.exp(-rdt * J.rate)); J.t += rdt; if (J.t > 7) jellyEnd(); }   // the jelly's slow-motion ramp (real time), never stuck
+        G.jelA = (G.jelA || 0) + ((J && !J.snapped ? 1 : 0) - (G.jelA || 0)) * (1 - Math.exp(-rdt * 5)); G.tiltC = (G.tiltC || 0) + ((J ? J.tilt : 0) - (G.tiltC || 0)) * (1 - Math.exp(-rdt * 5));
+        const tsc = J ? G.ts : G.slowT > 0 ? Math.max(.45, PACE.slowmo) : 1, vdt = stopped ? 0 : rdt * tsc; G.vt += vdt;
         if (!stopped) { G.slowT = Math.max(0, G.slowT - rdt); G.speedT = Math.max(0, G.speedT - rdt); }
-        const zt = G.slowT > 0 && G.zoomT ? (G.winShot ? 1.3 : 1.22) : 1; G.zoom += (zt - G.zoom) * Math.min(1, rdt * 6); if (G.slowT <= 0) G.zoomT = 0;
+        const zt = J ? J.zoom : G.slowT > 0 && G.zoomT ? (G.winShot ? 1.3 : 1.22) : 1; G.zoom += (zt - G.zoom) * Math.min(1, rdt * 6); if (G.slowT <= 0) G.zoomT = 0;
         G.shake *= Math.pow(.02, rdt); G.flash *= Math.pow(.02, rdt); G.kick *= Math.pow(.004, rdt);
-        if (!stopped) acc += rdt * PACE.game * (G.slowT > 0 ? PACE.slowmo : 1);
+        if (!stopped) acc += rdt * PACE.game * (J ? G.ts : G.slowT > 0 ? PACE.slowmo : 1);
         let n = 0; while (acc >= 1 / 60 && n < 8) { update(1 / 60); acc -= 1 / 60; n++; }
         if (G.paused !== true && !G.rp) G.active = (G.active || 0) + rdt;   // real playing time (help card / pause menu don't count)
         if ((lvlT -= rdt) <= 0) { lvlT = .8; SFX.crowd && SFX.crowd.level(E.hype); }

@@ -1289,3 +1289,8 @@ body.fs[data-screen=match] .corner .icon-btn { width: 30px; height: 30px; font-s
 .sim-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; background: rgba(255, 255, 255, .04); border-left: 3px solid var(--line); text-align: left; }
 .sim-row.w { border-left-color: #22c55e; } .sim-row.l { border-left-color: #ef4444; }
 .sim-row > div { flex: 1; display: flex; flex-direction: column; } .sim-row small { color: var(--muted); font-size: .78rem; }
+
+/* the jelly: "JELLY!" pops in letter by letter and wobbles like jelly before settling */
+.arc-msg.jelly { display: flex; animation: arcPop 1.9s steps(10) forwards; }
+.arc-msg.jelly span { display: inline-block; transform-origin: 50% 85%; animation: jellyWob .95s cubic-bezier(.3, .7, .4, 1) both; }
+@keyframes jellyWob { 0% { transform: scale(0, 0); } 16% { transform: scale(1.4, .65); } 30% { transform: scale(.78, 1.32) translateY(-8%); } 44% { transform: scale(1.16, .86); } 58% { transform: scale(.93, 1.09); } 74% { transform: scale(1.04, .97); } 100% { transform: scale(1, 1); } }

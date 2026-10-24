@@ -204,6 +204,27 @@ const Pixel = (() => {
      Effects: dust, sweat, sparks, shockwave rings, confetti, net ripple, crowd waves + cheers.
      ================================================================= */
   const SKL = { thigh: 6, shin: 6, torso: 10, ua: 5, fa: 5 };
+  /* THE JELLY — keyframed poses, one table per jelly level (0 jelly · 1 reverse · 2 under-the-arm). u = 0..1 through the move:
+     long low stride → takeoff → contort away from the shot blocker (ball low and wide) → coil → wrist flick (u≈.58) → follow-through → land.
+     Row: [u, lean, rot, thigh0, knee0, thigh1, knee1, backArm, backFore, ballArm, ballFore, stretch, ball 0 chest | 1 hand | 2 gone] */
+  const JELLY_KF = [
+    [[0, .34, 0, 1.15, -.7, -.9, -.3, -.6, .6, .9, 1.4, 0, 0], [.14, .42, 0, 1.3, -.6, -1.1, -.25, -.9, .5, .7, 1.5, 0, 0], [.28, .3, 0, 1.45, -1.6, -.35, -.3, 1.3, .45, .7, 1.2, .05, 0],
+     [.4, -.28, -.1, 1.25, -1.75, .15, -.8, 2.45, .3, 1.05, .15, .1, 1], [.52, -.42, -.16, 1.15, -1.8, .25, -.95, 2.7, .2, 1.2, .02, .14, 1], [.58, -.18, -.06, 1, -1.5, .2, -.8, 2.45, .3, 2.65, -.45, .16, 2],
+     [.72, -.08, 0, .9, -1.3, .1, -.6, 2.2, .4, 2.9, .05, .1, 2], [1, .1, 0, .5, -1, -.1, -.5, 1.6, .6, 2, .5, 0, 2]],
+    [[0, .34, 0, 1.15, -.7, -.9, -.3, -.6, .6, .9, 1.4, 0, 0], [.14, .42, 0, 1.3, -.6, -1.1, -.25, -.9, .5, .7, 1.5, 0, 0], [.28, .2, 0, 1.4, -1.6, -.3, -.3, 1.5, .4, .8, 1.1, .05, 0],
+     [.4, -.5, .12, 1.1, -1.7, .3, -.9, 2.2, .4, 2, .6, .12, 1], [.52, -.65, .2, 1, -1.8, .4, -1, 2.4, .3, 3, .5, .16, 1], [.58, -.5, .14, .9, -1.6, .3, -.9, 2.3, .3, 3.45, -.2, .18, 2],
+     [.72, -.3, .06, .8, -1.3, .15, -.6, 2.1, .4, 3.2, .1, .1, 2], [1, .05, 0, .5, -1, -.1, -.5, 1.6, .6, 2, .5, 0, 2]],
+    [[0, .38, 0, 1.15, -.75, -.9, -.3, -.6, .6, .9, 1.4, 0, 0], [.14, .48, 0, 1.3, -.65, -1.1, -.25, -1, .5, .7, 1.5, 0, 0], [.28, .45, 0, 1.4, -1.5, -.35, -.35, .9, .6, .9, 1, 0, 0],
+     [.4, .38, .05, 1.3, -1.7, .1, -.9, 1.6, .5, 1.45, 0, .06, 1], [.52, .32, .08, 1.25, -1.75, .15, -1, 1.9, .4, 1.55, -.1, .08, 1], [.58, .1, .02, 1.1, -1.55, .1, -.85, 1.8, .4, 2.15, -.55, .12, 2],
+     [.72, 0, 0, .9, -1.3, .05, -.6, 1.7, .5, 2.6, 0, .08, 2], [1, .1, 0, .5, -1, -.1, -.5, 1.5, .6, 1.9, .5, 0, 2]],
+  ];
+  function jellyPose(o, u, lvl, released) {
+    const T = JELLY_KF[clamp(lvl || 0, 0, 2)], uu = clamp(u || 0, 0, 1); let i = 0; while (i < T.length - 2 && T[i + 1][0] <= uu) i++;
+    const A = T[i], B = T[i + 1], k0 = clamp((uu - A[0]) / Math.max(.001, B[0] - A[0]), 0, 1), k = k0 * k0 * (3 - 2 * k0), L = j => lerp(A[j], B[j], k);
+    o.lean = L(1); o.rot = L(2); o.legs = [[L(3), L(4)], [L(5), L(6)]]; o.arms = [[L(7), L(8)], [L(9), L(10)]]; o.stretch = L(11);
+    const bc = uu < B[0] && k < .5 ? A[12] : B[12]; o.ball = released || bc === 2 ? (released ? null : 'hand') : bc === 1 ? 'hand' : 'chest';
+    o.flick = released && uu > .55; o.snap = uu > .55 && uu < .62; o.rate = 48; o.layer = 'front';
+  }
   const OUT = '#0a0a12';
   function renderer(c, V) {
     const E = { t: 0, hype: .3, net: { swish: 0, sway: 0, w0: -9 }, rim: 0, shatter: false, fx: [], glass: [], rings: [], cheer: 0, waveT: -9, onLand: null, lastSwish: 0, bsq: 0, bLast: null };
@@ -213,7 +234,7 @@ const Pixel = (() => {
 
     /* target pose from the player's current action (p.act) and state */
     function poseOf(p) {
-      const a = p.act, t = E.t, sp = Math.hypot(p.vx || 0, p.vy || 0), air = p.z > .5, hasBall = !!p.hasBall;
+      const a = p.poseAct || p.act, t = E.t, sp = Math.hypot(p.vx || 0, p.vy || 0), air = p.z > .5, hasBall = !!p.hasBall;
       const o = { lean: 0, rot: 0, hip: null, hop: 0, bob: 0, stretch: 0, legs: [[.1, -.18], [-.08, -.18]], arms: [[-.15, .45], [.25, .5]], ball: hasBall ? (p.holdBall ? 'chest' : 'dribble') : null, layer: 'front' };
       const br = Math.sin(t * 3 + (p.i || 0) * 1.7) * .07; o.legs[0][1] -= br; o.legs[1][1] -= br; o.arms[0][1] += br * .6;   // idle breathing
       const s = Math.sin(p.phase || 0), c2 = Math.cos(p.phase || 0);
@@ -237,7 +258,16 @@ const Pixel = (() => {
           else if (!a.released) { o.legs = [[.22, -.4], [-.06, -.45]]; o.arms = [[2.15, 1.25], [2.3, 1.15]]; o.ball = 'set'; o.stretch = .14; }
           else { o.legs = [[.15, -.2], [-.05, -.3]]; o.arms = [[2.25, .55], [2.65, .12]]; o.ball = null; o.flick = true; o.snap = a.t - (a.relAt || 0) < .05; o.stretch = .08; }
           break;
+        case 'jelly': jellyPose(o, a.u, a.lvl, a.released); break;
+        case 'jellyD': {   // the shot blocker rises: crouch, then both arms up big toward the ball
+          const u = a.u || 0;
+          if (u < .25) { const g = u / .25; o.legs = [[lerp(.3, .7, g), lerp(-.5, -1.4, g)], [lerp(-.2, -.45, g), lerp(-.45, -1.2, g)]]; o.arms = [[1.2, .4], [1.4, .4]]; o.lean = .25 * g; }
+          else { const g = Math.min(1, (u - .25) / .3); o.arms = [[lerp(1.2, 3.05, g), lerp(.4, -.02, g)], [lerp(1.4, 2.9, g), lerp(.4, -.1, g)]]; o.legs = [[.45, -.85], [.05, -.55]]; o.stretch = .22 * g; o.lean = -.05; }
+          o.hop = a.lift || 0; o.rate = 40; break;
+        }
+        case 'watch': o.lean = -.3; o.arms = [[.35, .25], [.45, .3]]; o.legs = [[.15, -.25], [-.1, -.2]]; o.rate = 10; break;   // turned around, watching the ball drop
         case 'layup':
+          if (a.jelly && a.ju != null) { jellyPose(o, a.ju, a.jelly.lvl, a.released); break; }
           if (a.t < .18) { o.legs = [[.55, -1.0], [-.35, -.45]]; o.arms = [[1.0, 1.6], [1.1, 1.6]]; o.ball = 'chest'; o.lean = .22; }
           else if (!a.released) { o.legs = [[1.55, -1.7], [-.2, -.15]]; o.arms = [[1.8, .6], [2.45 + Math.min(.2, a.t * .3), .15]]; o.ball = 'hand'; o.lean = .12; o.stretch = .16; }
           else { o.legs = [[1.2, -1.4], [-.1, -.2]]; o.arms = [[1.6, .4], [2.8, 0]]; o.ball = null; o.lean = .05; o.flick = true; }
@@ -360,6 +390,12 @@ const Pixel = (() => {
         if (v > 140 && b.z > 6) sq = Math.min(sq, -.5); L.vz = vz; }
       E.bLast = { x: b.x, y: b.y, z: b.z, t: now, vz: L ? L.vz : 0 };
       if (E.bsq > .3) sq = Math.max(sq, E.bsq);
+      if (b.jelly) {   // the jelly in flight: a soft glow, spin lines whipping around it, golden sparkles on a perfect one
+        const bx = b.x, by = b.y - b.z - 2, a = (b.spin || E.t * 8) * 1.6;
+        c.save(); c.globalCompositeOperation = 'lighter'; c.fillStyle = b.gold ? 'rgba(250,204,21,.32)' : 'rgba(253,230,138,.22)'; c.beginPath(); c.arc(Math.round(bx), Math.round(by), 7, 0, 7); c.fill(); c.restore();
+        for (let k = 0; k < 2; k++) { const q = a + k * Math.PI; px(bx + Math.cos(q) * 5 - 1, by + Math.sin(q) * 3, 3, 1, '#ffffff'); px(bx + Math.cos(q + .5) * 6, by + Math.sin(q + .5) * 3.5, 1, 1, '#fde68a'); }
+        if (b.gold && Math.random() < .7) E.fx.push({ x: bx + rnd(-3, 3), y: by + rnd(-3, 3), vx: rnd(-14, 14), vy: rnd(-18, 6), life: rnd(.25, .5), col: pick(['#facc15', '#fde047', '#ffffff']), sz: 1, g: .2 });
+      }
       ball(b.x, b.y - b.z - 2, fire, b.spin || E.t * 8, sq);
     }
     /* o: { me, mate, fire, tag } */
@@ -388,6 +424,12 @@ const Pixel = (() => {
       limb(K.hip, K.legs[1].knee, K.legs[1].foot, 3, p.skin); px(K.legs[1].foot[0] - 1, K.legs[1].foot[1] - 3, 3, 2, '#f8fafc'); drawShoe(K.legs[1].foot, f, p.shoe || '#fff');
       const high = ['set', 'over', 'hand', 'behind'].includes(po.ball);
       if (po.ball && po.layer === 'front' && !high) held();
+      if (p.ghost) {   // afterimages trailing the flicking arm
+        const GH = p._gh || (p._gh = []), A1 = K.arms[1], last = GH[0];
+        if (!last || Math.hypot(last[2][0] - A1.hand[0], last[2][1] - A1.hand[1]) > 1.5) { GH.unshift([A1.sh.slice(), A1.elbow.slice(), A1.hand.slice()]); if (GH.length > 7) GH.length = 7; }
+        for (let i = GH.length - 1; i >= 1; i--) { const g = GH[i]; c.globalAlpha = .5 * (1 - i / 7); seg(g[0][0], g[0][1], g[1][0], g[1][1], 2, p.ghostCol || '#fde68a'); seg(g[1][0], g[1][1], g[2][0], g[2][1], 2, p.ghostCol || '#fde68a'); }
+        c.globalAlpha = 1;
+      } else if (p._gh) p._gh = null;
       limb(K.arms[1].sh, K.arms[1].elbow, K.arms[1].hand, 2, p.skin); px(K.arms[1].sh[0] - 1, K.arms[1].sh[1] - 1, 3, 2, p.col);
       if (po.flick) px(K.arms[1].hand[0] + f, K.arms[1].hand[1] - 1, 2, 2, p.skin);
       const hx = Math.round(K.head[0] - 3), hy = Math.round(K.head[1] - 3);
@@ -417,6 +459,14 @@ const Pixel = (() => {
         if (!E.shatter) {
           if (metal) { px(rx - 20, ry - 23, 40, 21, '#0b0b12'); px(rx - 19, ry - 22, 38, 19, '#64748b'); px(rx - 8, ry - 12, 16, 10, '#e2e8f0'); px(rx - 7, ry - 11, 14, 8, '#64748b'); }
           else { px(rx - 20, ry - 23, 40, 21, '#e2e8f0'); c.fillStyle = 'rgba(186,230,253,.35)'; c.fillRect(rx - 19, ry - 22, 38, 19); px(rx - 7, ry - 11, 14, 1, '#f8fafc'); px(rx - 7, ry - 11, 1, 9, '#f8fafc'); px(rx + 6, ry - 11, 1, 9, '#f8fafc'); px(rx - 19, ry - 4, 38, 1, '#f97316'); }
+          const sh = E.shine, age = sh ? E.t - sh.t : 9;
+          if (age >= 0 && age < .75) {   // the kiss: a shine sweeps across the glass, a ripple spreads from the contact point
+            const k = age / .75, sx = rx - 22 + k * 46, kx = rx + (sh.side || 1) * 9, ky = ry - 13;
+            c.save(); c.beginPath(); c.rect(rx - 19, ry - 22, 38, 19); c.clip();
+            for (let i = 0; i < 20; i++) { px(sx + i * .45, ry - 22 + i, 2, 1, `rgba(255,255,255,${.75 * (1 - k)})`); px(sx + 4 + i * .45, ry - 22 + i, 1, 1, `rgba(255,255,255,${.4 * (1 - k)})`); }
+            c.strokeStyle = `rgba(253,230,138,${.85 * (1 - k)})`; c.lineWidth = 1; for (let r = 0; r < 2; r++) { c.beginPath(); c.ellipse(kx + .5, ky + .5, 2 + k * 14 + r * 5, 1 + k * 6 + r * 2, 0, 0, 7); c.stroke(); }
+            c.restore();
+          }
         } else px(rx - 20, ry - 23, 40, 2, '#94a3b8');
         px(rx - 6, ry - 1, 12, 1, '#c2410c');
         return;
@@ -474,7 +524,25 @@ const Pixel = (() => {
     function ring(x, y, col = '#fde68a', sp = 120, life = .35, w = 2, flat = .45) { E.rings.push({ x, y, r: 3, sp, life, L: life, col, w, flat }); }
     function confetti(n = 120) { for (let i = 0; i < n; i++) E.fx.push({ x: rnd(0, V.W), y: rnd(-60, 0), vx: rnd(-14, 14), vy: rnd(18, 42), life: rnd(2.5, 4.5), col: pick(['#f97316', '#facc15', '#22c55e', '#3b82f6', '#ec4899', '#fff', V.c0, V.c1]), conf: 1 }); }
     function cheer(amt = 1, wave = false) { E.cheer = Math.min(1, Math.max(E.cheer, amt)); E.hype = Math.min(1, E.hype + amt * .3); if (wave) E.waveT = E.t; }
-    return { E, V, c, player, reflection, ball, freeBall, hoop, crowd, lights, weather, fx, burst, dust, sweat, ring, confetti, cheer, text: (s, x, y, col, sc, al, ol) => text(c, s, x, y, col, sc, al, ol), px, skeleton };
+    function shine(side) { E.shine = { t: E.t, side }; }
+    /* slow-motion look (screen space): a vignette closing in and a warm tint, a = 0..1 */
+    function grade(W, H, a, col = '253,214,130') {
+      if (a < .02) return; c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
+      const g = c.createRadialGradient(W / 2, H * .45, H * .22, W / 2, H * .45, W * .62); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(12,6,24,${.62 * a})`);
+      c.fillStyle = g; c.fillRect(0, 0, W, H); c.fillStyle = `rgba(${col},${.1 * a})`; c.fillRect(0, 0, W, H); c.restore();
+    }
+    /* "JELLY!": each letter pops in, then squashes and stretches like jelly, settling down (age in seconds) */
+    function wobble(str, x, y, col, sc, age) {
+      const chars = norm(str).split(''), ws = chars.map(ch => ch === ' ' ? 2 * sc : (glyphW(ch) + 1) * sc), W = ws.reduce((a, b) => a + b, 0) - sc, damp = Math.exp(-age * 2.4);
+      let cx = x - W / 2;
+      chars.forEach((ch, i) => {
+        const w = ws[i], ph = age * 17 - i * .9, e = clamp((age - i * .03) / .16, 0, 1), pop = e < 1 ? e * (1 + Math.sin(e * Math.PI) * .6) : 1;
+        const sy = (1 + Math.sin(ph) * .38 * damp) * pop, sx = (1 - Math.sin(ph) * .26 * damp) * pop, dy = Math.sin(ph + 1.2) * 2.4 * damp * sc * .5;
+        if (pop > .01 && ch !== ' ') { c.save(); c.translate(Math.round(cx + w / 2), Math.round(y + 2.5 * sc + dy)); c.scale(sx, sy); text(c, ch, 0, -2.5 * sc, col, sc, 'center', OUT); c.restore(); }
+        cx += w;
+      });
+    }
+    return { E, V, c, player, reflection, ball, freeBall, hoop, crowd, lights, weather, fx, burst, dust, sweat, ring, confetti, cheer, shine, grade, wobble, text: (s, x, y, col, sc, al, ol) => text(c, s, x, y, col, sc, al, ol), px, skeleton };
   }
 
   /* sprite fields for a player from a look + team colors */

@@ -99,7 +99,8 @@
       out.play = (S, t) => { const p = P(S), d = D(S), b = B(S); settle(S); p.face = H.x >= p.x ? 1 : -1;
         if (t < t1) { b.holder = p; CSK.run(p, t, .1, t1, ax, ay, ex, ey); if (d) { CSK.run(d, t, .3, t1 + .1, d.x, d.y, H.x - side * (k === 'jelly' ? 2 : 10), H.y + 18); d.stance = true; } return; }
         const u = t - t1;
-        if (d) { d.act = { type: 'block', t: .1 }; d.face = side; d.z = Math.max(0, Math.sin(clamp((u - .05) / .7, 0, 1) * Math.PI) * (k === 'jelly' ? 13 : 9)); }
+        if (d) { if (!d._rx) d.act = { type: 'block', t: .1 }; d.face = side; d.z = Math.max(0, Math.sin(clamp((u - .05) / .7, 0, 1) * Math.PI) * (k === 'jelly' ? 13 : 9));
+          if (k === 'jelly' && !d._rx) d.poseAct = { type: 'jellyD', u: clamp(u / .4, 0, 1), lift: 0 }; }   // the jelly: he rises with both arms up
         if (k === 'dunk') {
           p.act = { type: 'dunk', t: Math.min(1.04, u * 1.2), T: 1.05 }; const up = span(u, .1, .5); p.x = lerp(ex, H.x + side * 4, up); p.y = lerp(ey, H.y + 3, up); p.z = Math.sin(up * Math.PI / 2) * (H.z - 10);
           if (u < .55) { b.holder = p; return; }
@@ -108,14 +109,20 @@
           return;
         }
         p.act = { type: 'layup', t: Math.min(.68, u * .9), T: .7 }; p.z = u < .45 ? Math.sin(span(u, 0, .35) * Math.PI / 2) * 14 : Math.max(0, 14 - (u - .45) * 50);
-        if (k === 'jelly' && u > .2 && !p._tw) { p._tw = 1; p.face = -p.face; SFX.play('whoosh'); }   // the twist: wrong hand, right side
+        if (k === 'jelly') {   // the keyframed jelly pose (js/pixel.js), afterimages on the flick
+          const lvl = p.isUser && typeof Features !== 'undefined' && Game.state ? Features.jellyLevel(Game.state) : 0;
+          Object.assign(p.act, { jelly: { lvl }, released: u >= .35, ju: u < .35 ? .28 + u / .35 * .27 : Math.min(1, .58 + (u - .35) / .5 * .42) }); p.ghost = u > .2 && u < .9;
+          if (u > .2 && !p._tw) { p._tw = 1; SFX.play('whoosh'); }
+          if (u >= .35 && !p._fl) { p._fl = 1; if (lvl !== 2) p.face = -p.face; SFX.play('flick'); S.fx.impact(70); }   // the wrist snap
+        }
         if (u < .35) { b.holder = p; return; }
         b.holder = null; const r = u - .35;
-        if (k === 'jelly') { const G = { x: H.x + side * 9, y: H.y - 2, z: H.z + 14 };
-          if (r < .35) { const q = r / .35; b.x = lerp(p.x, G.x, q); b.y = lerp(p.y, G.y, q); b.z = lerp(p.z + 30, G.z, q) + Math.sin(q * Math.PI) * 6; S.R.burst(b.x, b.y - b.z, '#fde68a', 1, 6); return; }
-          if (!p._ks) { p._ks = 1; SFX.play('kiss'); S.fx.impact(90); }
-          const q = clamp((r - .35) / .25, 0, 1); if (q < 1) { b.x = lerp(G.x, H.x, q); b.y = lerp(G.y, H.y, q); b.z = lerp(G.z, H.z + 1, q); return; }
-          if (!p._sw) { p._sw = 1; swish(S); SFX.play('jelly'); if (d) d.act = { type: 'stumble', t: 0, T: 2 }; } return dropBall(S, r - .6); }
+        if (k === 'jelly') { const G = { x: H.x + side * 9, y: H.y - 2, z: H.z + 14 }, C = { x: (d ? d.x : p.x) + side * 3, y: (d ? d.y : p.y) - 4, z: (d ? d.z : 0) + 52 };
+          b.jelly = r < .62;
+          if (r < .35) { const q = r / .35, w = 1 - q; b.x = w * w * p.x + 2 * w * q * C.x + q * q * G.x; b.y = w * w * p.y + 2 * w * q * C.y + q * q * G.y; b.z = w * w * (p.z + 30) + 2 * w * q * C.z + q * q * G.z; S.R.burst(b.x, b.y - b.z, '#fde68a', 1, 6); return; }
+          if (!p._ks) { p._ks = 1; SFX.play('kiss'); SFX.play('ooh'); S.R.shine(side); S.fx.impact(90); }   // a soft kiss, a shine across the glass
+          const q = clamp((r - .35) / .25, 0, 1); if (q < 1) { const e = q * q; b.x = lerp(G.x, H.x, e); b.y = lerp(G.y, H.y, e); b.z = lerp(G.z, H.z + 1, e); return; }
+          if (!p._sw) { p._sw = 1; swish(S); SFX.play('jelly'); if (d) { d.poseAct = null; d._rx = 1; d.act = pick([{ type: 'stumble', t: 0, T: 2 }, { type: 'down', t: .5, T: 2 }, { type: 'watch', t: 0, T: 2 }]); } } return dropBall(S, r - .6); }
         if (r < .3) { const q = r / .3; b.x = lerp(p.x + p.face * 3, H.x, q); b.y = lerp(p.y, H.y, q); b.z = lerp(p.z + 32, H.z + 1, q) + Math.sin(q * Math.PI) * 6; return; }
         if (!p._sw) { p._sw = 1; swish(S); } dropBall(S, r - .3);
       };

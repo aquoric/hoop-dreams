@@ -41,6 +41,7 @@ const Match = (() => {
       this.tweens = []; this.pops = [];
       this.shakeAmt = 0; this.timeScale = 1; this.zoom = 1; this.netWave = 0; this.rimBend = 0; this.flashA = 0; this.flashCol = '255,255,255'; this.stopT = 0; this.kick = 0; this.vdt = 0; this.cutAt = -99;
       this.t = 0; this.excite = 0.3; this.fire = false; this.clutch = false; this.trail = null; this.cam = 0;
+      this.tsGoal = null; this.tsRate = 6; this.gradeA = 0; this.gradeOn = false; this.camF = null; this.camFc = null; this.tilt = 0; this.tiltC = 0;   // slow-mo ramp, slow-mo look, camera focus + tilt (the jelly)
       this.VW = 0; this.resize();
       this._rs = () => this.resize(); window.addEventListener('resize', this._rs);
       this.alive = true; this.last = performance.now();
@@ -76,6 +77,9 @@ const Match = (() => {
     update(dt) {
       // hit-stop: everything (tweens, poses, particles) freezes for a few frames
       const stopped = this.stopT > 0; if (stopped) this.stopT = Math.max(0, this.stopT - dt);
+      if (this.tsGoal != null) this.timeScale += (this.tsGoal - this.timeScale) * (1 - Math.exp(-dt * this.tsRate));   // slow motion ramps in (real time)
+      this.gradeA += ((this.gradeOn ? 1 : 0) - this.gradeA) * (1 - Math.exp(-dt * 5)); this.tiltC += (this.tilt - this.tiltC) * (1 - Math.exp(-dt * 5));
+      if (this.camF || this.camFc) { const tg = this.camF ? this.camF() : { x: this.X(0), y: 30 }; if (!this.camFc) this.camFc = Object.assign({}, tg); const m = 1 - Math.exp(-dt * 7); this.camFc.x += (tg.x - this.camFc.x) * m; this.camFc.y += (tg.y - this.camFc.y) * m; if (!this.camF && this.zoom < 1.01) this.camFc = null; }
       const sdt = stopped ? 0 : dt * this.timeScale; this.t += sdt; this.vdt = sdt;
       this.players.forEach(p => { const a = p.anim; if (a && a.tick) { a.t += sdt; if (a.auto && a.T && a.t >= a.T) p.anim = null; } if (p.auraT > 0) p.auraT -= dt; });
       this.kick *= Math.pow(.004, dt);
@@ -85,9 +89,9 @@ const Match = (() => {
         catch (e) { console.error('tween', e); tw.el = tw.dur; }   // a broken tween finishes instead of blocking whatever waits on it
         if (tw.el >= tw.dur) { this.tweens.splice(i, 1); tw.res(); this.onBeat && this.onBeat(); }
       }
-      this.pops.forEach(p => { p.life -= dt; p.y -= dt * 14; }); this.pops = this.pops.filter(p => p.life > 0);
+      this.pops.forEach(p => { p.life -= dt; p.y -= dt * (p.wob ? 4 : 14); }); this.pops = this.pops.filter(p => p.life > 0);
       this.shakeAmt *= Math.pow(0.02, dt); this.netWave *= Math.pow(0.05, dt); this.rimBend *= Math.pow(0.01, dt); this.flashA *= Math.pow(0.02, dt);
-      if (this.trail && !this.ball.holder) { const b = this.ball; this.R.E.fx.push({ x: this.X(b.x), y: this.Y(b.y) - b.z * 3.2, vx: 0, vy: 0, life: .3, col: this.trail }); }
+      if (this.trail && !this.ball.holder && sdt > 0) { const b = this.ball; this.trailK = (this.trailK || 0) + 1; if (this.trailK % 2 === 0) this.R.E.fx.push({ x: this.X(b.x) + rnd(-1, 1), y: this.Y(b.y) - b.z * 3.2 - 2 + rnd(-1, 1), vx: 0, vy: 0, life: .1, col: this.trailK % 4 ? this.trail : '#ffffff', sz: 1 }); }   // a light, sparkly trail (slow motion doesn't stretch it into a beam)
     }
     user() { return this.players.find(p => p.isUser); }
     /* sprite for a court player (shared look with the arcade) */
@@ -105,7 +109,7 @@ const Match = (() => {
       c.setTransform(1, 0, 0, 1, 0, 0);
       const zz = this.zoom + this.kick;
       if (vw) { c.translate(this.VW / 2, PIX.H * .56); c.rotate(vw.rot || 0); c.scale(vw.z, vw.z); c.translate(-vw.x, -vw.y); }   // replay camera: centred on the action, zoomed, maybe tilted
-      else if (zz > 1.001) { const z = zz, fx = this.X(0) - cam, fy = 30; c.setTransform(z, 0, 0, z, fx * (1 - z), fy * (1 - z)); }
+      else if (zz > 1.001) { const z = zz, fx = (this.camFc ? this.camFc.x : this.X(0)) - cam, fy = this.camFc ? clamp(this.camFc.y, 24, PIX.H - 50) : 30; c.setTransform(z, 0, 0, z, fx * (1 - z), fy * (1 - z)); if (Math.abs(this.tiltC) > .001) { c.translate(fx, fy); c.rotate(this.tiltC); c.translate(-fx, -fy); } }
       if (this.shakeAmt > .3 && !vw) c.translate(Math.round(rnd(-1, 1) * this.shakeAmt * .4), Math.round(rnd(-1, 1) * this.shakeAmt * .4));
       c.translate(-cam, 0);
       c.drawImage(V.bg, 0, 0);
@@ -131,23 +135,24 @@ const Match = (() => {
       c.save(); c.translate(V.ox, 0);
       if (V.def.reflect) vis.forEach(p => R.reflection(p._s));
       const items = vis.map(p => ({ y: p._s.y, d: () => R.player(p._s, { me: p.isUser, fire: p.isUser && this.fire, tag: p.tag && !p.isUser && !rp ? p.tag : '' }) }));
-      if (b.show && !hold) items.push({ y: this.Y(b.y) + .5, d: () => R.freeBall({ x: this.X(b.x) - V.ox, y: this.Y(b.y), z: b.z * 3.2, spin: T * 12 }, this.fire) });
+      if (b.show && !hold) items.push({ y: this.Y(b.y) + .5, d: () => R.freeBall({ x: this.X(b.x) - V.ox, y: this.Y(b.y), z: b.z * 3.2, spin: T * 12, jelly: b.jelly, gold: b.gold }, this.fire) });
       items.sort((a, z) => a.y - z.y).forEach(i => i.d());
       vis.forEach(p => { if (!(p.auraT > 0) || dt <= 0) return; const s2 = p._s; for (let k = 0; k < 3; k++) E.fx.push({ x: s2.x + rnd(-6, 6), y: s2.y - s2.z - rnd(0, 30), vx: rnd(-10, 10), vy: -rnd(20, 50), life: .4, col: k ? p.auraCol : '#ffffff', sz: 2, g: -.4 }); if (Math.random() < .12) R.ring(s2.x, s2.y, p.auraCol, 70, .35, 1, .35); });   // weapon aura
       R.hoop(true);
       const hang = vis.find(p => p.anim && p.anim.type === 'dunk' && p.anim.t > .62 && p.anim.t < .95); if (hang) R.player(hang._s, { me: hang.isUser });
       c.restore();
       R.fx(dt);
-      if (!vw) this.pops.forEach(p => R.text(p.text, p.x, p.y, p.c, p.sc, 'center', '#0a0a12'));
+      if (!vw) this.pops.forEach(p => p.wob ? R.wobble(p.text, p.x, p.y, p.c, p.sc, p.L - p.life) : R.text(p.text, p.x, p.y, p.c, p.sc, 'center', '#0a0a12'));
       R.weather(dt); R.lights();
       c.setTransform(1, 0, 0, 1, 0, 0);
       c.drawImage(V.vg, vw ? clamp(Math.round(vw.x - this.VW / 2), 0, Math.max(0, V.W - this.VW)) : cam, 0, this.VW, PIX.H, 0, 0, this.VW, PIX.H);
       if (vw) return;
+      if (this.gradeA > .02) R.grade(this.VW, PIX.H, this.gradeA);
       if (this.timeScale < .6 && this.zoom > 1.1) { c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(0, 0, this.VW, 12); c.fillRect(0, PIX.H - 12, this.VW, 12); }   // letterbox in slow motion
       if (this.flashA > 0.02) { c.fillStyle = `rgba(${this.flashCol},${Math.min(.85, this.flashA)})`; c.fillRect(0, 0, this.VW, PIX.H); }
     }
     /* ---------- effects ---------- */
-    pop(text, wx, wy, wz, color = '#facc15', size = 34) { this.pops.push({ text, x: this.X(wx), y: this.Y(wy) - wz * 3.2 - 22, c: color, sc: size >= 40 ? 3 : 2, life: 1.4 }); }
+    pop(text, wx, wy, wz, color = '#facc15', size = 34, wob) { this.pops.push({ text, x: this.X(wx), y: this.Y(wy) - wz * 3.2 - 22, c: color, sc: size >= 40 ? 3 : 2, life: wob ? 1.7 : 1.4, L: wob ? 1.7 : 1.4, wob }); }
     confetti(n = 120) { const E = this.R.E; for (let i = 0; i < n; i++) E.fx.push({ x: rnd(0, this.V.W), y: rnd(-40, 0), vx: rnd(-12, 12), vy: rnd(20, 45), life: rnd(2, 4), col: pick(['#f97316', '#facc15', '#22c55e', '#3b82f6', '#ec4899', '#fff']), conf: 1 }); }
     sparks(wx, wy, wz, col = '#facc15', n = 26) { this.R.burst(this.X(wx), this.Y(wy) - wz * 3.2, col, Math.round(n * .7), 70); }
     shake(n = 10) { this.shakeAmt = n; }
@@ -208,7 +213,7 @@ const Match = (() => {
     rec() {
       const B = this.buf || (this.buf = []), b = this.ball;
       B.push({ t: this.t, p: this.players.map(p => ({ p, x: p.x, y: p.y, z: p.z || 0, a: p.anim ? Object.assign({}, p.anim) : null, pose: p.pose, hid: p.hidden, fx: p.faceX, mv: p.moving })),
-        b: { x: b.x, y: b.y, z: b.z, holder: b.holder, show: b.show, dribble: b.dribble }, net: this.netWave, rim: this.rimBend });
+        b: { x: b.x, y: b.y, z: b.z, holder: b.holder, show: b.show, dribble: b.dribble, jelly: b.jelly, gold: b.gold }, net: this.netWave, rim: this.rimBend });
       while (B.length > 2 && B[0].t < this.t - 4.5) B.shift();
     }
     replay(kind, o) {
@@ -257,7 +262,7 @@ const Match = (() => {
       const f = B[i], g = B[i + 1] || f, k = g.t > f.t ? clamp((rp.time - f.t) / (g.t - f.t), 0, 1) : 0;
       rp.players = f.p.map(e => { const e2 = g.p.find(q => q.p === e.p) || e, a = e.a && e2.a && e.a.type === e2.a.type ? Object.assign({}, e.a, { t: lerp(e.a.t || 0, e2.a.t || 0, k) }) : e.a && Object.assign({}, e.a);
         return Object.assign(rp.ghost(e.p), { x: lerp(e.x, e2.x, k), y: lerp(e.y, e2.y, k), z: lerp(e.z, e2.z, k), anim: a, pose: e.pose, hidden: e.hid, faceX: e.fx, moving: e.mv }); });
-      Object.assign(rp.ball, { x: lerp(f.b.x, g.b.x, k), y: lerp(f.b.y, g.b.y, k), z: lerp(f.b.z, g.b.z, k), holder: rp.ghost(f.b.holder), show: f.b.show, dribble: f.b.dribble });
+      Object.assign(rp.ball, { x: lerp(f.b.x, g.b.x, k), y: lerp(f.b.y, g.b.y, k), z: lerp(f.b.z, g.b.z, k), holder: rp.ghost(f.b.holder), show: f.b.show, dribble: f.b.dribble, jelly: f.b.jelly, gold: f.b.gold });
       rp.t = lerp(f.t, g.t, k); rp.net = f.net; rp.rim = f.rim;
       // camera: angle 1 follows player + ball; angle 2 sits tight (and tilted) on the climax
       const rim = { x: this.X(0), y: PIX.hoop.y - PIX.hoop.z }, u = rp.ghost(rp.o.focus), ux = this.X(u.x), uy = this.Y(u.y) - (u.z || 0) * 3.2 - 18, bl = rp.ball.holder ? { x: ux, y: uy } : { x: this.X(rp.ball.x), y: this.Y(rp.ball.y) - rp.ball.z * 3.2 };
@@ -350,37 +355,76 @@ const Match = (() => {
       await this.drive(p, rnd(-2, 2), 6.5, .55);
       return this.shoot(p, made ? (Math.random() < .5 ? 'swish' : 'rimin') : 'miss', { arc: 2.5, dur: .45, layup: true, green: g && made });
     }
+    /* THE JELLY, beat by beat: long low stride → gather and contort away from the shot blocker while he rises →
+       wrist flick (hit-stop, sparkle, afterimages) → the ball floats past his fingers (spin lines, glow) → kisses the glass (shine) →
+       drops through a slow-motion net, then time snaps back. o: { side, perfect, lvl 0 jelly | 1 reverse | 2 under-the-arm, drama }.
+       Regular play keeps it ~2.5s; drama (game-winners, clutch, the story's first jelly) goes deeper into slow motion. */
     async jelly(p, made, big, o = {}) {
-      const side = o.side || (p.x < 0 ? -1 : 1), b = this.ball;
-      SFX.play('squeak'); b.dribble = true;
-      if (big && !big.hidden) { this.moveTo(big, side * -.4, 7.2, .3); }
-      await this.moveTo(p, side * 3.4, 10, .3);                                           // the long stride
-      this.timeScale = .36; this.tween(this, { zoom: 1.5 }, .3, 'io'); SFX.play('whoosh');
-      if (big && !big.hidden) { big.anim = { type: 'block', t: .1 }; big.faceX = side; this.tween(big, { z: 3.8, x: side * .4 }, .32, 'out').then(() => this.tween(big, { z: 0 }, .4, 'in')).then(() => { if (big.anim && big.anim.type === 'block') big.anim = null; big.faceX = null; }); }
-      p.faceX = -side; const A = p.anim = { type: 'layup', t: 0, T: .7 };
-      await this.tween(A, { t: .2 }, .1, 'out');
-      await this.tween(p, { z: 3.4, x: side * 2.3, y: 7.4 }, .28, 'out');
-      p.faceX = side; this.sparks(p.x, p.y, p.z + 2, '#fde68a', 8);                          // the twist: wrong hand, right side
-      const s0 = this.ballPos(); b.holder = null; Object.assign(b, s0); if (p.anim === A) A.released = true;
-      this.wait(.2).then(() => this.tween(p, { z: 0 }, .32, 'in')).then(() => { if (p.anim === A) this.act(p, 'land', .2); p.faceX = null; });
-      const G = { x: side * 1.25, y: HOOP.y - .7, z: HOOP.z + 2.7 }, k = { t: 0 };
-      this.trail = '#fde68a';
-      await this.tween(k, { t: 1 }, .36, 'lin', u => { b.x = lerp(s0.x, G.x, u); b.y = lerp(s0.y, G.y, u); b.z = lerp(s0.z, G.z, u) + Math.sin(u * Math.PI) * 1.6; });
-      SFX.play('kiss'); this.impact(.12, 3, .18, .03, '253,230,138'); this.R.ring(this.X(G.x) - this.V.ox, this.Y(G.y) - G.z * 3.2, '#fde68a', 70, .3);   // kiss off the glass
-      const tx = made ? 0 : side * -.7;
-      await this.tween(k, { t: 0 }, .3, 'in', u => { const w = 1 - u; b.x = lerp(G.x, tx, w); b.y = lerp(G.y, HOOP.y, w); b.z = lerp(G.z, HOOP.z + .4, w); });
-      this.trail = null; this.timeScale = 1; this.tween(this, { zoom: 1 }, .6, 'io');
+      const side = o.side || (p.x < 0 ? -1 : 1), b = this.ball, lvl = clamp(o.lvl || 0, 0, 2), D = !!o.drama, bigOn = !!(big && !big.hidden), gold = !!(o.perfect && made);
+      const slow = D ? .24 : .46, mode = pick(['rim', 'ball', 'ball', 'low']), ox = this.V.ox;
+      const at = (q, dz = 0) => ({ x: this.X(q.x), y: this.Y(q.y) - ((q.z || 0) + dz) * 3.2 });
+      this.tilt = (Math.random() < .5 ? -1 : 1) * rnd(.012, D ? .05 : .035);
+      // 1 · the approach: a long, low, explosive last stride
+      SFX.play('squeak'); b.dribble = true; p.faceX = -side;
+      const A = p.anim = { type: 'jelly', u: 0, lvl, released: false };
+      if (bigOn) { big.faceX = side; this.moveTo(big, side * .5, 6.8, .26); }
+      this.tween(A, { u: .28 }, .26, 'out');
+      await this.moveTo(p, side * 3.6, 9.8, .26);
+      this.R.dust(this.X(p.x), this.Y(p.y), 7); SFX.play('squeak', .8);
+      // 2 · gather and contort — time ramps down, the camera pushes in, he rises with both arms up
+      this.tsGoal = slow; this.tsRate = D ? 4 : 7; this.gradeOn = true; SFX.play('whoosh');
+      this.camF = mode === 'low' ? () => { const u = at(p, 3); return { x: (u.x + this.X(0)) / 2, y: u.y - 4 }; } : () => at(p, 4);
+      this.tween(this, { zoom: D ? 1.42 : 1.3 }, .3, 'io');
+      if (bigOn) { const BA = big.anim = { type: 'jellyD', u: 0 }; this.tween(BA, { u: 1 }, .34, 'out'); this.tween(big, { z: 3.9, x: side * (lvl === 1 ? 1.7 : 1.2), y: 6.7 }, .34, 'out').then(() => this.tween(big, { z: 0 }, .45, 'in')); }
+      this.wait(.14).then(() => { p.ghost = true; });
+      const gx = lvl === 1 ? side * .1 : lvl === 2 ? side * 2.6 : side * 3.0, gy = lvl === 1 ? 6.2 : 8.2;   // reverse: glide under the rim behind him
+      await Promise.all([this.tween(A, { u: .55 }, .32, 'io'), this.tween(p, { z: lvl === 2 ? 3.1 : 3.6, x: gx, y: gy }, .32, 'out')]);
+      // 3 · the flick: hit-stop on the wrist snap, a sparkle at the fingertips, afterimages behind the arm
+      A.u = .58; A.released = true; if (lvl === 1) p.faceX = side;
+      this.stopT = D ? .2 : .1; SFX.play('flick'); SFX.play('gasp');
+      const h = p._s && p._s.hand; if (h) { this.R.burst(h.x + ox, h.y - 2, '#ffffff', 5, 40); this.R.burst(h.x + ox, h.y - 2, gold ? '#facc15' : '#fde68a', 7, 55); this.R.ring(h.x + ox, h.y - 2, '#ffffff', 40, .2, 1, 1); }
+      const s0 = this.ballPos(); b.holder = null; Object.assign(b, s0); b.jelly = true; b.gold = gold; this.trail = gold ? '#facc15' : '#fde68a';
+      this.tween(A, { u: 1 }, .5, 'out').then(() => this.tween(p, { z: 0 }, .26, 'in')).then(() => { p.ghost = false; if (p.anim === A) this.act(p, 'land', .2); p.faceX = null; });
+      // 4 · ball flight — a different path per jelly level
+      const by = bigOn ? big : { x: side * 1.4, z: 0 };
+      const G = { x: (lvl === 1 ? -side : side) * 1.25, y: HOOP.y - .7, z: HOOP.z + 2.7 };
+      const C = lvl === 1 ? { x: side * .1, y: HOOP.y + .7, z: HOOP.z - .8 }                       // reverse: under the rim, up the far side
+        : lvl === 2 ? { x: by.x + side * .2, y: 7.1, z: (by.z || 0) + 4.4 }                          // under-the-arm: through his armpit
+        : { x: by.x + side * .35, y: 7.0, z: (by.z || 0) + 9.6 };                                   // the jelly: up past his fingertips
+      this.camF = mode === 'rim' ? () => ({ x: this.X(0), y: this.Y(HOOP.y) - HOOP.z * 3.2 }) : () => at(b);
+      this.tween(this, { zoom: D ? 1.62 : 1.46 }, .3, 'io');
+      const k = { u: 0 }, q = (a, c2, g, u) => (1 - u) * (1 - u) * a + 2 * (1 - u) * u * c2 + u * u * g;
+      await this.tween(k, { u: 1 }, D ? .34 : .3, 'lin', () => { const u = k.u; b.x = q(s0.x, C.x, G.x, u); b.y = q(s0.y, C.y, G.y, u); b.z = q(s0.z, C.z, G.z, u); });
+      // 5 · off the glass: a soft kiss, a shine sweeps the backboard
+      SFX.play('kiss'); SFX.play('ooh'); this.R.shine(G.x < 0 ? -1 : 1); this.stopT = Math.max(this.stopT, .05);
+      const gp = at(G); this.R.ring(gp.x, gp.y, '#fde68a', 60, .3, 1); this.R.burst(gp.x, gp.y, gold ? '#facc15' : '#fef9c3', 8, 30);
+      // 6 · the drop: rolls down soft and through a slow-motion net
+      const tx = made ? 0 : -G.x * .55;
+      await this.tween(k, { u: 0 }, D ? .2 : .16, 'in', () => { const w = 1 - k.u; b.x = lerp(G.x, tx, w); b.y = lerp(G.y, HOOP.y, w); b.z = lerp(G.z, HOOP.z + .4, w); });
+      const snap = () => { this.tsGoal = null; this.timeScale = 1; this.gradeOn = false; this.camF = null; this.tilt = 0; this.tween(this, { zoom: 1 }, .45, 'out'); b.jelly = false; b.gold = false; this.trail = null; };
       if (!made) {
-        SFX.play('rim'); this.rimBend = .7; this.R.E.net.sway = 1;
-        await this.tween(b, { x: side * -4, y: HOOP.y + 3, z: HOOP.z + 2.5 }, .25, 'out'); await this.tween(b, { x: side * -7, y: rnd(11, 15), z: 0 }, .45, 'in'); SFX.play('bounce');
+        snap(); SFX.play('rim'); this.rimBend = .7; this.R.E.net.sway = 1;
+        await this.tween(b, { x: G.x * -2.6, y: HOOP.y + 3, z: HOOP.z + 2.5 }, .25, 'out'); await this.tween(b, { x: G.x * -5, y: rnd(11, 15), z: 0 }, .45, 'in'); SFX.play('bounce');
+        if (bigOn) this.act(big, 'land', .3);
         return false;
       }
-      SFX.play('swish'); SFX.play('net'); SFX.play('jelly'); this.netWave = 1.2; if (o.perfect) green();
-      this.impact(.14, 6, .3, .06, '253,230,138'); this.R.ring(this.X(0) - this.V.ox, this.Y(HOOP.y) - HOOP.z * 3.2 + 2, '#fde68a', 140, .4, 1); this.sparks(0, HOOP.y, HOOP.z, '#facc15', 26);
-      this.pop('JELLY!', 0, HOOP.y + 2, HOOP.z, '#facc15', 46);
-      if (big && !big.hidden) setTimeout(() => { if (this.alive) { this.act(big, 'stumble', 1.1); this.pop('?!', big.x, big.y, 8, '#fca5a5', 30); } }, 260);   // left grabbing air
-      SFX.play('ooh'); setTimeout(() => { if (this.alive) { SFX.play('roar'); this.R.cheer(1, true); } }, 650);   // OOOH… then the place comes apart
-      await this.tween(b, { z: HOOP.z - 2.5 }, .22, 'in'); await this.tween(b, { z: 0, y: HOOP.y + 1.5 }, .35, 'in'); SFX.play('bounce');
+      SFX.play('swish'); SFX.play('net'); SFX.play('jelly'); this.netWave = 1.5;
+      await this.tween(b, { z: HOOP.z - 2.6, y: HOOP.y + .3 }, D ? .24 : .17, 'lin');
+      // 7 · time snaps back: shake, the wobbly JELLY!, the crowd goes from the OOOH into cheers
+      snap(); this.impact(0, D ? 9 : 6, gold ? .3 : .16, .05, gold ? '250,204,21' : '253,230,138');
+      if (navigator.vibrate) try { navigator.vibrate(gold ? [30, 40, 70] : [35, 30, 45]); } catch (e) { }
+      this.R.ring(this.X(0) - ox, this.Y(HOOP.y) - HOOP.z * 3.2 + 2, '#fde68a', 140, .4, 1); this.sparks(0, HOOP.y, HOOP.z, gold ? '#facc15' : '#fde047', gold ? 44 : 26);
+      this.pop(gold ? 'PERFECT JELLY!' : lvl === 1 ? 'REVERSE JELLY!' : lvl === 2 ? 'UNDER THE ARM!' : 'JELLY!', 0, HOOP.y + 2, HOOP.z, gold ? '#4ade80' : '#facc15', 46, true);
+      if (gold) { green(); this.confetti(60); }
+      if (bigOn) {   // his reaction — never the same twice
+        const r = pick(D ? ['down', 'sit', 'watch', 'down'] : ['stumble', 'watch', 'down', 'stumble', 'sit']);
+        setTimeout(() => { if (!this.alive) return;
+          if (r === 'watch') { big.faceX = big.x < 0 ? 1 : -1; this.act(big, 'watch', 1.4); this.pop('…', big.x, big.y, 8, '#e2e8f0', 30); }
+          else { this.act(big, r, r === 'down' ? 1.3 : r === 'sit' ? 1.4 : 1.0); this.pop('?!', big.x, big.y, 8, '#fca5a5', 30); this.R.dust(this.X(big.x), this.Y(big.y), 6); }
+        }, 120);
+      }
+      this.R.cheer(1, true); setTimeout(() => { if (this.alive) { SFX.play('roar', gold || D ? 1 : .8); this.R.cheer(1, true); } }, 380);
+      this.tween(b, { z: 0, y: HOOP.y + 1.5 }, .32, 'in').then(() => SFX.play('bounce'));   // play goes on while it bounces
       return true;
     }
     async dunk(p, made, poster) {
@@ -1711,12 +1755,14 @@ const Match = (() => {
         cnt('jellyBlocks'); pbp(say('jelly_block') + ` <i class="pct-note">${fr.side === 'late' ? 'too slow' : 'wrong side'}</i>`, 'bad'); fail(); await boardAfterMiss(true); return false;
       }
       const fin = Balance.apply('jelly', jc.pct, fr.side === 'right' ? fr.quality : .15, 3, { perfect: fr.side === 'right' && fr.perfect, contest: 'contested' }), made = roll(fin);
-      const ok = await court.jelly(U, made, big, { side, perfect: fr.perfect && made });
+      // the full dramatic version (deep slow motion + replay) only for big moments: clutch / last possession, the story's jelly moment, your first jelly ever
+      const drama = !!(st.clutch || st.last || JMn || !((s.counters.jellies || 0) + (st.counters.jellies || 0)));
+      const ok = await court.jelly(U, made, big, { side, perfect: fr.perfect && made, lvl: Features.jellyLevel(s), drama });
       if (ok) {
         st.box.fgm++; st.box.pts += 2; addPts('us', 2, playOf(U, 'jelly', { def: big })); cnt('jellies'); cnt('layups'); if (JMn && JMn.payoff) cnt('jellyPayoff'); if (fr.perfect) { cnt('perfects'); st.perfects++; }
         pbp(say('jelly_make') + ` <i class="pct-note">${fin}%</i>`, 'good hot'); pbp(`The bench is on the floor. ${escH(bigName)} is still looking for the ball.`, 'hot');
         st.highlights.push(`Jelly over ${bigName}`); court.celebrate(U, 'jelly'); success(true);
-        await court.mini('jelly', pick(['JELLY!', 'AROUND HIM!', 'SILK.']), { force: true });
+        if (drama) await court.mini('jelly', pick(['JELLY!', 'AROUND HIM!', 'SILK.']), { force: true });
         if (!st.done && roll(8 + (st.refFavor ? 12 : 0))) { st.refFavor = false; SFX.play('whistle'); pbp(say('and1'), 'good'); await court.mini('andone', 'AND ONE!'); await T.free_throws({ shots: 1 }); }
       } else { SFX.play('groan'); pbp(say('jelly_miss') + ` <i class="pct-note">${fin}%</i>`); fail(); await boardAfterMiss(true); }
       return ok;
