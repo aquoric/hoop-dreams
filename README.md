@@ -8,6 +8,10 @@ Start as an unknown 16-year-old on a cracked playground court and try to become 
 
 > All teams, players, leagues and schools in this game are **fictional parodies**. Any resemblance to real people or teams is for fun only. No real logos or likenesses are used.
 
+## Tutorial
+
+Your first game, against Kai at Halsey Park, is the tutorial (`js/tutorial.js`). It is played with choices and minigames plus a live arcade segment, not full arcade like other pickups. It shows one thing at a time with a short tip from Lou: decisions and the success %, the shot meter and green releases, driving, passing, defense, free throws, arcade controls and a close call. Each tip pauses the game, highlights that part of the screen and shows the keys (desktop) or buttons (phone). Kai takes it easy and nobody can reach 15 until the tutorial is done; win or lose, the story goes on. Tips can be skipped (**Skip tutorial**), and **⚙ Settings → Replay tutorial** plays it again as practice.
+
 ## Controls
 
 | | Desktop | Phone / tablet |

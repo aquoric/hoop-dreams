@@ -197,7 +197,7 @@ STORY.chapters.street = {
         ['narrator', 'Halsey Street vs. Sterling Squad — call your own fouls, winners stay on. Half the block is already filming.'],
         ['tariq', 'Just get me the ball when I\'m open. And I\'m always open.', 'smile'],
       ], next: 'm1' },
-    m1: { type: 'match', us: 'halsey', them: 'sterling_squad', pickup: { size: 3, target: 15 }, venue: 'park_day', rating: 50, mateRating: 40, moments: 8, level: 'street',
+    m1: { type: 'match', us: 'halsey', them: 'sterling_squad', pickup: { size: 3, target: 15 }, tutorial: true, venue: 'park_day',   // the game's tutorial (js/tutorial.js): played with choices, not full arcade rating: 50, mateRating: 40, moments: 8, level: 'street',
       title: 'Pickup Game', sub: 'Halsey Street Courts', win: 'm1_win', lose: 'm1_loss' },
     m1_win: { scene: 'playground', fx: { flag: 'beat_kai', rep: 6, fans: 150, rel: { kai: 4 }, post: { by: 'fan', text: 'Some kid named {first} {last} just beat KAI STERLING at Halsey Street?? I was there 😭😭' } },
       lines: [

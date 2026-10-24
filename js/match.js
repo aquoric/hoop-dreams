@@ -1288,7 +1288,7 @@ const Match = (() => {
     const THEM = Balance.profile(oppR + 2);                                                     // their scorer
     const MATE = Balance.profile(cfg.mateRating || 45);                                         // your teammates
     const st = {
-      us: 0, them: 0, i: 0, box: { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, to: 0 },
+      us: 0, them: 0, i: 0, tutI: 0, tutDone: false, box: { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, to: 0 },
       succ: 0, att: 0, streak: 0, fire: false, sig: 0, sigUsed: false, sigUses: 0, mirror: 0, zone: false, postponed: false, fatigue: s.meta.fatigue * .4, clutchN: 0, clutchW: 0, perfects: 0, highlights: [],
       counters: {}, gameWinner: false, lastType: '', posterizers: 0, clutch: false, last: false, fb: 0,
       wUses: {}, waitInput: 0, inputOffs: new Set(), beatAt: 0, oppSig: 0, starRun: 0, takeover: 0, closeN: 0, closeKinds: {}, mateMakes: 0, wMini: {}, run: { side: null, pts: 0 }, talkN: 0, talkAt: -9, talkQ: null, failRun: 0, bench: 0, nextBonus: null, rattled: 0, shaken: 0, refFavor: false, minutes: false,
@@ -1408,9 +1408,12 @@ const Match = (() => {
     }
     /* pickups ("first to N"): every real basket counts — the first team to reach the target wins on the spot */
     const PICK = !!cfg.target;
-    const FEAT = typeof Features !== 'undefined';   // unlockable features (js/features.js): playbook, duo moves, the jelly
+    const FEAT = typeof Features !== 'undefined';
+    const TUT = !!cfg.tutorial && typeof Tutorial !== 'undefined';   // the first Kai game teaches the game (js/tutorial.js)
+    const tutOn = () => TUT && !st.tutDone;   // unlockable features (js/features.js): playbook, duo moves, the jelly
     function addPts(side, p, info) {
       if (!p || st.done) return;
+      if (tutOn() && PICK && st[side] + p > cfg.target - 2) { p = Math.max(0, cfg.target - 2 - st[side]); if (!p) return; }   // nobody wins (or loses) before the tutorial is covered
       const lead0 = side === 'us' ? st.us - st.them : st.them - st.us;
       if (side === 'us') st.us += p; else st.them += p;
       // the record of the play (who, what, where, when) — the deciding one becomes the game-winner cutscene
@@ -1463,6 +1466,7 @@ const Match = (() => {
       if (Engine.hasSpecial(s, 'misdirection') && st.i < 3 && action !== 'ft') out.push({ label: 'Misdirection', v: 12 });
       if (Engine.hasSpecial(s, 'mirror') && st.mirror && ['three', 'mid', 'finish', 'dunk', 'str', 'pass'].includes(key)) out.push({ label: 'Perfect Copy', v: st.mirror });
       if (st.zone) out.push({ label: 'The Zone', v: 12 });
+      if (tutOn()) out.push({ label: 'Warm-up', v: 6 });
       if (st.nextBonus && action !== 'ft') out.push(st.nextBonus);
       if (st.shaken > 0) out.push({ label: 'Shaken', v: -4 });
       const wsv = ({ intD: .6, steal: .4, perD: .4, str: .3, dunk: .3, reb: .4 }[key] || 0) * APE; if (Math.abs(wsv) >= .5) out.push({ label: 'Wingspan', v: Math.round(wsv) });
@@ -1494,6 +1498,7 @@ const Match = (() => {
           return `<button class="opt ${o.cls || ''}" data-i="${i}"><kbd>${i + 1}</kbd><span class="opt-l">${o.label}<small>${o.desc || ''}${o.mg ? ` <i class="opt-mg">🎮 ${o.mg}</i>` : ''}</small></span>${pc}${tip}</button>`;
         }).join('')}</div><div class="mp-hint">Hover or long-press an option to see what affects its %.</div>`;
         p.classList.add('show'); p.classList.remove('busy');
+        if (st.tutChoose) { const id = st.tutChoose; st.tutChoose = null; setTimeout(() => tutTip(id), 60); }
         let long = false, timer = null;
         let gone = false; const go = i => { if (!options[i] || gone) return; gone = true; p.classList.remove('show'); SFX.play('click'); res(options[i]); };
         const kd = e => { const k = parseInt(e.key, 10); if (k >= 1 && k <= options.length) go(k - 1); };
@@ -1599,6 +1604,45 @@ const Match = (() => {
       if (sigReady()) weaponOpts('off').forEach(w => o.push(w));
       return o;
     }
+    /* ---------- TUTORIAL (cfg.tutorial): one thing at a time, a tip before each ---------- */
+    const meterArt = '<div class="tut-meter"><i class="g"></i><i class="p"></i><b></b></div>';
+    const TIPS = {
+      decide: { title: 'Every play is a choice', target: ['#panel .mp-opts'], text: 'Each option shows your odds: green is good, yellow is a coin flip, red is a prayer. Pick what fits YOUR stats — hover or long-press to see why.', keys: ['1', '2', '3', 'or click'], phone: ['Tap an option'] },
+      meter: { title: 'The shot meter', target: ['#courtWrap'], text: 'Stop the bar in the green. Hit the bright line for a GREEN release — and the farther out you are, the smaller the green gets.', art: meterArt, keys: ['SPACE', 'or click'], phone: ['TAP'] },
+      drive: { title: 'Attack the rim', target: ['#courtWrap'], text: 'Read his lean and go the other way for a BLOW BY. If you gather, hit left-right on the beat, then release when the ring meets the rim.', keys: ['← / →', 'SPACE'], phone: ['◀ / ▶', 'TAP'] },
+      pass: { title: 'Find the open man', target: ['#panel .mp-opts'], text: 'Every teammate shows his own %. Pick the open one, then tap him when he lights up. Assists win games — and build chemistry.', keys: ['1–3', 'then 1–4 / click'], phone: ['Tap him', 'then tap the glow'] },
+      defense: { title: 'Lock him up', target: ['#panel .mp-opts'], text: 'On D, pick your approach first. Then mirror his move — slide left or right, jump to contest. Don\'t bite on the fake.', keys: ['←', '→', '↑ contest'], phone: ['◀', '▶', '▲'] },
+      ft: { title: 'Free throws', target: ['#courtWrap'], text: 'The reticle drifts. Release when it\'s centered on the rim — tired legs make it shake more.', keys: ['SPACE', 'or click'], phone: ['TAP'] },
+      arcade: { title: 'Now play it live', target: ['#courtWrap'], text: 'Fast break — you control everything. Move, shoot at the top of your jump, beat your man with a dribble move, and jump to block.', keys: ['WASD move', 'J shoot / jump', 'K pass', 'L dribble move'], phone: ['Joystick', 'SHOOT', 'PASS', 'MOVE'] },
+      close: { title: 'Close call', target: ['#courtWrap'], text: 'The game slows down when it\'s tight. React fast — set your feet before he gets there.', keys: ['SPACE', 'or click'], phone: ['TAP'] },
+    };
+    const TUT_STEPS = ['shoot', 'drive', 'pass', 'defense', 'ft', 'arcade', 'close'], TIP_I = { decide: 1, meter: 2, drive: 3, pass: 4, defense: 5, ft: 6, arcade: 7, close: 8 };
+    async function tutTip(id) {
+      if (!tutOn() || !TIPS[id] || (st.tipSeen = st.tipSeen || {})[id]) return; st.tipSeen[id] = 1;
+      st.waitInput++; mgHold = true;
+      try { const r = await Tutorial.tip(TIPS[id], { i: TIP_I[id], n: 8 }); if (r === 'skip') endTutorial(true); }
+      catch (e) { console.warn('tutorial tip', e); }
+      finally { st.waitInput = Math.max(0, st.waitInput - 1); mgHold = false; beat(); }
+    }
+    function endTutorial(skipped) {
+      if (st.tutDone) return; st.tutDone = true; st.tutChoose = null; document.querySelectorAll('.tut').forEach(e => e.remove());
+      pbp(skipped ? '⏭ Tutorial skipped. First to 15 — go win it.' : '🎓 <b>Tutorial complete.</b> Kai stops playing nice. First to 15.', 'sys');
+      if (!skipped) banner('<small>TUTORIAL COMPLETE</small>NOW BEAT HIM', 'win', 1400);
+    }
+    async function tutMoment() {
+      const id = TUT_STEPS[st.tutI++]; st.tut = id; st.i = Math.max(st.i, 0);
+      try {
+        if (id === 'shoot') { st.tutChoose = 'decide'; await offPossession(null, 'shoot'); }
+        else if (id === 'drive') await offPossession(null, 'drive');
+        else if (id === 'pass') { st.tutChoose = 'pass'; await passMoment('kickout', 'Tariq is wide open in the corner. Kai\'s cheating off him.'); }
+        else if (id === 'defense') { st.tutChoose = 'defense'; await defPossession(); }
+        else if (id === 'ft') { pbp('You get hacked going to the rim. Two shots.'); await tutTip('ft'); if (tutOn()) await T.free_throws({ shots: 2 }); }
+        else if (id === 'arcade') { await tutTip('arcade'); if (tutOn()) { pbp('Kai coughs it up — you\'re off!', 'good'); await arcadeSegment('fastbreak', { sub: 'TUTORIAL · PLAY IT LIVE', trigger: 'steal', handler: 'me', forceHelp: true }); } }
+        else if (id === 'close') { await tutTip('close'); if (tutOn()) await closeCall('charge'); }
+      } finally { st.tut = null; }
+      if (st.tutI >= TUT_STEPS.length) endTutorial(false);
+      return 'tut_' + id;
+    }
     /* the jelly moment (story): a rim protector waiting at the rim, once a game (cfg.jellyMoment) */
     const JM = cfg.jellyMoment && FEAT && Features.jellyOn(s) ? cfg.jellyMoment : null;
     const jmDue = () => !!JM && !st.jmDone && !st.clutch && (JM.first || st.i >= Math.floor(n * .55));
@@ -1662,12 +1706,14 @@ const Match = (() => {
       } else { SFX.play('groan'); pbp(say('jelly_miss') + ` <i class="pct-note">${fin}%</i>`); fail(); await boardAfterMiss(true); }
       return ok;
     }
-    async function offPossession(clutchCtx) {
-      const sit = clutchCtx ? (s.player.pos === 'C' ? 'post' : 'top') : pickSit();
+    async function offPossession(clutchCtx, tutKind) {
+      const sit = clutchCtx ? (s.player.pos === 'C' ? 'post' : 'top') : (tutKind ? 'wing' : pickSit());
       formation('us', SPOTS[sit]); court.ball.holder = U;
       const shot = clutchCtx ? Math.ceil(clk.rem) : Math.floor(rnd(4, 18)); $('sbShot').textContent = shot;
       const text = clutchCtx ? clutchCtx.text : Engine.pick(SIT_TEXT[sit]).replace('{def}', properName(star.name.split(' ').slice(-1)[0])).replace('{sc}', shot);
       let opts = offOptions(sit, clutchCtx), txt = text;
+      if (tutKind === 'shoot') { const sh = opts.filter(x => x.k === 'catch' || x.k === 'pull'); if (sh.length) opts = sh; txt = 'You catch it on the wing. Kai is a step late.'; }
+      if (tutKind === 'drive') { const dr = opts.filter(x => x.k === 'layup'); if (dr.length) opts = dr; txt = 'Kai crowds you on the wing. Make him pay.'; }
       if (!clutchCtx && jmDue()) {   // the story's jelly moment: drive at the rim protector
         st.jmDone = true; st.jmNow = JM; txt = JM.text;
         const dr = opts.find(x => x.k === 'layup'); if (dr) { dr.label = '🍯 Attack the rim'; dr.desc = 'He\'s waiting for you. Go around him.'; dr.cls = 'jm'; opts = [dr].concat(opts.filter(x => x !== dr)); }
@@ -1679,6 +1725,8 @@ const Match = (() => {
       if (!o.chained) tire();
       const setup = `<b>${escH(text)}</b>`, JMn = o.k === 'layup' ? st.jmNow : null; st.jmNow = null; st.astNext = null;
       if (o.k === 'sig') return weapon(setup, o.wid);
+      if (st.tut === 'shoot' && (o.k === 'catch' || o.k === 'pull')) await tutTip('meter');
+      if (st.tut === 'drive' && o.k === 'layup') await tutTip('drive');
       if (o.k === 'duo') return duoPlay(o, setup);
       if (o.k === 'play') {   // a set play from the Playbook: the choreography, then the shot it was drawn up for
         cnt('setPlays'); await runPlay(o.play); pbp(`📋 <b>${escH(o.play.name)}</b>.`, 'sys');
@@ -1893,7 +1941,7 @@ const Match = (() => {
       if (st.starRun >= OB.star.heatAt && !(st.takeover > 0)) { st.takeover = OB.star.takeover; queueTalk('rival', .7); court.aura(STAR, '#ef4444', 3); pbp(`🔥 <b>${escH(STAR.short)} is taking over!</b> ${st.starRun} straight bucket${st.starRun > 1 ? 's' : ''}.`, 'bad'); banner(`<small>${escH(STAR.full)}</small>IS TAKING OVER`, 'fire', 1300); SFX.play('roar'); }
     }
     const heatBonus = by => by !== STAR ? [] : [].concat(st.takeover > 0 ? [{ label: 'Taking over', v: OB.star.bonus }] : [], st.rattled > 0 ? [{ label: 'Rattled', v: -8 }] : []);
-    const diffBonus = () => diffShift ? [{ label: 'Difficulty', v: Math.round(diffShift * .6) }] : [];
+    const diffBonus = () => (diffShift ? [{ label: 'Difficulty', v: Math.round(diffShift * .6) }] : []).concat(tutOn() ? [{ label: 'Warm-up', v: -8 }] : []);   // Kai takes it easy until the tutorial is done
     /* a teammate's own possession — you choose how to help, then he plays it with his stats (and maybe a weapon) */
     async function matePlay() {
       const mates = MATES(); if (!mates.length) return offPossession();
@@ -2014,7 +2062,7 @@ const Match = (() => {
     const talkLook = id => { const P = TK && TK.personalities[id]; if (!P) return null; if (P.kind === 'rival') return Object.assign({}, STAR.look, { jersey: cfg.them.colors[0], trim: cfg.them.colors[1], outfit: 'jersey' }); if (P.kind === 'mate') return TMATE() ? TMATE().look : Art.lookFromSeed(id, P.look || {}); if (P.char && STORY.characters[P.char]) return UI.charLook(P.char); return Art.lookFromSeed(P.name || id, P.look || {}); };
     const talkName = id => { const P = TK.personalities[id]; return P.kind === 'rival' ? STAR.full : P.kind === 'mate' ? (TMATE() ? TMATE().full || TMATE().name : 'Teammate') : P.char && STORY.characters[P.char] ? STORY.characters[P.char].name : P.name || 'Coach'; };
     /* ask for a conversation at the next dead ball (with probability p) */
-    function queueTalk(type, p = 1, topic) { if (!TK || st.talkQ || st.done || st.talkN >= ((BALANCE.talk && BALANCE.talk.perGame) ?? 1) || Math.random() > p) return; if (type === 'coach' && !coachId) return; if (type === 'ref' && !refId) return; st.talkQ = { type, topic }; if (type === 'coach' && typeof Cutscene !== 'undefined') Cutscene.prep(talkLook(coachId)); }
+    function queueTalk(type, p = 1, topic) { if (!TK || tutOn() || st.talkQ || st.done || st.talkN >= ((BALANCE.talk && BALANCE.talk.perGame) ?? 1) || Math.random() > p) return; if (type === 'coach' && !coachId) return; if (type === 'ref' && !refId) return; st.talkQ = { type, topic }; if (type === 'coach' && typeof Cutscene !== 'undefined') Cutscene.prep(talkLook(coachId)); }
     /* =================================================================
        IN-GAME DIALOGUE AS A MINI CUTSCENE — the game pauses, the camera pushes in, letterbox bars slide in and the
        background dims. You and the other person face off in big 16-bit portraits (expressions change as you talk);
@@ -2404,7 +2452,7 @@ const Match = (() => {
       await banner(`<small>${escH(o.sub || '')}</small>${K.title}`, 'fb seg-' + kind, kind === 'final' ? 1200 : 800);
       const hd = no > 1 ? (o.handler || 'me') : 'me';
       let r = null; try { r = await Arcade.segment({ kind, setup, offense, clock, clockLabel, untilClock, title: kind === 'fastbreak' && no > nd ? `FAST BREAK! ${no} ON ${nd}` : K.title,
-        us: cfg.us, them: cfg.them, star, oppRating: oppR, mateRating: cfg.mateRating || 45, numbers: [no, nd], backD, handler: hd,
+        us: cfg.us, them: cfg.them, star, oppRating: oppR - (tutOn() ? 8 : 0), forceHelp: !!o.forceHelp, mateRating: cfg.mateRating || 45, numbers: [no, nd], backD, handler: hd,
         score: [st.us, st.them], venue: court.venueId, bonus: a => bonuses(a), stats: Object.assign({}, ME), stamina: 100 - st.fatigue, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank })), level: s.player.level }); } catch (e) { console.error('arcade segment', e); }
       document.querySelectorAll('.arc').forEach(el => el.remove()); document.body.classList.remove('arc-open');   // nothing left on top of the match
       if (!r || typeof r !== 'object') r = { ptsUs: 0, ptsThem: 0, end: 'set', me: {}, all: [], log: [], weapons: [] };
@@ -2600,7 +2648,8 @@ const Match = (() => {
       if (st.clutch) { SFX.music('clutch'); SFX.play('heartbeat'); st.clutchN++; if (i === n - 2 || last) await banner('CLUTCH TIME', 'clutch', 1100); }
       const periodEnds = !last && clockFor(i + 1).per !== clk.per;
       const type = await guardMoment(async () => { let type;
-      if (jmDue() && !last) { await RUN.off_poss(); type = 'off_poss'; }   // the story's jelly moment comes first
+      if (tutOn() && st.tutI < TUT_STEPS.length) type = await tutMoment();
+      else if (jmDue() && !last) { await RUN.off_poss(); type = 'off_poss'; }   // the story's jelly moment comes first
       else if (last && st.clutch && canSeg()) {   // FINAL POSSESSION — the biggest moment of the game, played live
         const secs = clamp(Math.ceil(clk.rem), 6, 14);
         if (diff <= 0) {

@@ -194,7 +194,8 @@ const UI = (() => {
         <label>Text speed<select id="tspd"><option value="1">Slow</option><option value="2">Normal</option><option value="4">Fast</option><option value="99">Instant</option></select></label>
       </div>
       ${inGame ? `<h3>Save</h3><div class="row wrap">${['1', '2', '3'].map(n => `<button class="btn sm" data-save="${n}">Save to Slot ${n}</button>`).join('')}<button class="btn sm ghost" data-a="export">Export save file</button><button class="btn sm ghost" data-a="load">Load…</button></div>
-      <h3>Career</h3><div class="row wrap"><span class="muted">Difficulty: <b>${DIFFICULTY[S().difficulty].name}</b></span><button class="btn sm ghost" data-a="menu">Main Menu</button><button class="btn sm danger" data-a="restart">Restart Career</button></div>` : ''}
+      <h3>Career</h3><div class="row wrap"><span class="muted">Difficulty: <b>${DIFFICULTY[S().difficulty].name}</b></span><button class="btn sm ghost" data-a="menu">Main Menu</button><button class="btn sm danger" data-a="restart">Restart Career</button></div>
+      ${document.body.dataset.screen !== 'match' ? '<h3>Tutorial</h3><div class="row wrap"><span class="muted">Replay the first game against Kai as practice. Nothing counts.</span><button class="btn sm ghost" data-a="tutorial">Replay tutorial</button></div>' : ''}` : ''}
       <h3>Music</h3><div class="row wrap"><span class="muted">Now playing: <b id="npName">${esc((SFX.song && SFX.song.name) || '—')}</b></span><button class="btn sm ghost" id="npSkip">Next track ⏭</button></div>`);
     $('#tspd', m.el).value = String(settings.textSpeed);
     $('#tspd', m.el).onchange = e => { settings.textSpeed = +e.target.value; saveSettings(); };
@@ -206,6 +207,7 @@ const UI = (() => {
       if (a === 'export') Engine.exportSave(S());
       if (a === 'load') { m.close(); loadMenu(); }
       if (a === 'menu') { m.close(); Game.save(); title(); }
+      if (a === 'tutorial') { m.close(); Tutorial.replay(); }
       if (a === 'restart') { if (await confirmBox('Restart career?', 'Your current autosave will be overwritten when you start a new career. Manual slots are kept.', 'Restart')) { m.close(); create(); } }
     });
   }

@@ -234,8 +234,11 @@ const Game = {
     if (node.mateRel != null) cfg.mateRating = o0 + node.mateRel;
     if (node.venueSide) cfg.venue = node.venueSide;
     cfg.jellyMoment = node.jellyMoment || this.jellyPayoff(cfg.importance);
-    if (node.pickup) Object.assign(cfg, { fullArcade: true, size: node.pickup.size || 3, target: node.pickup.target || 21, sub: `${cfg.sub ? cfg.sub + ' · ' : ''}${node.pickup.size || 3}v${node.pickup.size || 3}, first to ${node.pickup.target || 21}` });
+    if (node.tutorial && !s.flags.tutorial_done) Object.assign(cfg, { tutorial: true, size: node.pickup.size || 3, target: node.pickup.target || 15, moments: (node.moments || 8) + 3,   // the first Kai game: choices + minigames + arcade segments, taught step by step
+      sub: `${cfg.sub ? cfg.sub + ' · ' : ''}Tutorial · first to ${node.pickup.target || 15}` });
+    if (node.pickup && !(node.tutorial && !s.flags.tutorial_done)) Object.assign(cfg, { fullArcade: true, size: node.pickup.size || 3, target: node.pickup.target || 21, sub: `${cfg.sub ? cfg.sub + ' · ' : ''}${node.pickup.size || 3}v${node.pickup.size || 3}, first to ${node.pickup.target || 21}` });
     const r = await Match.play(cfg);
+    if (cfg.tutorial) s.flags.tutorial_done = true;
     this.unlockVenue(r.venueId);
     await this.bigMoment(r);
     const summary = this.applyMatch(r, node);

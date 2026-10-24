@@ -1205,7 +1205,7 @@ const Arcade = (() => {
       requestAnimationFrame(() => root.classList.add('in'));
       raf = requestAnimationFrame(loop);
       let seen = false; try { seen = localStorage.getItem('hd_arcade_help2') === '1'; } catch (e) { }
-      if (!seen) { showHelp(); G.wasPaused = true; } else begin();
+      if (!seen || cfg.forceHelp) { showHelp(); G.wasPaused = true; } else begin();   // the tutorial always shows the controls
     }
   }
 
@@ -1244,7 +1244,7 @@ const Arcade = (() => {
     const pace = BALANCE.arcade.pace;
     return run({ mode: 'seg', teams: [{ name: m.us.name, abbr: m.us.abbr, colors: m.us.colors, players: usPl }, { name: m.them.name, abbr: m.them.abbr, colors: m.them.colors, players: thPl }],
       seg: { kind: m.kind || 'fastbreak', setup: m.setup || 'break', offense: m.offense != null ? m.offense : 0, clock: m.clock || pace.breakClock, clockLabel: m.clockLabel || 'BREAK', untilClock: !!m.untilClock, handler: m.handler },
-      backD: m.backD, score: m.score, venue: m.venue || 'rec_center', title: m.title || 'FAST BREAK!' });
+      backD: m.backD, score: m.score, venue: m.venue || 'rec_center', title: m.title || 'FAST BREAK!', forceHelp: m.forceHelp });
   }
   function fastBreak(m) { const [no, nd] = m.numbers || [2, 1]; return segment(Object.assign({ kind: 'fastbreak', setup: 'break', offense: 0, title: no > nd ? `FAST BREAK! ${no} ON ${nd}` : 'FAST BREAK!' }, m)); }
   return { play, segment, fastBreak, userPlayer, crew, movesFor };

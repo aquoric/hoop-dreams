@@ -1247,3 +1247,30 @@ body.fs[data-screen=match] .corner .icon-btn { width: 30px; height: 30px; font-s
 .cs-score b.bump { animation: csBump .45s cubic-bezier(.2, 1.8, .4, 1); }
 @keyframes csBump { 40% { transform: scale(1.35); color: #fde68a; } }
 .cs-score i.zero { color: #ef4444; text-shadow: 0 0 8px rgba(239, 68, 68, .8); }
+
+/* =====================================================================
+   TUTORIAL TIPS (js/tutorial.js)
+   ===================================================================== */
+.tut { position: fixed; inset: 0; z-index: 8000; opacity: 0; transition: opacity .2s; }
+.tut.in { opacity: 1; }
+.tut-dim { position: absolute; inset: 0; background: rgba(3, 5, 10, .66); }
+.tut-hole { position: absolute; border-radius: 8px; box-shadow: 0 0 0 9999px rgba(3, 5, 10, .66), 0 0 0 3px #facc15, 0 0 26px 4px rgba(250, 204, 21, .7); animation: tutGlow 1.1s ease-in-out infinite; pointer-events: none; }
+@keyframes tutGlow { 50% { box-shadow: 0 0 0 9999px rgba(3, 5, 10, .66), 0 0 0 3px #fde68a, 0 0 40px 10px rgba(250, 204, 21, .9); } }
+.tut-ptr { position: absolute; transform: translateX(-50%); font-size: 1.8rem; color: #facc15; text-shadow: 0 2px 0 #000; animation: tutBob .7s ease-in-out infinite alternate; pointer-events: none; }
+.tut-ptr.up { animation-name: tutBobDown; }
+@keyframes tutBob { to { transform: translate(-50%, -8px); } } @keyframes tutBobDown { to { transform: translate(-50%, 8px); } }
+.tut-card { position: absolute; left: 50%; transform: translateX(-50%); width: min(520px, calc(100vw - 32px)); padding: 14px 16px; background: var(--pxpanel); border: 3px solid #facc15; box-shadow: 0 0 0 3px #000, 0 10px 40px rgba(0, 0, 0, .6); }
+.tut-card.bottom { bottom: max(16px, env(safe-area-inset-bottom)); } .tut-card.top { top: 16px; }
+.tut-head { display: flex; gap: 10px; align-items: center; }
+.tut-av { width: 48px; height: 48px; flex: none; overflow: hidden; background: #0b0f1c; border: 2px solid #facc15; } .tut-av svg { width: 100%; height: 100%; }
+.tut-head small { font-family: var(--px); font-size: .58rem; letter-spacing: .14em; color: #94a3b8; } .tut-head h3 { margin: 2px 0 0; font-family: var(--display); font-size: 1.6rem; letter-spacing: .04em; color: #fde68a; }
+.tut-card p { margin: 8px 0; font-size: .95rem; line-height: 1.4; }
+.tut-keys { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0 2px; }
+.tut-keys span { font-family: var(--px); font-size: .55rem; color: #94a3b8; letter-spacing: .14em; }
+.tut-keys kbd { font-family: var(--px); font-size: .68rem; padding: 4px 8px; background: #111827; border: 2px solid #475569; border-bottom-width: 4px; color: #f8fafc; }
+.tut-btns { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.tut-meter { position: relative; width: 26px; height: 90px; margin: 4px auto; background: #0b0f1c; border: 2px solid #475569; }
+.tut-meter .g { position: absolute; left: 0; right: 0; bottom: 64%; height: 22%; background: rgba(74, 222, 128, .45); }
+.tut-meter .p { position: absolute; left: 0; right: 0; bottom: 74%; height: 2px; background: #bbf7d0; box-shadow: 0 0 6px #4ade80; }
+.tut-meter b { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: #f97316; animation: tutFill 1.6s ease-in infinite; }
+@keyframes tutFill { 0% { height: 0; } 75% { height: 75%; } 100% { height: 75%; } }
