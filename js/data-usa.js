@@ -38,8 +38,8 @@ const USA_FLAG = ['#1e3a8a', '#dc2626', '#f8fafc'];
 Object.assign(LOCAL_TEAMS, {
   usa:       { name: 'USA Youth', abbr: 'USA', colors: ['#1e3a8a', '#dc2626', '#f8fafc'], logo: { shape: 'shield', icon: 'stars' }, roster: ['Kai Sterling', 'Jalen "Jet" Brooks', 'Malik Okafor', 'Milo Park', 'Andre "Dre" Castillo'] },
   usa_red:   { name: 'Camp Red', abbr: 'RED', colors: ['#dc2626', '#f8fafc', '#1e3a8a'], logo: { shape: 'circle', icon: 'stars' }, roster: ['Milo Park', 'Malik Okafor', 'Andre "Dre" Castillo', 'Cam Rivers'] },
-  usa_white: { name: 'Camp White', abbr: 'WHT', colors: ['#f8fafc', '#1e3a8a', '#dc2626'], logo: { shape: 'circle', icon: 'stars' }, roster: ['Kai Sterling', 'Jalen "Jet" Brooks', 'Darius "D-Train" Holt', 'Tyrese Whitlock'], star: { name: 'Kai Sterling', perD: 66, intD: 52 } },
-  usa_kai3:  { name: 'Kai\'s Crew', abbr: 'KAI', colors: ['#1e3a8a', '#facc15', '#ffffff'], logo: { shape: 'diamond', icon: 'crown' }, roster: ['Kai Sterling', 'Jalen "Jet" Brooks', 'Isaiah Grant'], star: { name: 'Kai Sterling', perD: 66, intD: 52 } },
+  usa_white: { name: 'Camp White', abbr: 'WHT', colors: ['#f8fafc', '#1e3a8a', '#dc2626'], logo: { shape: 'circle', icon: 'stars' }, roster: ['Kai Sterling', 'Jalen "Jet" Brooks', 'Darius "D-Train" Holt', 'Isaiah "Big Ike" Grant'], star: { name: 'Kai Sterling', perD: 66, intD: 52 } },
+  usa_kai3:  { name: 'Kai\'s Crew', abbr: 'KAI', colors: ['#1e3a8a', '#facc15', '#ffffff'], logo: { shape: 'diamond', icon: 'crown' }, roster: ['Kai Sterling', 'Jalen "Jet" Brooks', 'Isaiah "Big Ike" Grant'], star: { name: 'Kai Sterling', perD: 66, intD: 52 } },
   usa_open:  { name: 'Open Tryout Squad', abbr: 'OPN', colors: ['#334155', '#f8fafc', '#0f172a'], logo: { shape: 'circle', icon: 'ball' }, roster: ['Zeke Monroe', 'Luis Ortega', 'Devin Shaw'] },
   /* the World Youth Championship field — fictional players, national styles */
   aus_u19: { name: 'Australia U19', abbr: 'AUS', colors: ['#15803d', '#facc15', '#ffffff'], logo: { shape: 'roundel', icon: 'bolt' }, pace: .25,     // fast-paced
@@ -55,11 +55,11 @@ Object.assign(LOCAL_TEAMS, {
   esp_u19: { name: 'Spain U19', abbr: 'ESP', colors: ['#b91c1c', '#facc15', '#111827'], logo: { shape: 'shield', icon: 'sun' },                // tough, smart Europeans
              roster: ['Marc Ribera', 'Iker Solana', 'Pau Castells', 'Hugo Arnau'], star: { name: 'Marc Ribera', perD: 64, intD: 58 } },
   fra_u19: { name: 'France U19', abbr: 'FRA', colors: ['#1d4ed8', '#f8fafc', '#dc2626'], logo: { shape: 'diamond', icon: 'crown' },           // the rival nation
-             roster: ['Bastien Mbaye', 'Enzo Lacaze', 'Yanis Bakari', 'Louis Ferrand'], star: { name: 'Bastien Mbaye', perD: 70, intD: 64 } },
+             roster: ['Bastien Mbaye', 'Yanis Bakari', 'Enzo Lacaze', 'Louis Ferrand'], star: { name: 'Bastien Mbaye', perD: 70, intD: 64 } },
 });
 Object.assign(PLAYER_WEAPONS, {
   'Jalen "Jet" Brooks': ['lightning_dribble', 'floater'], 'Malik Okafor': ['destroyer', 'hammer_board'], 'Milo Park': ['logo_three', 'barrier_jumper'], 'Andre "Dre" Castillo': ['no_look', 'pickpocket'],
-  'Darius "D-Train" Holt': ['poster_dunk', 'post_fade'], 'Tyrese Whitlock': ['chase_block'], 'Cam Rivers': ['step_back'], 'Isaiah Grant': ['sky_hook'],
+  'Darius "D-Train" Holt': ['poster_dunk', 'post_fade'], 'Tyrese Whitlock': ['chase_block'], 'Cam Rivers': ['step_back'], 'Isaiah "Big Ike" Grant': ['destroyer', 'sky_hook'], 'Yanis Bakari': ['destroyer', 'hammer_board'],
   'Lachie Doyle': ['lightning_dribble', 'euro_step'], 'Bailey Moana': ['floater'], 'Rokas Valaitis': ['barrier_jumper', 'step_back'], 'Mantas Girdz': ['logo_three'],
   'Dion Achebe': ['vanishing_drive', 'poster_dunk'], 'Tomás Ferraro': ['step_back', 'no_look'], 'Vuk Radenko': ['sky_hook', 'destroyer'], 'Lazar Petrak': ['post_fade', 'hammer_board'],
   'Marc Ribera': ['no_look', 'post_fade'], 'Iker Solana': ['lockdown'], 'Bastien Mbaye': ['sky_three', 'chase_block'], 'Enzo Lacaze': ['robbery'],
@@ -76,7 +76,7 @@ const USA_CAMP = {
   campers: [
     { name: 'Kai Sterling', off: 9 }, { name: 'Jalen "Jet" Brooks', off: 7 }, { name: 'Darius "D-Train" Holt', off: 6 }, { name: 'Malik Okafor', off: 5 },
     { name: 'Andre "Dre" Castillo', off: 4 }, { name: 'Milo Park', off: 3 }, { name: 'Tyrese Whitlock', off: 2 }, { name: 'Cam Rivers', off: 1 },
-    { name: 'Isaiah Grant', off: 0 }, { name: 'Nate Holloway', off: -1 }, { name: 'Brandon Vale', off: -2 }, { name: 'Zeke Monroe', off: -3 },
+    { name: 'Isaiah "Big Ike" Grant', off: 0 }, { name: 'Nate Holloway', off: -1 }, { name: 'Brandon Vale', off: -2 }, { name: 'Zeke Monroe', off: -3 },
     { name: 'Luis Ortega', off: -4 }, { name: 'Devin Shaw', off: -5 }, { name: 'Corey Banks', off: -6 }, { name: 'Ty Morales', off: -8 },
   ],
   scale: 2,           // camp points per rating point of offset

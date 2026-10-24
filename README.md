@@ -71,9 +71,27 @@ Download the code and double-click **`index.html`**. There's no install, no buil
 - **Instant replays**: dunks, deep threes, blocks, broken ankles, and-ones and buzzer-beaters replay the actual play from two angles, the second in slow motion.
 - **Fullscreen** (⛶ in the match bar, offered at tip-off): the court fills the screen and the scorebug, choices, play-by-play, box score and gauges share one side panel. On portrait phones everything stacks.
 - **Layup drives**: read your defender's tell (lean, feet, reach or hips) and attack the other side for a BLOW BY, or get CUT OFF (tough finish, charge or steal). Sometimes you also hit a left-right gather step before the layup release. Windows and odds are in `BALANCE.layup`.
+- **Feature unlocks** (`js/data-features.js`, `js/features.js`): each chapter opens something new with a **NEW FEATURE UNLOCKED** cinematic (it waits for a calm screen, never mid-game) and its own hub tab. Old saves get one combined popup for everything they'd already earned. The Career tab lists every feature and when it unlocks.
+  - **Court Rep Map** (Chapter 1): six court legends, from Old Man Riggs on Halsey Street to "Monsoon" Marcus Vane in the rain. Beat each one 1-on-1 (arcade, first to 11) for Rep and fans; that opens the next court.
+  - **Playbook** (Chapter 2): your coach teaches set plays one at a time (Practice with Coach, 1 action): Pick-and-Roll, Backdoor Cut, Isolation, Post Entry, Flare Screen, Horns. Learned plays become offense options in team games, each with its own % and court animation.
+  - **Highlight Mixtape** (Chapter 2): your best plays are saved after every game; release a tape once a season for a recruiting, follower and Rep boost based on how good the clips are.
+  - **Chemistry Links** (national team): play with Dre, Jet, Malik, Milo or Kai and build a link. Max it for a duo move (give-and-go, Jet Lob, High-Low, Drive & Kick, Two-Man Game) in matches and arcade play.
+  - **Jelly Layups** (national team): Big Ike stuffs you at camp, assistant coach **Scoop DeLuca** teaches you the jelly on court two at night, it drops in the next morning run, and the payoff comes over France's 7-footer in the final (or in your next big game if you're cut; he teaches you in the parking lot before you leave). After you beat your man, pick **JELLY** when help is coming: in slow motion his arm swings up one side, flick to the other side (←/→), then tap as the ring closes on the glass. Arcade: drive at the rim with a defender close, **hold MOVE and shoot**. Kai and a few international stars have it too. Numbers in `BALANCE.jelly`.
+  - **Celebrations** (all chapters): unlocked by levels, wins, posters, game-winners and titles; yours plays after big buckets in matches and arcade play.
 - **Audio**: music and effects are synthesized with the Web Audio API; the crowd uses real recordings (one venue loop, capped reactions). 🔊 mutes everything.
 
 *Coming in later builds: College/Overseas/G-League routes (Chapter 3), the Draft, the 30-team pro league, overseas leagues, legacy endings.*
+
+**Future-chapter features switch on by themselves.** Their data and hub tabs are already in `js/data-features.js` / `js/features.js`; each one waits on `when: { chapter: '…' }` and unlocks the first time a player reaches that chapter, once it exists in `STORY.chapters` (ids in `CHAPTER_ORDER`):
+
+| Feature | Chapter id | Data |
+|---|---|---|
+| Weapon Training (Scoop DeLuca's missions: new weapons, free ranks, Reverse and Under-the-Arm Jelly) | `college` | `WEAPON_TRAINING` |
+| Combine Leaderboard (you vs the draft class + all-time records) | `draft` | `COMBINE` |
+| Signature Shoe (designer, avatar, sales → money and fans) | `pro` | `SHOE` |
+| Rivalry System (heat, grudge matches, face-offs) | `pro` | `RIVALRY` |
+
+Careers that skip the national team learn the jelly in Weapon Training.
 
 ## For tinkerers: editing the game
 
@@ -90,6 +108,8 @@ All content lives in plain, commented JavaScript objects. Edit them in any text 
 | `js/data-leagues.js` | Teams used in story games and seasons (`LOCAL_TEAMS`: playground crews, Metro Prep League high schools, AAU teams) with a `rating` for sims, fictional `COLLEGES` (prestige, coach, minutes/exposure/development), the 30 `NBL_TEAMS` and the `OVERSEAS_CLUBS` |
 | `js/data-story-ch2.js` | Chapter 2 (high school): new characters, season definitions, endings |
 | `js/season.js` | Reusable season engine: schedule, sims, standings, playoffs |
+| `js/data-features.js` | **Every unlockable feature and when it unlocks** (`FEATURES`), court legends, playbook, chemistry duos, celebrations, mixtape values, future-chapter data, the jelly story nodes |
+| `js/features.js` | Unlock checks, the unlock cinematic, feature hub tabs, after-game hooks, the jelly lesson |
 | `js/data-story.js` | **Characters** (portraits are generated from their `look`), **story chapters**, play-by-play commentary, social-feed accounts and templates, post-game reactions, endings |
 | `js/art.js` | Procedural art: avatars, team logos, badge icons, scene backgrounds |
 | `js/engine.js` | Stats, Overall, XP, effects, checks, save/load |

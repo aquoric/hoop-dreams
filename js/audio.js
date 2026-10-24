@@ -180,6 +180,9 @@ const SFX = (() => {
     /* GREEN: a perfect release — bright two-bell chime, sparkle, soft thump (clearly not a normal make) */
     green: () => { tone(1568, 0.5, 'triangle', 0.16, 0, sfxBus); tone(2093, 0.6, 'triangle', 0.13, 0.07, sfxBus); tone(3136, 0.35, 'sine', 0.05, 0.12, sfxBus); tone(784, 0.18, 'square', 0.05, 0, sfxBus, 1568); noise(0.4, 'highpass', 7000, 0.07, 0.05, 11000, 0.6); tone(70, 0.18, 'sine', 0.25, 0, sfxBus, 45); },
     /* dialogue voice blip — v: { f: pitch, w: wave } per character */
+    /* the jelly: a soft kiss off the glass, then a rubbery "bloop" + sparkle */
+    kiss: () => { noise(0.05, 'bandpass', 4200, 0.12, 0, 2600, 3); tone(1760, 0.12, 'sine', 0.07, 0, sfxBus, 1320); tone(2640, 0.08, 'sine', 0.03, 0.01); },
+    jelly: () => { tone(220, 0.28, 'sine', 0.22, 0, sfxBus, 660); tone(330, 0.22, 'triangle', 0.1, 0.05, sfxBus, 990); [1319, 1568, 2093].forEach((f, i) => tone(f, 0.16, 'triangle', 0.05, 0.12 + i * 0.05)); },
     blip: (v = {}) => tone((v.f || 300) * (0.94 + Math.random() * 0.12), 0.05, v.w || 'square', v.g || 0.035),
     /* venue ambience: one recorded loop at a time (Crowd.ambience); h = crowd excitement 0..1 */
     amb_city: h => Crowd.ambience('street', h), amb_park: h => Crowd.ambience('street', h), amb_wind: h => Crowd.ambience('street', h), amb_waves: h => Crowd.ambience('street', h), amb_rain: h => Crowd.ambience('street', h),

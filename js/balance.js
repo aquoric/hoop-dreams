@@ -33,6 +33,7 @@ const BALANCE = {
     catchMid: { name: 'Catch & shoot',    off: { mid: .9, iq: .1 },              def: { perD: 1 },                  base: 47, k: 0.55, skill: 32 },
     pull3:    { name: 'Pull-up 3',        off: { three: .7, handle: .3 },        def: { perD: 1 },                  base: 36, k: 0.55, skill: 34, three: true },
     pullMid:  { name: 'Pull-up jumper',   off: { mid: .7, handle: .3 },          def: { perD: 1 },                  base: 44, k: 0.55, skill: 32 },
+    jelly:    { name: 'Jelly layup',      off: { finish: .5, handle: .35, vert: .15 }, def: { perD: .55, intD: .3, vert: .15 }, base: 52, k: 0.55, skill: 32 },   // touch over power: rim protectors count less (BALANCE.jelly)
     layup:    { name: 'Drive & layup',    off: { finish: .5, speed: .25, handle: .25 }, def: { perD: .5, intD: .5 }, base: 55, k: 0.6, skill: 30 },
     dunk:     { name: 'Drive & dunk',     off: { dunk: .5, vert: .3, str: .2 },  def: { intD: .7, vert: .3 },       base: 62, k: 0.6, skill: 30, req: { dunk: 45, vert: 40 } },
     hook:     { name: 'Post hook',        off: { finish: .55, str: .45 },        def: { intD: .6, str: .4 },        base: 51, k: 0.6, skill: 30 },
@@ -51,6 +52,17 @@ const BALANCE = {
     move:     { name: 'Dribble move',     off: { handle: .8, speed: .2 },        def: { perD: .8, speed: .2 },      base: 38, k: .8, skill: 0 },   // arcade: beat your defender
   },
 
+  /* JELLY LAYUP — the underhand wrist-flick finish that curls around a shot blocker and spins up off the glass.
+     A little lower than a layup when you're open (actions.jelly + distance adj), much better against a rim protector:
+       contestFactor: how much of a contest still counts (× contested / heavy penalties)
+       blockFactor:   × block chance vs a normal layup (arcade + choices)      wrongBlock: chance you're blocked flicking toward his arm
+       offer:         choices mode offers it after the blow-by when you're cut off / contested or help is coming
+       flick:         the flick minigame: side-choice window (s, Ball Handling stretches it) and timing tolerance (s, Finishing widens it)
+       levels:        Weapon Training upgrades it: name + bonus % at each level */
+  jelly: { contestFactor: .32, blockFactor: .3, wrongBlock: .7, offer: ['contested', 'heavy'],
+           flick: { window: [.65, 1.15], tol: [.08, .14] },
+           levels: [{ name: 'Jelly Layup', bonus: 0 }, { name: 'Reverse Jelly', bonus: 3 }, { name: 'Under-the-Arm Jelly', bonus: 6 }] },
+
   /* SHOT DISTANCE — how far from the rim (feet) sets the starting % of every shot: choices, minigames and arcade, for you and everyone.
      curve:     [feet, %] for an AVERAGE shooter (50 shooting vs a 50 defender) who is OPEN; in between it's interpolated.
                 rim ~63 · short mid ~46 · long mid ~40 · corner three ~38 · three ~35 · deep three ~25 · logo ~13 · halfcourt ~3
@@ -66,8 +78,8 @@ const BALANCE = {
     curve: [[0, 64], [4, 60], [8, 50], [12, 46], [16, 42], [20, 40], [22, 38], [23.75, 35], [27, 25], [30, 19], [35, 13], [40, 7], [44, 3], [60, 2]],
     range: { from: 20, perPoint: .1, max: 4.5, weaponFt: 4, weapons: ['logo_three', 'sky_three'], fadeFrom: 25, fadeTo: 44 },   // fade: past fadeFrom ft, range help + skill shrink toward fadeTo
     heave: 44, heaveMax: 4, openBonus: 6,
-    adj: { catch3: 0, pull3: -3, catchMid: 0, pullMid: -2, fade: -3, hook: -2, layup: 0, dunk: 8 },
-    byAction: { layup: 2, dunk: 0, hook: 6, fade: 13, catchMid: 15, pullMid: 17, catch3: 23, pull3: 24 }, deepFt: 30,
+    adj: { catch3: 0, pull3: -3, catchMid: 0, pullMid: -2, fade: -3, hook: -2, layup: 0, dunk: 8, jelly: -4 },
+    byAction: { layup: 2, jelly: 3, dunk: 0, hook: 6, fade: 13, catchMid: 15, pullMid: 17, catch3: 23, pull3: 24 }, deepFt: 30,
     green: [1.15, .18, 1.6],   // window × at the rim, × from halfcourt, curve shape (higher = stays wide longer)
   },
 
@@ -276,8 +288,9 @@ const Balance = (() => {
     }
     const add = (label, v) => { if (v) { p += v; parts.push({ label, v: Math.round(v) }); } };
     if (ctx.contest === 'open') add('Open', SHOT ? D.openBonus : M.open);
-    if (ctx.contest === 'contested') add('Contested', M.contested);
-    if (ctx.contest === 'heavy') add('Heavily contested', M.heavy);
+    const cf = action === 'jelly' ? BALANCE.jelly.contestFactor : 1;   // the jelly curls around a contest
+    if (ctx.contest === 'contested') add('Contested', M.contested * cf);
+    if (ctx.contest === 'heavy') add('Heavily contested', M.heavy * cf);
     if (ctx.deep && !SHOT) add('Deep range', M.deep);
     if (ctx.shotClock) add('Shot clock', M.shotClock);
     if (ctx.fatigue) add('Tired', M.fatigue * ctx.fatigue / 100);

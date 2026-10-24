@@ -118,6 +118,7 @@ const Arcade = (() => {
           <p><b>Dribble move</b> L / SHIFT (MOVE). Stick away from where you face = crossover-type move, no stick = hesitation, stick forward with a defender in front = spin. Each move gives a burst of speed and a chance to beat or freeze your man. There's a short cooldown — spamming it can cost you the ball.</p>
           <p><b>Loose balls</b> run to the yellow ◎ (where it comes down) and press J / SPACE (GRAB) to dive for it. Speed, Vertical and Strength decide close calls.</p>
           <p><b>Defense — JUMP to contest</b> J / SPACE (JUMP button) near a shooter. Be close and jump as he lets it go: CONTESTED! / SMOTHERED! cut his chances (Perimeter D on jumpers, Interior D + Vertical at the rim), and a great jump at the rim is a block. Jump before he starts his shot and you get FAKED OUT; crash into him and it's a FOUL. · K = steal · L = slide (slide then K = shove)</p>
+          <p><b>🍯 Jelly</b> (once you've learned it) drive at the rim with a defender close, <b>hold L / SHIFT (MOVE)</b> and shoot. It flicks off the glass around shot blockers.</p>
           <p><b>⚔ Weapon</b> E (or ⚔) — fires the weapon that fits the moment (shot, drive, steal, block…). A short aura boosts that play. Teammates with an <b>OPEN</b> tag are calling for the ball.</p>
           <p class="arc-moves" id="arcMoves"></p>
           <button class="btn glow" data-a="gotit">Got it — let's play</button></div></div>`;
@@ -137,6 +138,8 @@ const Arcade = (() => {
           col: tm.colors[0], colD: shade(tm.colors[0], -.32), colL: shade(tm.colors[0], .18), col2: tm.colors[1] || '#ffffff',
           x: 192, y: 160, z: 0, vz: 0, vx: 0, vy: 0, face: 1, look, phase: rnd(0, 6), dribT: rnd(0, 1), stamina: clamp(pl.stamina != null ? pl.stamina : 100, 20, 100), stun: 0, act: null,
           cool: 0, spam: 0, lastMove: -9, burst: 0, bdx: 0, bdy: 0, slide: 0, stealCD: 0, aiT: rnd(0, .3), goal: null, guard: null, catchT: -9, stance: false,
+          duo: pl.duo || (ti === 0 && !pl.isUser && typeof Features !== 'undefined' && Game.state ? Features.duoOf(Game.state, pl.name) : null),
+          jelly: pl.isUser ? !!pl.jelly : (pl.weapons || []).some(w => (w.id || w) === 'jelly_layup'), jellyLvl: pl.jellyLvl || 0, celeb: pl.celeb || null,
           streak: 0, fire: 0, moves: null, box: { pts: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, reb: 0, ast: 0, stl: 0, blk: 0, dunks: 0, to: 0 } });
       }));
       players.forEach(p => p.moves = movesFor(p));
@@ -150,6 +153,7 @@ const Arcade = (() => {
       E.onLand = (p, h) => { if (h > 14) SFX.play('thud', p === me ? .9 : .45); };
       if (typeof Cutscene !== 'undefined' && Cutscene.prep) Cutscene.prep(me.look || Engine.look(Game.state));   // portrait for highlight close-ups
       const input = { jx: 0, jy: 0, shoot: false };
+      if (window.__arcDebug) window.__arcDebug = { players, ball, G, me, input };   // automated tests only
 
       /* ---------- setup ---------- */
       function resetP(p) { p.z = 0; p.vz = 0; p.vx = 0; p.vy = 0; p.stun = 0; p.act = null; p.goal = null; p.burst = 0; p.slide = 0; p.celebNext = null; p.bumpTo = null; }
@@ -210,6 +214,7 @@ const Arcade = (() => {
         if (p.fire > 0) out.push({ label: 'On fire', v: 6 });
         if (p.wpn && p.wpn.t > 0 && Weapons.fits(p.wpn.id, action)) out.push({ label: WEAPONS[p.wpn.id].name, v: WA.bonus + (p.wpn.rank - 1) * WA.perRank });
         if (BREAK && p.team === 0 && ['layup', 'dunk', 'catchMid', 'pullMid', 'catch3', 'pull3'].includes(action)) out.push({ label: 'Fast break', v: 6 });
+        if (p.duoT > 0 && p.duoB) out.push({ label: 'Duo move', v: p.duoB });
         if (easeShot && p.team === me.team && ['layup', 'dunk', 'catchMid', 'pullMid', 'catch3', 'pull3', 'move'].includes(action)) out.push({ label: 'Early career', v: easeShot });
         return out;
       };
@@ -311,8 +316,8 @@ const Arcade = (() => {
       }
       /* ---- celebrations + reactions after a basket ---- */
       function celebrate(p, kind, pts) {
-        const big = kind === 'dunk' || pts === 3 || p.fire > 0;
-        p.celebNext = kind === 'dunk' ? pick(['flex', 'thump', 'flex']) : pts === 3 ? pick(['point', 'point', 'celebrate']) : pick(['celebrate', 'clap', 'point']);
+        const big = kind === 'dunk' || kind === 'jelly' || pts === 3 || p.fire > 0;
+        p.celebNext = p.celeb && big ? p.celeb : kind === 'dunk' ? pick(['flex', 'thump', 'flex']) : pts === 3 || kind === 'jelly' ? pick(['point', 'point', 'celebrate']) : pick(['celebrate', 'clap', 'point']);   // your own celebration (Celebrations tab)
         teamOf(p.team).filter(q => q !== p && q.stun <= 0).forEach(q => { q.celebNext = 'joy'; if (big && dist(q, p) < 90) q.bumpTo = p; });
         teamOf(1 - p.team).forEach(q => { if (q.stun <= 0) q.celebNext = 'hang'; });
         RD.cheer(big ? 1 : .55, big);
@@ -332,6 +337,7 @@ const Arcade = (() => {
         if (p.act && p.act.type === 'move') p.act = null;
         if (p !== me) aiWeapon(p, shotChance(p).action);
         const sc = shotChance(p); spendWeapon(p, sc.action);
+        if (wantsJelly(p, sc)) return startJelly(p, sc);
         if (sc.action === 'dunk') return startDunk(p, sc);
         if (sc.action === 'layup') return startLayup(p, sc);
         p.act = { type: 'shoot', t: 0, sc, air: false, released: false };
@@ -412,6 +418,23 @@ const Arcade = (() => {
         Object.assign(ball, { x: from.x, y: from.y, z: from.z }); void hand;
         p.box.fga++; if (sc.three) p.box.tpa++; G.lastShooter = p;
       }
+      /* ---- JELLY: the finish that curls around a shot blocker (BALANCE.jelly) ---- */
+      const moveHeld = () => !!(keys.KeyL || keys.ShiftLeft || keys.ShiftRight || input.moveHeld);
+      function wantsJelly(p, sc) {
+        if (!p.jelly || (sc.action !== 'layup' && sc.action !== 'dunk') || sc.dh > A.layupRange * 1.35) return false;
+        const d = nearestDef(p), close = d && dist(d, p) < 30;
+        if (p === me) { if (!moveHeld()) return false; if (!close) { tag('NOBODY THERE — JUST LAY IT IN', p, '#94a3b8'); return false; } return true; }
+        const ct = contestFor(p); return close && (ct === 'contested' || ct === 'heavy') && Math.random() < .6;   // the AI only jellies when a defender is really there
+      }
+      function startJelly(p, sc) {
+        const def = nearestDef(p), lv = BALANCE.jelly.levels[clamp(p.jellyLvl || 0, 0, BALANCE.jelly.levels.length - 1)];
+        const bonus = bonusOf(p, 'jelly').concat(lv.bonus ? [{ label: lv.name, v: lv.bonus }] : []);
+        const pct = Balance.pct('jelly', p.st, { def: def ? def.st : null, diff: p.team === me.team ? diff : '_none', contest: contestFor(p) === 'open' ? 'open' : 'normal', dist: 3, fatigue: 100 - p.stamina, bonus }).pct;   // like shotChance: the live contest (cut / block) is applied at release
+        const side = p.x >= A.hoop.x ? 1 : -1;
+        p.act = { type: 'layup', t: 0, T: .8, sc: Object.assign({}, sc, { action: 'jelly', pct }), from: { x: p.x, y: p.y }, released: false, foul: foulCheck(p), jelly: { side } };
+        p.face = A.hoop.x >= p.x ? 1 : -1; armBlockers(p); G.jellyTries = (G.jellyTries || 0) + (p === me ? 1 : 0);
+        RD.dust(p.x, p.y, 6); SFX.play('whoosh'); if (p === me) tag('JELLY…', p, '#fde68a'); else tag(p.short.toUpperCase() + ' — JELLY!', p, '#fca5a5');
+      }
       function startLayup(p, sc) {
         p.act = { type: 'layup', t: 0, T: .7, sc, from: { x: p.x, y: p.y }, released: false, foul: foulCheck(p) };
         p.face = A.hoop.x >= p.x ? 1 : -1; armBlockers(p);
@@ -436,7 +459,7 @@ const Arcade = (() => {
         p.streak++; players.forEach(q => { if (q.team !== p.team) { q.streak = 0; q.fire = 0; } });
         if (p.streak === 2 && !p.fire) pop(pick(A.lines.heating), '#fb923c');
         if (p.streak >= 3 && !p.fire) { p.fire = 4; G.anyFire = G.anyFire || p === me; pop(pick(A.lines.fire), '#f97316', true); SFX.play('roar'); } else if (p.fire) p.fire--;
-        pop(kind === 'dunk' ? pick(A.lines.dunk) : pts === 3 ? pick(A.lines.three) : pick(A.lines.two), p.team === me.team ? '#facc15' : '#f87171', kind === 'dunk');
+        if (kind !== 'jelly') pop(kind === 'dunk' ? pick(A.lines.dunk) : pts === 3 ? pick(A.lines.three) : pick(A.lines.two), p.team === me.team ? '#facc15' : '#f87171', kind === 'dunk');
         SFX.play(kind === 'dunk' ? 'dunk' : 'swish'); SFX.play('net'); SFX.play('crowd', kind === 'dunk' ? 1.6 : 1.1);
         celebrate(p, kind, pts);
         const wins = !SEGM && G.score[p.team] + (foul ? 1 : 0) >= target;
@@ -444,7 +467,7 @@ const Arcade = (() => {
         E.hype = Math.min(1, E.hype + (kind === 'dunk' ? .5 : .25));
         $('ahS' + p.team).textContent = (SEGM ? (p.team ? sc1 : sc0) : 0) + G.score[p.team];
         $('ahS' + p.team).classList.remove('bump'); void $('ahS' + p.team).offsetWidth; $('ahS' + p.team).classList.add('bump');
-        logLine(`${p.name} ${kind === 'dunk' ? 'throws it down' : pts === 3 ? 'drills a three' : kind === 'layup' ? 'finishes at the rim' : 'knocks down the jumper'}${assist ? ` (assist: ${assist.name})` : ''}`);
+        if (kind !== 'jelly') logLine(`${p.name} ${kind === 'dunk' ? 'throws it down' : pts === 3 ? 'drills a three' : kind === 'layup' ? 'finishes at the rim' : 'knocks down the jumper'}${assist ? ` (assist: ${assist.name})` : ''}`);
         if (foul) { pop('AND ONE!', '#f472b6', true); SFX.play('whistle'); if (p === me) highlight('andone', me, 'AND ONE!', 300); }
         if (SEGM) { const bz = SEG.untilClock && G.clock <= 0; if (bz) { pop('AT THE BUZZER!!', '#fde047', true); RD.confetti(120); if (p.team === me.team) highlight('winner', me, 'AT THE BUZZER!', 350); } return endSoon({ end: foul ? 'foul' : 'score', foul: foul ? { shots: 1, team: p.team } : null, pts, scorer: p, dunk: kind === 'dunk', buzzer: bz }, 1.1); }
         if (foul) { G.score[p.team] += 1; p.box.pts += 1; $('ahS' + p.team).textContent = G.score[p.team]; }
@@ -460,6 +483,13 @@ const Arcade = (() => {
       const role = q => !q ? null : q === me ? 'me' : q.team === 0 ? 'mate' : 'them';
 
       /* ---- passing ---- */
+      /* CHEMISTRY duo moves (Features: CHEM_DUOS): a lob he goes and gets, or a give-and-go / kick-out with a boost */
+      function duoCatch(rc) {
+        const d = rc.duo, near = toHoop(rc) < A.layupRange * 1.7;
+        if (d.arcade === 'alleyoop' && near && canDunk(rc)) { pop(`🔗 ${d.move.toUpperCase()}!`, '#4ade80', true); SFX.play('sig'); rc.act = null; G.duos = (G.duos || 0) + 1; const sc = shotChance(rc); sc.action = 'dunk'; sc.pct = Math.min(95, sc.pct + d.bonus); return startDunk(rc, sc); }
+        if (d.arcade === 'kick' && isThree(rc)) { rc.duoT = 2; rc.duoB = d.bonus; tag(`🔗 ${d.move.toUpperCase()}`, rc, '#86efac'); G.duos = (G.duos || 0) + 1; }
+        if (d.arcade === 'giveandgo') { rc.giveGo = 2.5; tag('🔗 CUT — HE\'LL HIT YOU', me, '#86efac'); }
+      }
       function startPass(from, to) {
         if (ball.owner !== from || !to || !canAct(from) || from.z > 0) return;
         if (from.act && from.act.type === 'move') from.act = null;
@@ -643,8 +673,8 @@ const Arcade = (() => {
       joy.addEventListener('pointerup', endJoy); joy.addEventListener('pointercancel', endJoy);
       root.querySelectorAll('[data-b]').forEach(b => {
         const k = b.dataset.b;
-        b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('down'); if (k === 'move') pressMoveBtn(); if (k === 'wpn') pressWeaponBtn(); if (k === 'pass') pressPassBtn(); if (k === 'shoot' && !input.shoot) { input.shoot = true; pressShootBtn(); } });
-        const up = () => { b.classList.remove('down'); if (k === 'shoot' && input.shoot) { input.shoot = false; releaseShoot(me); } };
+        b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('down'); if (k === 'move') { input.moveHeld = true; pressMoveBtn(); } if (k === 'wpn') pressWeaponBtn(); if (k === 'pass') pressPassBtn(); if (k === 'shoot' && !input.shoot) { input.shoot = true; pressShootBtn(); } });
+        const up = () => { b.classList.remove('down'); if (k === 'move') input.moveHeld = false; if (k === 'shoot' && input.shoot) { input.shoot = false; releaseShoot(me); } };
         b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
       });
       root.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
@@ -680,6 +710,7 @@ const Arcade = (() => {
         if (p.act && busyActs.includes(p.act.type)) return;
         if (p.isStar) AI = Object.assign({}, AI, { shootAt: AI.shootAt - 6, moves: AI.moves + .15 });   // stars hunt their shot
         const dh = toHoop(p), def = nearestDef(p), dd = def ? dist(def, p) : 999;
+        if (p.giveGo > 0 && p.team === me.team && toHoop(me) < A.layupRange * 1.4 && canAct(me)) { p.giveGo = 0; me.duoT = 2; me.duoB = p.duo ? p.duo.bonus : 6; G.duos = (G.duos || 0) + 1; pop(`🔗 ${(p.duo && p.duo.move || 'GIVE-AND-GO').toUpperCase()}!`, '#4ade80'); return startPass(p, me); }   // duo: he hits you on the cut
         const inFront = def && dd < 22 && toHoop(def) < dh;
         if (G.mustClear && !isThree(p)) { const a = Math.atan2(p.y - A.hoop.y, p.x - A.hoop.x); p.goal = { x: A.hoop.x + Math.cos(a) * (A.three.rx + 14), y: A.hoop.y + Math.max(.4, Math.sin(a)) * (A.three.ry + 14) }; return; }
         const mates = teamOf(p.team).filter(q => q !== p), open = mates.filter(q => openness(q) > 24 && !(q.act && busyActs.includes(q.act.type)));
@@ -761,7 +792,7 @@ const Arcade = (() => {
         if (G.mustClear && ball.owner && ball.state === 'held' && isThree(ball.owner)) { G.mustClear = false; if (ball.owner === me) tag('CLEARED', me, '#86efac'); }
         const [six, siy] = stick();
         players.forEach(p => {
-          p.stealCD = Math.max(0, p.stealCD - dt); p.cool = Math.max(0, p.cool - dt); p.burst = Math.max(0, p.burst - dt); p.slide = Math.max(0, p.slide - dt);
+          p.stealCD = Math.max(0, p.stealCD - dt); p.cool = Math.max(0, p.cool - dt); if (p.duoT > 0) p.duoT -= dt; if (p.giveGo > 0) p.giveGo -= dt; p.burst = Math.max(0, p.burst - dt); p.slide = Math.max(0, p.slide - dt);
           if (p.wpn) { p.wpn.t -= dt; if (p.wpn.t <= 0) p.wpn = null; }
           if (p.diveT > 0) { p.diveT = Math.max(0, p.diveT - dt); if (ball.state === 'loose') { const dx = ball.x - p.x, dy = ball.y - p.y, l = Math.hypot(dx, dy) || 1; p.bdx = dx / l; p.bdy = dy / l; } } if (p.diveCD > 0) p.diveCD = Math.max(0, p.diveCD - dt);
           if (p.stun > 0) p.stun = Math.max(0, p.stun - dt);
@@ -844,19 +875,24 @@ const Arcade = (() => {
           }
           case 'layup': {
             const H = A.hoop;
-            if (a.t > .18 && !a.jumped) { a.jumped = true; p.vz = PACE.jump(p.st.vert) * .8; p.z = .1; a.apex = .18 + p.vz / PACE.gravity; }
-            if (a.t > .18) { p.vx = (H.x - p.x) * 2.2; p.vy = (H.y + 10 - p.y) * 2.2; }
+            if (a.t > .18 && !a.jumped) { a.jumped = true; p.vz = PACE.jump(p.st.vert) * (a.jelly ? .9 : .8); p.z = .1; a.apex = .18 + p.vz / PACE.gravity; if (a.jelly) { G.slowT = Math.max(G.slowT, .7); G.zoomT = 1; p.face = -a.jelly.side * (A.hoop.x >= p.x ? 1 : -1) || p.face; } }
+            if (a.t > .18) { const tx = a.jelly ? H.x + a.jelly.side * 16 : H.x; p.vx = (tx - p.x) * (a.jelly ? 2.6 : 2.2); p.vy = (H.y + 10 - p.y) * 2.2; }   // the jelly: a long stride to the side of the rim
             const relAt = a.apex ? Math.min(a.apex, .5) : .5;
             if (!a.released && ball.owner === p && a.t >= relAt) {
               a.released = true;
               const ct = contest(p, 'layup'); p.box.fga++; G.lastShooter = p;
-              if (ct.block) return blocked(ct.by, p);
+              const JB = BALANCE.jelly;
+              if (a.jelly && ct.block && Math.random() > JB.blockFactor) { ct.block = false; if (ct.by) { tag('SWATS AIR!', ct.by, '#fde68a'); ct.by.stun = Math.max(ct.by.stun, .5); } }   // he jumps at where the ball was
+              if (ct.block) { if (a.jelly && p === me) G.jellyBlocks = (G.jellyBlocks || 0) + 1; return blocked(ct.by, p); }
               showContest(p, ct); if (ct.foul) a.foul = true;
+              if (a.jelly) { p.face = a.jelly.side * (A.hoop.x >= p.x ? 1 : -1) || -p.face; SFX.play('whoosh'); RD.ring(p.x, p.y - p.z - 30, '#fde68a', 40, .2); }   // the twist
               const q = p === me ? (a.relT != null ? releaseQuality(p, Math.abs(a.relT - relAt), p.st.finish, 1.6) : .5) : clamp(aiFor(p).shotQ + rnd(-.2, .2), 0, 1);
-              const made = Math.random() * 100 < Balance.apply('layup', a.sc.pct, q) * cutBy(ct, 'layup');
+              const cutJ = a.jelly ? 1 - (ct.C || 0) * CT().cut.layup * JB.contestFactor : cutBy(ct, 'layup');
+              const made = Math.random() * 100 < Balance.apply(a.jelly ? 'jelly' : 'layup', a.sc.pct, q) * cutJ;
               ball.owner = null; ball.state = 'shot';
               const from = { x: p.x + p.face * 3, y: p.y, z: p.z + 34 };
-              ball.shot = { by: p, from, to: { x: H.x, y: H.y, z: H.z + 1 }, t: 0, T: .34, made, res: made ? (Math.random() < .5 ? 'rimin' : 'swish') : 'rimout', three: false, action: 'layup', peak: 6, foul: a.foul, green: p === me && q >= 1 };
+              ball.shot = { by: p, from, to: { x: H.x, y: H.y, z: H.z + 1 }, t: 0, T: a.jelly ? .62 : .34, made, res: made ? (a.jelly || Math.random() < .5 ? 'swish' : 'rimin') : 'rimout', three: false, action: 'layup', peak: 6, foul: a.foul, green: p === me && q >= 1,
+                jelly: a.jelly ? { glass: { x: H.x + a.jelly.side * 9, y: H.y - 2, z: H.z + 14 }, def: ct.by } : null };
               Object.assign(ball, from);
             }
             if (a.wantRelease && a.relT == null) a.relT = a.t;
@@ -925,11 +961,18 @@ const Arcade = (() => {
           if (k >= 1) {
             const rc = P.to; giveBall(rc); ball.lastPasser = P.intercept ? null : P.from; ball.passT = G.time; ball.pass = null;
             if (canAct(rc) && rc.z === 0) rc.act = { type: 'catch', t: 0, T: .2 };
+            if (!P.intercept && rc.duo && P.from === me && rc.team === me.team) duoCatch(rc);
             if (P.intercept) { P.from.box.to++; rc.box.stl++; pop(pick(A.lines.steal), '#38bdf8'); logLine(`${rc.name} jumps the passing lane!`); changePossession(rc.team, 'stl', rc); }
           }
         } else if (ball.state === 'shot' && ball.shot) {
           const S = ball.shot; S.t += dt; const k = clamp(S.t / S.T, 0, 1);
-          ball.x = lerp(S.from.x, S.to.x, k); ball.y = lerp(S.from.y, S.to.y, k); ball.z = lerp(S.from.z, S.to.z, k) + S.peak * 4 * k * (1 - k);
+          if (S.jelly) {   // hand → glass → rim
+            const Gl = S.jelly.glass, u = clamp(k / .6, 0, 1), w = clamp((k - .6) / .4, 0, 1);
+            if (k < .6) { ball.x = lerp(S.from.x, Gl.x, u); ball.y = lerp(S.from.y, Gl.y, u); ball.z = lerp(S.from.z, Gl.z, u) + Math.sin(u * Math.PI) * 6; }
+            else { if (!S.jelly.kissed) { S.jelly.kissed = true; SFX.play('kiss'); G.stop = Math.max(G.stop, .08); burst(Gl.x, Gl.y - Gl.z, '#fde68a', 10, 40); RD.ring(Gl.x, Gl.y - Gl.z, '#fde68a', 50, .25); }
+              ball.x = lerp(Gl.x, S.to.x, w); ball.y = lerp(Gl.y, S.to.y, w); ball.z = lerp(Gl.z, S.to.z, w); }
+            E.fx.push({ x: ball.x, y: ball.y - ball.z, vx: 0, vy: 0, life: .35, col: '#fde68a' });   // spin trail
+          } else { ball.x = lerp(S.from.x, S.to.x, k); ball.y = lerp(S.from.y, S.to.y, k); ball.z = lerp(S.from.z, S.to.z, k) + S.peak * 4 * k * (1 - k); }
           if (k >= 1) arrive(S);
         } else if (ball.state === 'roll') {   // rolling around the rim
           const R = ball.roll; R.t += dt; const u = R.t / R.T, H = A.hoop;
@@ -949,6 +992,14 @@ const Arcade = (() => {
       }
       function arrive(S) {
         const H = A.hoop, p = S.by;
+        if (S.made && S.jelly) {   // JELLY! — hit-stop, OOOH into cheers, the big man stunned, a replay
+          ball.state = 'net'; ball.netT = 0; E.net.swish = 1; if (S.green) greenFX();
+          pop('JELLY!', '#facc15', true); SFX.play('jelly'); SFX.play('ooh'); setTimeout(() => { if (!G.over) SFX.play('roar'); }, 600); impact(.16, 5, .3, .07, '253,230,138'); burst(H.x, H.y - H.z, '#facc15', 26);
+          const v = S.jelly.def; if (v && v.team !== p.team) { v.stun = Math.max(v.stun, 1); v.act = { type: 'stumble', t: 0, T: .9 }; tag('?!', v, '#fca5a5'); }
+          if (p === me) { G.jellies = (G.jellies || 0) + 1; highlight('jelly', me, pick(['JELLY!', 'AROUND HIM!', 'SILK.']), 260); }
+          logLine(`${p.name} — JELLY over ${v ? v.name : 'the defense'}!`);
+          return scoreBasket(p, 2, 'jelly', S.foul);
+        }
         if (S.made && S.res === 'swish') { ball.state = 'net'; ball.netT = 0; E.net.swish = 1; if (S.green) greenFX(S.heave); return scoreBasket(p, S.three ? 3 : 2, S.action === 'layup' ? 'layup' : 'shot', S.foul); }
         if (S.made) { ball.state = 'roll'; ball.roll = { t: 0, T: .55, made: true, by: p, three: S.three, action: S.action, foul: S.foul, green: S.green, heave: S.heave }; SFX.play('rim'); E.rim = .4; return; }
         p.streak = 0; if (p.fire) p.fire--;
@@ -1120,12 +1171,12 @@ const Arcade = (() => {
           const scorer = extra.scorer || null;
           res = { kind: SEG.kind, ptsUs: G.score[0], ptsThem: G.score[1], pts: G.score[0], end: extra.end || 'miss', offense: G.off, scorer: role(scorer), scorerName: scorer && scorer.name, me: Object.assign({}, me.box),
             foul: extra.foul || null, fouled: role(extra.fouled || (extra.foul && scorer)), dunk: !!extra.dunk, buzzer: !!extra.buzzer, stamina: Math.round(G.stamUsed + (100 - me.stamina) * .3), log: G.log.slice(), ankles: G.anklesBy || 0,
-            all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice() };
+            all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice(), jellies: G.jellies || 0, jellyTries: G.jellyTries || 0, jellyBlocks: G.jellyBlocks || 0, duos: G.duos || 0 };
           banner = res.ptsUs ? (extra.foul ? 'AND ONE!' : extra.buzzer ? 'AT THE BUZZER!' : `+${res.ptsUs}`) : res.ptsThem ? (extra.foul ? 'AND ONE — THEM' : 'THEY SCORE') :
             ({ foul: res.foul && res.foul.team === 1 ? 'FOUL ON YOU' : 'FOUL — TO THE LINE', to: 'TURNOVER', set: 'DEFENSE SET', oreb: 'RESET', miss: 'NO GOOD', stop: 'STOP!', buzzer: 'BUZZER' })[res.end] || 'NO GOOD';
         } else {
           const win = extra.forfeit ? false : G.score[0] > G.score[1];
-          res = { win, score: G.score.slice(), box: me.box, fire: G.anyFire, shatter: E.shatter, forfeit: !!extra.forfeit, ankles: G.anklesBy || 0, fatigue: clamp(Math.round(G.stamUsed / 5 + 15), 15, 60), all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice() };
+          res = { jellies: G.jellies || 0, jellyTries: G.jellyTries || 0, jellyBlocks: G.jellyBlocks || 0, duos: G.duos || 0, win, score: G.score.slice(), box: me.box, fire: G.anyFire, shatter: E.shatter, forfeit: !!extra.forfeit, ankles: G.anklesBy || 0, fatigue: clamp(Math.round(G.stamUsed / 5 + 15), 15, 60), all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice() };
           banner = win ? 'YOU WIN!' : 'GAME OVER'; sub = `${G.score[0]} – ${G.score[1]}`;
         }
         intro.className = 'arc-intro on'; intro.innerHTML = `<b>${banner}</b>${sub ? `<small>${sub}</small>` : ''}`;
@@ -1148,11 +1199,13 @@ const Arcade = (() => {
   /* =================================================================
      ENTRY POINTS
      ================================================================= */
-  const KEYMAP = { catch3: 'three', pull3: 'three', catchMid: 'mid', pullMid: 'mid', layup: 'finish', dunk: 'dunk', steal: 'steal', block: 'intD', rebound: 'reb', move: 'handle' };
+  const KEYMAP = { catch3: 'three', pull3: 'three', catchMid: 'mid', pullMid: 'mid', layup: 'finish', jelly: 'finish', dunk: 'dunk', steal: 'steal', block: 'intD', rebound: 'reb', move: 'handle' };
   function userPlayer() {
     const s = Game.state, arch = Engine.archOf(s);
     const bonus = action => { const k = KEYMAP[action], m = arch.passive.mods || {}, out = []; const v = (m[k] || 0) + (m.all || 0); if (v) out.push({ label: arch.passive.name, v }); const bb = Engine.badgeBonus(s, k); if (bb) out.push({ label: 'Badges', v: bb }); return out; };
-    return { name: `${s.player.first} ${s.player.last}`, stats: Balance.userStats(s), look: Engine.look(s), num: s.player.num, arch: s.player.arch, isUser: true, bonus, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank })) };
+    const F = typeof Features !== 'undefined';
+    return { name: `${s.player.first} ${s.player.last}`, stats: Balance.userStats(s), look: Engine.look(s), num: s.player.num, arch: s.player.arch, isUser: true, bonus, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank })),
+      jelly: F && Features.jellyOn(s), jellyLvl: F ? Features.jellyLevel(s) : 0, celeb: F ? Features.celebPose(s) : null };
   }
   function crew(team, rating, n, star) {
     const names = (team.roster || []).filter(nm => !/Kai Sterling/.test(nm) || (star && star.name === nm));

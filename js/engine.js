@@ -77,7 +77,7 @@ const Engine = (() => {
   function weaponOffers(s) {
     const own = weapons(s).map(x => x.id), R = Art.seeded(s.id + ':w' + own.length);
     const types = own.map(id => WEAPONS[id].type), score = id => { const w = WEAPONS[id]; let v = 0, t = 0; for (const k in w.stats) { v += (s.player.attrs[k] || 50) * w.stats[k]; t += w.stats[k]; } return v / t + R() * 14 - (types.includes(w.type) ? 12 : 0); };
-    return Object.keys(WEAPONS).filter(id => !own.includes(id) && WEAPONS[id].type !== 'zone').sort((a, b) => score(b) - score(a)).slice(0, 3);
+    return Object.keys(WEAPONS).filter(id => !own.includes(id) && WEAPONS[id].type !== 'zone' && !WEAPONS[id].story).sort((a, b) => score(b) - score(a)).slice(0, 3);
   }
   function learnWeapon(s, id) { weapons(s); if (!WEAPONS[id] || s.player.weapons.length >= weaponSlots(s) || s.player.weapons.some(x => x.id === id)) return false; s.player.weapons.push({ id, rank: 1 }); return true; }
   function weaponUpgradeInfo(s, id) { const x = weapons(s).find(y => y.id === id), R = BALANCE.weapons.ranks; if (!x) return null; const next = x.rank + 1; return { rank: x.rank, max: x.rank >= R.max, cost: R.cost(x.rank), level: R.level(next), ok: x.rank < R.max && s.player.sp >= R.cost(x.rank) && s.player.level >= R.level(next) }; }
@@ -106,6 +106,7 @@ const Engine = (() => {
   function look(s) {
     const L = Object.assign({}, s.player.look, { num: s.player.num });
     for (const slot in s.inventory.equipped) { const it = SHOP_BY_ID[s.inventory.equipped[slot]]; if (it) Object.assign(L, it.look); }
+    if (s.shoe && s.shoe.color) L.shoeColor = s.shoe.color;   // your signature shoe (Chapter 5)
     return L;
   }
   function ovrRaw(s) {
@@ -300,6 +301,7 @@ const Engine = (() => {
     const R = RECRUITING; let sc = (ovr(s) - 40) * 2.2 + s.meta.rep * 0.15 + ((s.recruit && s.recruit.ppg) || 0) * 0.6;
     for (const k in R.bonus) if (s.flags[k]) sc += R.bonus[k];
     for (const k in R.penalty) if (s.flags[k]) sc += R.penalty[k];
+    sc += (s.features && s.features.mix && s.features.mix.bonus) || 0;   // released mixtapes (js/features.js)
     return Math.round(sc);
   }
   function starsFor(score) { let n = 1; RECRUITING.starAt.forEach((t, i) => { if (score >= t) n = i + 1; }); return n; }

@@ -53,6 +53,7 @@ const Game = {
     const s = this.state, { ch, node } = this.node();
     if (!ch || !node) { console.error('Missing story node', s.story); UI.toast('Story node missing: ' + s.story.chapter + '/' + s.story.node, 'bad'); return UI.title(); }
     s.career.stage = ch.stage;
+    Features.check(s);   // new chapter / story beat → feature unlocks (popup waits for a calm screen)
     // node entry effects (applied once, even across reloads)
     const nid = s.story.chapter + ':' + s.story.node;
     if (node.fx && s.story.fxApplied !== nid) { s.story.fxApplied = nid; const ch2 = this.applyFx(node.fx); node._fxChanges = ch2; this.save(); }
@@ -71,6 +72,7 @@ const Game = {
       case 'drill': return USA.drill(this, node);      // national team camp (js/usa.js)
       case 'board': return USA.board(this, node);
       case 'talk': return USA.talk(this, node);
+      case 'flick': return Features.lesson(this, node);   // the jelly lesson (js/features.js)
       case 'branch': {
         const b = node.branches.find(x => Engine.check(s, x.if));
         return this.goto(s.story.chapter, b ? b.next : node.else);
@@ -137,7 +139,7 @@ const Game = {
     this.checkAch();
     return changes;
   },
-  checkAch() { Engine.checkAchievements(this.state).forEach(a => { UI.toast(`🏆 Achievement unlocked: <b>${a.name}</b>`, 'ach', 4000); SFX.play('perfect'); }); },
+  checkAch() { Engine.checkAchievements(this.state).forEach(a => { UI.toast(`🏆 Achievement unlocked: <b>${a.name}</b>`, 'ach', 4000); SFX.play('perfect'); }); Features.check(this.state); },
   recordOvr(label) { const s = this.state, o = Engine.ovr(s), h = s.ovrHistory; if (!h.length || h[h.length - 1].ovr !== o) h.push({ label, ovr: o }); },
 
   /* context for cutscenes: real score, teams, ending title, injury */
@@ -162,6 +164,7 @@ const Game = {
     const k = Engine.pick(['three', 'finish', 'handle', 'perD', 'reb']);
     const changes = this.applyFx(Object.assign({ xp: r.win ? 60 : 30, fatigue: 10, morale: r.win ? 3 : -1 }, r.win ? { attrs: { [k]: 1 } } : {}));
     for (const c in r.counters) s.counters[c] = (s.counters[c] || 0) + r.counters[c];
+    Features.afterMatch(s, r, { title: 'Pickup Run' });
     UI.toast(`${r.win ? '🏆 Won' : 'Lost'} the pickup run ${r.us}–${r.them}`, r.win ? 'good' : 'bad'); UI.fxToasts(changes);
     this.checkAch(); this.save(); UI.hub(this.hubCtx);
   },
@@ -219,6 +222,7 @@ const Game = {
     if (node.ratingRel != null) cfg.oppRating = o0 + node.ratingRel;
     if (node.mateRel != null) cfg.mateRating = o0 + node.mateRel;
     if (node.venueSide) cfg.venue = node.venueSide;
+    cfg.jellyMoment = node.jellyMoment || this.jellyPayoff(cfg.importance);
     if (node.pickup) Object.assign(cfg, { fullArcade: true, size: node.pickup.size || 3, target: node.pickup.target || 21, sub: `${cfg.sub ? cfg.sub + ' · ' : ''}${node.pickup.size || 3}v${node.pickup.size || 3}, first to ${node.pickup.target || 21}` });
     const r = await Match.play(cfg);
     this.unlockVenue(r.venueId);
@@ -233,6 +237,7 @@ const Game = {
     this.save();
     UI.postGame(r, summary, () => this.runNode());
   },
+  jellyPayoff(importance) { return this.state.flags.jelly_payoff && importance >= 2 ? { text: 'Their big man leaves his man and slides over to meet you at the rim. Scoop\'s voice in your head: "Around him."', late: true, payoff: true } : null; },
   gradeValue(g) { return { A: 4, B: 3, C: 2, D: 1, F: 0 }[g[0]] + (g[1] === '+' ? .3 : g[1] === '-' ? -.3 : 0); },
   applyMatch(r, node) {
     const s = this.state, L = Match.LEVELS[r.level] || Match.LEVELS.street, b = r.box, imp = r.importance;
@@ -277,6 +282,7 @@ const Game = {
     const key = r.win ? (r.grade[0] === 'A' || b.pts >= 20 ? 'bigWin' : 'win') : (r.grade[0] === 'D' || r.grade[0] === 'F' ? 'badLoss' : 'loss');
     const [by, text] = Engine.pick(STORY.feedTemplates[key]);
     Engine.post(s, { by, text: text.replace('{pts}', b.pts).replace('{opp}', r.cfg.them.name) });
+    Features.afterMatch(s, r, node);   // mixtape clips, chemistry, the jelly story beats
     this.updateRecruit();
     return { xp: xr.xp, levels: xr.levels, changes, badges: Engine.badgeDiff(bb, s), achievements: Engine.checkAchievements(s) };
   },
@@ -353,6 +359,7 @@ const Game = {
         us: this.team(se.user), them: this.team(g.opp), oppRating: Math.round(Season.rating(s, se, g.opp)), mateRating: se.def.mateRating || LOCAL_TEAMS[se.user].rating,
         moments: g.moments || roleMom + (g.key ? 1 : 0), level: se.level, importance: g.importance || (g.key ? 2 : 1), title: se.name, sub: g.sub,
       };
+      cfg.jellyMoment = this.jellyPayoff(cfg.importance);
       // venue: home / away alternates through the season; the final is played at a neutral arena
       const finalGame = g.playoff && se.playoffs && se.playoffs.rounds[se.playoffs.round].length === 1;
       cfg.venue = (se.week + (g.opp || '').length) % 2 ? 'away' : 'home';

@@ -469,7 +469,7 @@ const UI = (() => {
     setBg('rec', 'hub'); SFX.music('hub');
     showScreen(`<div class="hub">
       <header class="hub-top glass" id="hubTop"></header>
-      <nav class="hub-tabs" id="hubTabs">${[['home', 'Home'], (s.season || (s.career.seasons || []).length) && ['season', 'Season'], s.recruit && ['recruit', 'Recruiting'], ['train', 'Train'], ['upgrade', 'Upgrade'], ['badges', 'Badges'], ['shop', 'Shop'], ['social', 'Social'], ['career', 'Career'], ['trophies', 'Achievements'], ['courts', 'Courts']].filter(Boolean).map(([k, n]) => `<button data-tab="${k}">${n}${k === 'upgrade' ? '<i class="dot" id="spDot"></i>' : ''}</button>`).join('')}</nav>
+      <nav class="hub-tabs" id="hubTabs">${[['home', 'Home'], (s.season || (s.career.seasons || []).length) && ['season', 'Season'], s.recruit && ['recruit', 'Recruiting'], ['train', 'Train'], ['upgrade', 'Upgrade'], ['badges', 'Badges'], ['shop', 'Shop'], ['social', 'Social'], ['career', 'Career'], ['trophies', 'Achievements'], ['courts', 'Courts']].concat(typeof Features !== 'undefined' ? Features.tabs(s) : []).filter(Boolean).map(([k, n, f]) => `<button data-tab="${k}" class="${f ? 'feat' : ''}">${n}${k === 'upgrade' ? '<i class="dot" id="spDot"></i>' : ''}</button>`).join('')}</nav>
       <section class="hub-body" id="hubBody"></section>
       <footer class="hub-cta"><div class="hub-cta-info"><b>${esc(ctx.title || 'Free Time')}</b><span id="apInfo"></span></div><div class="cta-btns">${ctx.cta2 ? `<button class="btn big ghost" id="cta2Btn">${ctx.cta2.label}</button>` : ''}<button class="btn big glow" id="ctaBtn" ${ctx.cta.disabled ? 'disabled' : ''}>${ctx.cta.label}</button></div></footer>
     </div>`, 'hubscreen');
@@ -480,6 +480,7 @@ const UI = (() => {
     if (!$(`#hubTabs [data-tab="${hubTab}"]`)) hubTab = 'home';
     renderHub(ctx);
     if (ctx.intro && !ctx.season && !s.flags['seen_' + ctx.key]) { s.flags['seen_' + ctx.key] = true; setTimeout(() => toast(`<b>${esc(ctx.title)}</b><br>${esc(ctx.intro)}`, 'info', 7000), 400); }
+    if (typeof Features !== 'undefined') setTimeout(Features.flush, 700);   // a feature unlocked since the last calm screen
   }
   function renderTop() {
     const s = S(), p = s.player, need = PROGRESSION.xpForLevel(p.level), tier = Engine.tierOf(Engine.ovr(s));
@@ -593,6 +594,8 @@ const UI = (() => {
           <div class="glass panel"><h4>Career Totals</h4><div class="statboxes">${[['Games', c.games], ['W-L', `${c.wins}-${c.losses}`], ['PPG', avg('pts')], ['RPG', avg('reb')], ['APG', avg('ast')], ['Dunks', c.dunks], ['Threes', c.threes], ['Game-winners', c.gameWinners], ['Best game', c.best + ' pts'], ['Trainings', c.trainings]].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('')}</div></div>
           <div class="glass panel"><h4>Overall Progression</h4><svg viewBox="0 0 600 190" class="linechart"><polyline points="${pts}" fill="none" stroke="#f97316" stroke-width="3"/>${h.map((x, i) => `<circle cx="${(h.length > 1 ? i / (h.length - 1) : 0) * 560 + 20}" cy="${170 - (x.ovr - min) / (max - min || 1) * 140}" r="4" fill="#facc15"><title>${esc(x.label)}: ${x.ovr}</title></circle>`).join('')}<text x="4" y="24" fill="#94a3b8" font-size="12">${max}</text><text x="4" y="172" fill="#94a3b8" font-size="12">${min}</text></svg></div>
           <div class="glass panel wide"><h4>Game Log</h4><table class="tbl"><thead><tr><th>Game</th><th>Result</th><th>PTS</th><th>REB</th><th>AST</th><th>Grade</th></tr></thead><tbody>${g.slice().reverse().map(x => `<tr><td>${esc(x.label)}</td><td class="${x.win ? 'w' : 'l'}">${x.win ? 'W' : 'L'} ${x.us}-${x.them}</td><td>${x.pts}</td><td>${x.reb}</td><td>${x.ast}</td><td><span class="grade-s g${x.grade[0]}">${x.grade}</span></td></tr>`).join('') || '<tr><td colspan="6" class="muted">No games yet.</td></tr>'}</tbody></table></div>
+          ${typeof FEATURES !== 'undefined' ? `<div class="glass panel wide"><h4>Unlocks</h4><div class="feat-list">${FEATURES.map(f => { const ok = Features.on(s, f.id), built = !f.when.chapter || STORY.chapters[f.when.chapter];
+            return `<div class="fl ${ok ? 'on' : ''}" style="--fc:${f.color}"><i>${ok ? f.icon : '🔒'}</i><div><b>${esc(f.name)}</b><small>${esc(f.chapter)}${ok ? ' · unlocked' : built ? '' : ' · coming in a later build'}</small></div></div>`; }).join('')}</div></div>` : ''}
           <div class="glass panel wide"><h4>Story Log</h4><ul class="log">${s.log.slice().reverse().map(l => `<li>${esc(l)}</li>`).join('') || '<li class="muted">Your story is just beginning.</li>'}</ul></div>
         </div>`;
       },
@@ -604,7 +607,8 @@ const UI = (() => {
       },
       trophies: () => `${(s.career.medals || []).length ? `<div class="medals glass panel"><b>MEDALS</b>${s.career.medals.map(m => `<span class="medal ${m.medal}"><i>${{ gold: '🥇', silver: '🥈', bronze: '🥉' }[m.medal]}</i>${esc(m.event)}<small>age ${m.age || '—'}</small></span>`).join('')}</div>` : ''}<div class="ach-grid">${ACHIEVEMENTS.map(a => `<div class="ach glass ${s.achievements[a.id] ? 'got' : ''}"><div class="ach-ico">${s.achievements[a.id] ? '🏆' : '🔒'}</div><div><b>${a.name}</b><span>${a.desc}</span></div></div>`).join('')}</div>`,
     };
-    body.innerHTML = T[hubTab]();
+    body.innerHTML = T[hubTab] ? T[hubTab]() : Features.render(hubTab, s);
+    if (!T[hubTab]) Features.bind(hubTab, body, s, () => renderHub(ctx));
     // bindings
     $$('[data-train]', body).forEach(b => b.onclick = () => Game.train(b.dataset.train));
     $$('[data-rest]', body).forEach(b => b.onclick = () => Game.rest());
