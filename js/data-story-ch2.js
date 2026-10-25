@@ -167,7 +167,7 @@ STORY.chapters.highschool = {
         { t: 'Push through the crowd and check on Kai.', fx: { rel: { kai: 10 }, flag: 'saw_silk' }, next: 'L_kai_hall' },
         { t: 'Stay with your team. This is Lincoln\'s night.', fx: { chem: 8, rep: 2 }, next: 'c2_cel_check' },
       ] },
-    L_kai_hall: { scene: 'locker',
+    L_kai_hall: { cine: true, scene: 'locker',
       lines: [
         ['kai', '…What do you want, Halsey? Come to gloat?', 'sad'],
         ['you', 'Your dad always like that?'],
@@ -395,7 +395,7 @@ STORY.chapters.highschool = {
         { t: '"I\'m in. Let\'s ruin it."', fx: { rel: { lou: 6 }, morale: 4 }, next: 'c2_marcus' },
         { t: '"How\'d you pay for an AAU team, Lou?"', hint: '"…Sold my truck. Now get in the gym."', fx: { rel: { lou: 8 } }, next: 'c2_marcus' },
       ] },
-    c2_lou_return: { scene: 'playground_night',
+    c2_lou_return: { cine: true, scene: 'playground_night',
       lines: [
         ['narrator', 'Lou Banks is sitting on the bench at Halsey Street when you show up at 6 a.m. He\'s been waiting.'],
         ['lou', 'Still think you don\'t need a coach?'],
@@ -631,7 +631,7 @@ STORY.chapters.highschool = {
         { t: 'Tell the truth — to Mom, to your coach, to the compliance people.', fx: { rep: -4, rel: { mom: 8, lou: 8 }, money: -2000, flag: 'booster_admitted', trust: 3 }, next: '@season' },
         { t: 'Deny everything.', check: { a: 'iq', dc: 58 }, fx: { rep: -1 }, next: '@season', failFx: { flag: 'booster_scandal', rep: -8, recruit: true, rel: { mom: -10, lou: -8 }, log: 'Caught lying about Vince Shark\'s envelope. Two big programs stopped calling.' } },
       ] },
-    c2_mom_hurt: { scene: 'hospital',
+    c2_mom_hurt: { cine: true, scene: 'hospital',
       lines: [
         ['narrator', 'Mom hurt her back lifting a patient — six weeks off work, minimum. Rent is due in nine days.'],
         ['mom', 'Don\'t you dare worry about this, baby. You have a season to finish.', 'sad'],

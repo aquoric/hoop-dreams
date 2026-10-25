@@ -181,6 +181,7 @@ const SFX = (() => {
     green: () => { tone(1568, 0.5, 'triangle', 0.16, 0, sfxBus); tone(2093, 0.6, 'triangle', 0.13, 0.07, sfxBus); tone(3136, 0.35, 'sine', 0.05, 0.12, sfxBus); tone(784, 0.18, 'square', 0.05, 0, sfxBus, 1568); noise(0.4, 'highpass', 7000, 0.07, 0.05, 11000, 0.6); tone(70, 0.18, 'sine', 0.25, 0, sfxBus, 45); },
     /* dialogue voice blip — v: { f: pitch, w: wave } per character */
     /* the jelly build: the wrist snap (a dry click + a rising whip), and the crowd sucking in its breath before the OOOH */
+    glint: () => { tone(2637, 0.12, 'sine', 0.08); tone(3520, 0.22, 'triangle', 0.05, 0.05); tone(5274, 0.1, 'sine', 0.02, 0.08); },   // a glint in the eye
     flick: () => { noise(0.03, 'highpass', 4500, 0.22); tone(900, 0.07, 'square', 0.05, 0, sfxBus, 2400); noise(0.16, 'bandpass', 1800, 0.12, 0.02, 5200, 2); },
     gasp: () => { noise(0.5, 'bandpass', 700, 0.16, 0, 1500, 1.6, sfxBus, 0.32); noise(0.4, 'bandpass', 1500, 0.05, 0.05, 2600, 2, sfxBus, 0.3); },
     /* the jelly: a soft kiss off the glass, then a rubbery "bloop" + sparkle */

@@ -2122,6 +2122,37 @@ const Match = (() => {
     const rivalId = star.name === 'Kai Sterling' ? 'kai' : star.name === 'Bastien Mbaye' ? 'mbaye' : ['hothead', 'iceman', 'showman'][Weapons.hash(star.name) % 3];   // each star keeps the same voice
     const MATE_LOOK = () => Object.assign({}, TMATE().look, { jersey: cfg.us.colors[0], trim: cfg.us.colors[1], outfit: 'jersey' });   // your teammate wears your colors in talks
     const TMATE = () => US.filter(p => !p.isUser).sort((a, b) => (b.rating || 0) - (a.rating || 0))[0], mateId = US.some(p => /Tariq/.test(p.full || p.name || '')) ? 'tariq' : ['mate_vet', 'mate_hype'][Weapons.hash(cfg.us.name || 'x') % 2];
+    /* prospect rankings: the star's rank (face-off card, talk lines, cinematic name plates) */
+    const RK = typeof Rankings !== 'undefined' && Rankings.on(s), myRank = RK ? Rankings.rankOf(s) : null, starRank = RK ? Rankings.infoFor(s, star.name) : null;
+    if (!cfg.starSub && starRank) cfg.starSub = `#${starRank.rank} in the class · ${cfg.them.name}`;
+    /* CINEMATIC CONVERSATIONS (Cutscene.cine): rival face-offs (Kai, big stars, higher-ranked prospects), halftime speeches,
+       clutch huddles and heated refs in big games — about one every few games (BALANCE.cine), more in rivalry games and playoffs.
+       They replace a regular talk; they never add one. */
+    const CN = BALANCE.cine || { every: 3, big: 3, bigChance: .5 }, imp0 = cfg.importance || 1;
+    function cineKind(type, topic) {
+      if (typeof Cutscene === 'undefined' || !Cutscene.cine || cfg.practice || tutOn() || (st.cineN || 0) >= (imp0 >= 2 ? 2 : 1)) return null;
+      const k = topic === 'half' ? 'halftime' : topic === 'clutch' ? 'huddle' : type === 'ref' && imp0 >= 2 ? 'ref'
+        : type === 'rival' && (rivalId === 'kai' || (starRank && myRank && starRank.rank < myRank) || (imp0 >= 2 && oppR >= usR + 2) || rivalId === 'mbaye') ? 'faceoff' : null;
+      if (!k) return null;
+      const gap = s.cineGap == null ? 99 : s.cineGap;
+      return gap >= CN.every - 1 || imp0 >= CN.big || rivalId === 'kai' || (imp0 >= 2 && Math.random() < CN.bigChance) ? k : null;
+    }
+    const venueScene = () => { const V = court.V.def || {}; return V.rain || V.weather === 'rain' ? 'rain_night' : V.style === 'arena' ? 'arena' : V.style === 'gym' ? 'gym' : V.sky === 'night' ? 'street_night' : 'street_sunset'; };
+    function rankRows() { if (!RK) return null; const L = Rankings.list(s), i = L.findIndex(r => r.me); return L.slice(Math.max(0, i - 8), i + 6).map(r => ({ rank: r.rank, name: r.p.name, me: !!r.me })); }
+    async function cineScene(o, ck, id, P) {
+      const sub = id === rivalId && starRank ? `#${starRank.rank} in the class` : P.kind === 'ref' ? 'Referee' : P.kind === 'coach' ? 'Coach' : P.trait ? P.trait.split('.')[0] : '';
+      const d = st.us - st.them, scoreTxt = d === 0 ? `TIED ${st.us}-${st.them}` : d > 0 ? `UP ${d} · ${st.us}-${st.them}` : `DOWN ${-d} · ${st.us}-${st.them}`;
+      const C = await Cutscene.cine({ kind: ck, scene: ck === 'halftime' ? 'locker' : venueScene(), rain: /rain/.test(venueScene()),
+        ctx: { team: cfg.us, them: cfg.them, usAbbr: cfg.us.abbr, themAbbr: cfg.them.abbr, score: `${st.us}-${st.them}`, venue: court.venueId, night: true },
+        cast: { you: Object.assign({}, U.look || {}, { num: s.player.num, jersey: cfg.us.colors[0], trim: cfg.us.colors[1], outfit: 'jersey' }), them: o.look },
+        names: { them: o.name }, subs: { you: myRank ? `#${myRank} in the class · ${s.player.pos}` : s.player.pos, them: sub }, rim: { you: '#93c5fd', them: ck === 'faceoff' ? '#fca5a5' : '#fde68a' },
+        title: ck === 'faceoff' ? 'FACE-OFF' : ck === 'halftime' ? 'HALFTIME' : ck === 'huddle' ? 'TIMEOUT' : 'DEAD BALL', sub: ck === 'faceoff' && starRank && myRank ? `#${myRank} vs #${starRank.rank}` : scoreTxt,
+        gauge: { label: o.gaugeLabel, g: o.g, ego: o.ego }, rankRows: rankRows() });
+      if (!C) return null;
+      st.cineN = (st.cineN || 0) + 1; cnt('cineTalks');
+      const w = who => who === 'me' ? 'you' : who;
+      return { say: (who, t, e, v) => C.say(w(who), t, e, v), ask: opts => C.ask(opts), face: (who, e) => C.face(w(who), e), gauge: (g, dl, good) => C.gauge(g, dl, good), close: () => C.close(), peak: (k, who) => C.peak(k, who && w(who)), get skipped() { return C.skipped; }, cine: ck };
+    }
     /* in-game conversations happen in about 1 game in 3 (BALANCE.talk.every), never more than once */
     const talkOK = !cfg.practice && ((s.talkGap == null ? 99 : s.talkGap) >= ((BALANCE.talk && BALANCE.talk.every) || 3) - 1);
     const talkLook = id => { const P = TK && TK.personalities[id]; if (!P) return null; if (P.kind === 'rival') return Object.assign({}, STAR.look, { jersey: cfg.them.colors[0], trim: cfg.them.colors[1], outfit: 'jersey' }); if (P.kind === 'mate') return TMATE() ? MATE_LOOK() : Art.lookFromSeed(id, P.look || {}); if (P.char && STORY.characters[P.char]) return UI.charLook(P.char); return Art.lookFromSeed(P.name || id, P.look || {}); };
@@ -2138,12 +2169,12 @@ const Match = (() => {
     function talkCtx() {
       const d = st.us - st.them, V = (s.vs || {})[STAR.full];
       const score = (d >= 10 ? ['bigup', 'up'] : d <= -10 ? ['bigdown', 'down'] : d > 0 ? ['up'] : d < 0 ? ['down'] : ['tied']).concat(Math.abs(d) <= 3 ? ['close'] : []);
-      return { score, ev: st.talkEv ? [st.talkEv] : [], when: st.i >= n * .6 ? 'late' : 'early', vs: [!V || !V.g ? 'first' : null, V && V.last > 0 ? 'won' : null, V && V.last < 0 ? 'lost' : null, V && V.g >= 3 ? 'many' : null].filter(Boolean), games: V ? V.g + 1 : 1 };
+      return { rank: starRank && myRank ? [starRank.rank < myRank ? 'below' : 'above', 'ranked'] : []   /* from YOUR side: below = he's ranked higher */, score, ev: st.talkEv ? [st.talkEv] : [], when: st.i >= n * .6 ? 'late' : 'early', vs: [!V || !V.g ? 'first' : null, V && V.last > 0 ? 'won' : null, V && V.last < 0 ? 'lost' : null, V && V.g >= 3 ? 'many' : null].filter(Boolean), games: V ? V.g + 1 : 1 };
     }
     function condOk(c, X, topic) {
       if (!c) return true;
       for (const k in c) { const v = c[k];
-        if (k === 'topic' ? v !== topic : k === 'score' ? !X.score.includes(v) : k === 'ev' ? !X.ev.includes(v) : k === 'when' ? v !== X.when : k === 'vs' ? !X.vs.includes(v) : k === 'flag' ? ![].concat(v).every(f => s.flags[f]) : k === 'hs' ? s.career.hs !== v : false) return false; }
+        if (k === 'topic' ? v !== topic : k === 'rank' ? !X.rank.includes(v) : k === 'score' ? !X.score.includes(v) : k === 'ev' ? !X.ev.includes(v) : k === 'when' ? v !== X.when : k === 'vs' ? !X.vs.includes(v) : k === 'flag' ? ![].concat(v).every(f => s.flags[f]) : k === 'hs' ? s.career.hs !== v : false) return false; }
       return true;
     }
     function drawLine(key, pool, ok, prefer) {   // no repeats until the pool is used up (saved per career)
@@ -2175,29 +2206,34 @@ const Match = (() => {
     async function talk(type, topic, pre) {   // pre = the short pre-game talk (doesn't count toward the in-game limit)
       const id = type === 'coach' ? coachId : type === 'ref' ? refId : type === 'mate' ? mateId : rivalId, P = TK.personalities[id]; if (!P) return;
       if (pre) cnt('pretalks'); else { st.talkN++; st.talkAt = st.i; cnt('talks'); }
-      const tp = pre ? 'pre' : type === 'coach' ? (topic || pick(['play', 'minutes'])) : type === 'ref' ? 'call' : 'trash';
+      const tp = pre ? 'pre' : type === 'coach' ? (topic || pick(['play', 'minutes'])) : type === 'ref' ? 'call' : 'trash', ck = cineKind(type, topic);
       const script = buildTalk(id, P, tp, pre);
       const nEx = script.length, ego = P.kind === 'rival';
       let g = ego ? 100 : P.start, backfires = 0, ended = false;
       const look = talkLook(id), name = talkName(id), first = properName(s.player.first), X = talkCtx(), fillT = t => t.replace(/\{first\}/g, first).replace(/\{last\}/g, myName).replace(/\{num\}/g, s.player.num)
-        .replace(/\{star\}/g, STAR.short).replace(/\{opp\}/g, cfg.them.name).replace(/\{us\}/g, cfg.us.name).replace(/\{score\}/g, `${Math.max(st.us, st.them)}-${Math.min(st.us, st.them)}`).replace(/\{hs\}/g, s.career.hs && LOCAL_TEAMS[s.career.hs] ? LOCAL_TEAMS[s.career.hs].name : 'the team').replace(/\{games\}/g, X.games);
+        .replace(/\{star\}/g, STAR.short).replace(/\{opp\}/g, cfg.them.name).replace(/\{us\}/g, cfg.us.name).replace(/\{score\}/g, `${Math.max(st.us, st.them)}-${Math.min(st.us, st.them)}`).replace(/\{hs\}/g, s.career.hs && LOCAL_TEAMS[s.career.hs] ? LOCAL_TEAMS[s.career.hs].name : 'the team').replace(/\{games\}/g, X.games).replace(/\{myrank\}/g, myRank ? '#' + myRank : 'unranked').replace(/\{theirrank\}/g, starRank ? '#' + starRank.rank : 'unranked');
       const voice = { f: type === 'ref' ? 160 : type === 'rival' ? 330 : type === 'mate' ? 240 : 140, w: 'square', g: .035 }, myVoice = { f: 280, w: 'square', g: .03 };
       const tag = pre ? 'PRE-GAME' : type === 'coach' ? 'TIMEOUT' : type === 'ref' ? 'DEAD BALL' : type === 'rival' ? 'FACE-OFF' : 'HUDDLE';
-      const T = await talkScene({ title: `${tag} · ${name}`, name, trait: P.trait, look, ego, g, gaugeLabel: ego ? 'EGO' : P.kind === 'mate' ? 'TRUST' : 'PATIENCE', startExpr: type === 'rival' ? 'smile' : 'neutral' });
+      const so = { title: `${tag} · ${name}`, name, trait: P.trait, look, ego, g, gaugeLabel: ego ? 'EGO' : P.kind === 'mate' ? 'TRUST' : 'PATIENCE', startExpr: type === 'rival' ? 'smile' : 'neutral' };
+      const T = (ck && await cineScene(so, ck, id, P)) || await talkScene(so), CI = !!T.cine, pk = (k, who) => { if (CI) T.peak(k, who); };
+      if (CI && ck === 'faceoff') pk(starRank && myRank && starRank.rank < myRank ? 'predator' : 'glint', 'them');
+      let shattered = false;
       try {
         for (let k = 0; k < nEx && !ended; k++) {
           const ex = script[k], opts = ex.opts.slice().sort(() => Math.random() - .5);
           await T.say('them', fillT(ex.say), type === 'rival' ? 'smile' : type === 'ref' && k ? 'determined' : null, voice);
-          const pickI = await T.ask(opts.map(o2 => fillT(o2[1])));
+          let pickI = await T.ask(opts.map(o2 => fillT(o2[1])));
+          if (pickI < 0) { let bi = 0, bv = 99; opts.forEach((o2, j) => { const v2 = Math.abs(P.styles[o2[0]] || 0); if (v2 < bv) { bv = v2; bi = j; } }); pickI = bi; ended = true; }   // skipped: the calmest answer, and the talk ends there
           const style = opts[pickI][0], v = Math.round((P.styles[style] || 0) + rnd(-3, 3)), good = v > 0;
           await T.say('me', fillT(opts[pickI][1]), STYLE_EXPR[style] || 'determined', myVoice);
           if (ego) g = clamp(g - v, 0, 130); else g = clamp(g + v, 0, 100); if (!good) backfires++;
           T.gauge(g, (ego ? (good ? '−' : '+') : (good ? '+' : '−')) + Math.abs(v), good); SFX.play(good ? 'good' : 'bad');
+          if (CI) { if (good && ego && g <= 60 && !shattered) { shattered = true; pk('shatter'); } else if (good) pk('aura', 'me'); else pk(ego ? 'predator' : 'glint', 'them'); }   // the peak: his composure breaks / your aura / his glare
           await T.say('them', pick(good ? P.good : P.bad), ego ? (good ? 'angry' : 'smile') : (good ? 'smile' : 'angry'), voice);
-          T.face('me', good ? 'smile' : 'shocked'); await sleep(700);
+          T.face('me', good ? 'smile' : 'shocked'); await sleep(CI ? 200 : 700);
           if (v <= TK.endAt || (!ego && g <= 0)) ended = true;   // the wrong thing ends it early
         }
-        if (!ended && script.close) { await T.say('them', fillT(script.close), ego ? 'fierce' : 'determined', voice); await sleep(400); }
+        if (!ended && script.close) { if (CI) { pk(ck === 'faceoff' ? 'eyes' : 'aura', ck === 'faceoff' ? 'them' : 'me'); if (ck !== 'faceoff' && RK) pk('ranks'); } await T.say('them', fillT(script.close), ego ? 'fierce' : 'determined', voice); await sleep(CI ? 100 : 400); }
       } finally { await T.close(); }
       idle();
       /* ---------- outcomes ---------- */
@@ -2210,7 +2246,10 @@ const Match = (() => {
       }
       if (type === 'coach') {
         const win = !ended && g >= 60;
-        if (win && topic === 'play') { st.playCalled = true; st.nextBonus = { label: 'Play called for you', v: 8 }; pbp(`📣 ${escH(name)} calls your number. Next trip runs through you (+8%).`, 'good hot'); }
+        if (win && topic === 'half') { st.nextBonus = { label: 'Halftime adjustments', v: 6 }; st.morale2 = 1; pbp(`📣 ${escH(name)}'s halftime speech lands. You come out of the locker room on fire (+6%).`, 'good hot'); }
+        else if (win && topic === 'clutch') { st.playCalled = true; st.nextBonus = { label: 'Clutch play call', v: 8 }; pbp(`📣 ${escH(name)} draws it up for you. Last plays run through you (+8%).`, 'good hot'); }
+        else if (topic === 'half' || topic === 'clutch') pbp(`📣 ${escH(name)}: "Just go win it."`);
+        else if (win && topic === 'play') { st.playCalled = true; st.nextBonus = { label: 'Play called for you', v: 8 }; pbp(`📣 ${escH(name)} calls your number. Next trip runs through you (+8%).`, 'good hot'); }
         else if (win && topic === 'minutes') { st.minutes = true; st.nextBonus = { label: 'Coach\'s trust', v: 4 }; pbp(`📣 ${escH(name)}: "You're playing the rest of the way." More minutes, more numbers.`, 'good hot'); cnt('trustWins'); }
         else if (win) { st.nextBonus = { label: 'Fired up', v: 5 }; pbp(`📣 ${escH(name)} keeps you in. Don't waste it.`, 'good'); }
         else if (g <= 0 && !PICK) { st.bench = 1; cnt('benched'); s.meta.morale = Math.max(0, s.meta.morale - 4); pbp(`🪑 ${escH(name)} has heard enough. You're on the bench for a stretch.`, 'bad'); }
@@ -2784,7 +2823,10 @@ const Match = (() => {
       if (!PICK && last && Math.abs(st.us - st.them) <= 10 && Math.random() < .7) { const target = Math.floor(rnd(-3, 3)); const d = st.us - st.them - target; if (d > 0) st.them += d; else st.us -= d; }
       clk = clockFor(i); if (last) clk.rem = Math.min(clk.rem, rnd(4, 18));
       updBug();
-      if (clk.per !== prevPer) { SFX.play('buzzer'); await banner(`END OF ${L.label === 'H' ? '1ST HALF' : 'Q' + prevPer}`, '', 1000); prevPer = clk.per; pbp(`— ${L.label}${clk.per} —`, 'sys'); }
+      if (clk.per !== prevPer) { SFX.play('buzzer'); await banner(`END OF ${L.label === 'H' ? '1ST HALF' : 'Q' + prevPer}`, '', 1000); prevPer = clk.per; pbp(`— ${L.label}${clk.per} —`, 'sys');
+        // HALFTIME: a locker-room speech when you're losing or it's a big game (it replaces the game's conversation)
+        if (clk.per === Math.floor(L.periods / 2) + 1 && !st.half && !PICK && coachId && TK && talkOK && !st.talkN && !st.talkQ && (st.us - st.them <= -(CN.halftimeDown || 4) || imp0 >= 2) && cineKind('coach', 'half')) {
+          st.half = true; st.talkEv = st.us < st.them ? 'me_cold' : null; formation('us'); await guardMoment(() => talk('coach', 'half'), 'halftime'); updBug(); } }
       if (st.talkQ && st.talkAt < i) {   // dead ball: a quick conversation (huddle or face-off first)
         const q = st.talkQ; st.talkQ = null; formation('us');
         await guardMoment(async () => {
@@ -2796,7 +2838,9 @@ const Match = (() => {
       const diff = st.us - st.them;
       st.clutch = clk.per === L.periods && (i >= n - 2) && Math.abs(diff) <= 6; st.last = last;
       $('vig').classList.toggle('on', st.clutch); court.clutch = st.clutch;
-      if (st.clutch) { SFX.music('clutch'); SFX.play('heartbeat'); st.clutchN++; if (i === n - 2 || last) await banner('CLUTCH TIME', 'clutch', 1100); }
+      if (st.clutch) { SFX.music('clutch'); SFX.play('heartbeat'); st.clutchN++; if (i === n - 2 || last) await banner('CLUTCH TIME', 'clutch', 1100);
+        // CLUTCH TIMEOUT: the huddle in a close game (it replaces the game's conversation)
+        if (i === n - 2 && !PICK && coachId && TK && talkOK && !st.talkN && !st.talkQ && Math.abs(diff) <= (CN.clutchBy || 4) && cineKind('coach', 'clutch')) { formation('us'); await guardMoment(() => talk('coach', 'clutch'), 'huddle'); updBug(); } }
       const periodEnds = !last && clockFor(i + 1).per !== clk.per;
       const type = await guardMoment(async () => { let type;
       if (tutOn() && st.tutI < TUT_STEPS.length) type = await tutMoment();
@@ -2859,6 +2903,7 @@ const Match = (() => {
     const win = PICK ? st.done === 'us' : st.us > st.them;
     if (!cfg.practice) {   // conversation pacing + your history with their star (callbacks in the next conversations)
       s.talkGap = st.talkN ? 0 : (s.talkGap == null ? 3 : s.talkGap + 1);
+      s.cineGap = st.cineN ? 0 : (s.cineGap == null ? 3 : s.cineGap + 1);   // pacing of the cinematic conversations
       const V = s.vs || (s.vs = {}), R = V[STAR.full] || (V[STAR.full] = { g: 0, w: 0, l: 0 }); R.g++; if (win) R.w++; else R.l++; R.last = win ? 1 : -1;
     }
     // the play that decided it (big games replay it as the game-winner cutscene, js/cutscene.js Cutscene.winner)

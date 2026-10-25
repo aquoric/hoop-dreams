@@ -143,7 +143,7 @@ Object.assign(STORY.chapters.college.nodes, {
   oo_tough_win: { scene: 'locker', fx: { trust: 5, rep: 4, overseas: 1 }, lines: [['narrator', 'You won. You also can\'t lift your arms, and your lip is bleeding.'], ['marko', 'They hit you like a man. You played like one.', 'smile']], next: 'oo_wt' },
   oo_tough_loss: { scene: 'locker', fx: { morale: -4 }, lines: [['narrator', 'You went 3-for-14. They took away your drive and then your jumper.'], ['ocoach', 'Two moves are not enough at this level.', 'determined']], next: 'oo_wt' },
   /* Weapon Training: Sal DeLuca, eleven years in Europe, shows up in your gym */
-  oo_wt: { scene: 'gym', fx: { unlock: 'weapon_training', rel: { sal: 4 } },
+  oo_wt: { cine: true, scene: 'gym', fx: { unlock: 'weapon_training', rel: { sal: 4 } },
     lines: [
       ['narrator', 'After practice, a short American in a team jacket is rebounding for nobody in particular.'],
       ['sal', 'Court two, remember? I\'m scouting this league for a client and I saw your game.', 'smile', { flag: 'jelly_met' }],

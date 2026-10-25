@@ -341,7 +341,7 @@ STORY.chapters.usa = {
         ['reyes', 'Here\'s what I need to see next time: be the same player on day three as on day one.'],
         ['narrator', 'On your way out you pass the list. "STERLING, K." is on it.'],
       ], next: 'cut_lou' },
-    cut_lou: { scene: 'street_night',
+    cut_lou: { cine: true, scene: 'street_night',
       lines: [
         ['lou', 'Got cut? Good. Michael got cut once too. Every one of them got told no.'],
         ['lou', 'Write their twelve names on your wall. Look at it every morning.', 'fierce'],

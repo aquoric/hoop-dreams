@@ -5,7 +5,8 @@
    TALK.lines[character] = { open: [...], push: [...], close: [...] }
      A conversation is open → push (→ close): 2–3 of their lines; you answer each one.
      A line is a string, or { t, if } where `if` must all hold (lines whose conditions match are preferred):
-       topic: 'pre' | 'play' | 'minutes' | 'argue' | 'call' | 'trash'   (what the talk is about)
+       topic: 'pre' | 'play' | 'minutes' | 'argue' | 'call' | 'trash' | 'half' (halftime speech) | 'clutch' (clutch timeout)
+       rank:  'below' (he's ranked above you) | 'above' | 'ranked'      placeholders {myrank} {theirrank}
        score: 'up' | 'down' | 'tied' | 'bigup' | 'bigdown' | 'close'      (from YOUR side)
        ev:    'dunked_on' (you dunked on him) | 'got_dunked' (he scored on you) | 'blocked' (you blocked him)
               'missed_ft' | 'bad_call' | 'me_hot' | 'me_cold' | 'he_hot'
@@ -22,6 +23,11 @@ TALK.lines = {
   /* ------------------------------ COACHES ------------------------------ */
   lou: {   // gruff ex-pro, three seasons with the Pistonz before his knee went. Calls you "kid".
     open: [
+      { t: 'You\'re playing scared, kid, and the whole gym can see it.', if: { topic: 'half', score: 'down' } },
+      { t: 'Sit and breathe. Now tell me why we\'re losing to these guys.', if: { topic: 'half' } },
+      { t: 'Big game, big stage. Twenty minutes left to make them remember your name.', if: { topic: 'half' } },
+      { t: 'Clock\'s dying, kid. This is the part they put on tape.', if: { topic: 'clutch' } },
+      { t: 'Everybody in this gym knows who should take this shot. Do you?', if: { topic: 'clutch' } },
       { t: 'Kid. You\'re thinking too much. Talk to me.', if: { topic: 'play' } },
       { t: 'You want the ball? Tell me why, and make it quick.', if: { topic: 'play' } },
       { t: 'Three bad shots, kid. Three. What are you doing?', if: { topic: 'argue' } },
@@ -38,6 +44,8 @@ TALK.lines = {
       'You\'ve got about ten seconds before I start yelling.',
     ],
     push: [
+      { t: 'You want the last shot? Tell me what you see first.', if: { topic: 'clutch' } },
+      { t: 'Second half starts with your first stop. Not your first shot.', if: { topic: 'half' } },
       'Everybody says that. What are you gonna DO?',
       'My knee says I\'ve heard that one before.',
       'Look at me, not the scoreboard.',
@@ -57,6 +65,11 @@ TALK.lines = {
   },
   brennan: {   // 31 years at Lincoln, old-school, program first. Calls you "son".
     open: [
+      { t: 'Thirty-one years, and no team has ever quit in my locker room. Don\'t be the first.', if: { topic: 'half', score: 'down' } },
+      { t: 'Son, I\'m going to ask once. What do we fix?', if: { topic: 'half' } },
+      { t: 'Biggest half of your life. What are we doing different?', if: { topic: 'half' } },
+      { t: 'Look at me, not the scoreboard. What play do you want?', if: { topic: 'clutch' } },
+      { t: 'Lincoln has waited a long time for this possession. Who takes it?', if: { topic: 'clutch' } },
       { t: 'Son, I\'ve been running plays for thirty-one years. Why should I run one for you?', if: { topic: 'play' } },
       { t: 'You want this one drawn up? Then sell it to me.', if: { topic: 'play' } },
       { t: 'That\'s not Lincoln basketball. Explain yourself.', if: { topic: 'argue' } },
@@ -72,6 +85,8 @@ TALK.lines = {
       'Eyes up here, son. What do you need?',
     ],
     push: [
+      { t: 'They\'re packing the paint. What does that leave us?', if: { topic: 'half' } },
+      { t: 'If they double you, then what?', if: { topic: 'clutch' } },
       'That\'s an answer. Not a good one yet.',
       'In 1994 a kid said the same thing. He ran laps.',
       'The program is bigger than you. Say it like you know that.',
@@ -89,6 +104,11 @@ TALK.lines = {
   },
   graves: {   // Westbrook's machine. Cold, clipped, only the system matters.
     open: [
+      { t: 'The system works. You are the part that doesn\'t.', if: { topic: 'half', score: 'down' } },
+      { t: 'Westbrook does not lose halves. Explain this one.', if: { topic: 'half' } },
+      { t: 'Twenty minutes for your reputation. Talk.', if: { topic: 'half' } },
+      { t: 'One possession. Convince me it\'s yours, not Kai\'s.', if: { topic: 'clutch' } },
+      { t: 'This is the play the scouts came for. What is it?', if: { topic: 'clutch' } },
       { t: 'You want a play. The system already has plays. Why yours?', if: { topic: 'play' } },
       { t: 'Explain the last three possessions. Briefly.', if: { topic: 'argue' } },
       { t: 'Minutes follow numbers. Show me numbers.', if: { topic: 'minutes' } },
@@ -102,6 +122,8 @@ TALK.lines = {
       'The film will be honest with you later. Be honest now.',
     ],
     push: [
+      { t: 'Your adjustment. Be specific.', if: { topic: 'half' } },
+      { t: 'And when they switch?', if: { topic: 'clutch' } },
       'Irrelevant.',
       'That\'s a feeling. I asked for a reason.',
       'Better. Not good.',
@@ -117,6 +139,11 @@ TALK.lines = {
   },
   coach: {   // any other coach: strict, earns-everything
     open: [
+      { t: 'We\'re down {score}. Somebody stand up and tell me why.', if: { topic: 'half', score: 'down' } },
+      { t: 'Big half coming. What are we fixing?', if: { topic: 'half' } },
+      { t: 'Sit down. Give me one adjustment.', if: { topic: 'half' } },
+      { t: 'Tie game energy. Who wants it?', if: { topic: 'clutch' } },
+      { t: 'One possession, maybe two. Tell me the play.', if: { topic: 'clutch' } },
       { t: 'You want a call? Convince me in one breath.', if: { topic: 'play' } },
       { t: 'What was that last trip? Talk.', if: { topic: 'argue' } },
       { t: 'More minutes? Show me something first.', if: { topic: 'minutes' } },
@@ -126,7 +153,7 @@ TALK.lines = {
       'Make it fast. Timeout\'s ticking.',
       'Talk to me. And look me in the eye.',
     ],
-    push: ['Go on.', 'Not convinced yet.', 'And if they adjust?', 'Everybody wants the ball. Why you?', 'Prove it with the next stop.'],
+    push: [{ t: 'And if they take that away?', if: { topic: 'half' } }, { t: 'You\'re sure? Everybody\'s sure in a timeout.', if: { topic: 'clutch' } }, 'Go on.', 'Not convinced yet.', 'And if they adjust?', 'Everybody wants the ball. Why you?', 'Prove it with the next stop.'],
     close: ['Fine. Go.', 'Alright, you\'ve got it.', 'Don\'t waste it.', 'Back out there.'],
   },
   /* ------------------------------ REFEREES ------------------------------ */
@@ -168,6 +195,10 @@ TALK.lines = {
   /* ------------------------------ RIVALS ------------------------------ */
   kai: {   // #1 in the class, Silk Sterling's son, lives on his phone. Calls you "Halsey".
     open: [
+      { t: '{myrank}? I didn\'t know they ranked that far down.', if: { rank: 'below' } },
+      { t: 'You\'re {myrank} and I\'m {theirrank}. The list isn\'t wrong, Halsey.', if: { rank: 'below' } },
+      { t: 'Above me on some list? Lists are for people who need them.', if: { rank: 'above' } },
+      { t: 'You passed me in the rankings. Tonight I take it back in person.', if: { rank: 'above' } },
       { t: 'Halsey. I\'ve watched your film. It was short.', if: { topic: 'pre', vs: 'first' } },
       { t: 'You still remember Halsey Park? Because I do. Every night.', if: { topic: 'pre', flag: 'beat_kai' } },
       { t: 'Halsey Park was a fluke and tonight everybody finds out.', if: { flag: 'beat_kai', vs: 'won' } },
@@ -223,6 +254,8 @@ TALK.lines = {
   },
   hothead: {   // loud, easy to set off
     open: [
+      { t: '{theirrank} in the class, you\'re {myrank}. Do the math.', if: { rank: 'below' } },
+      { t: 'You\'re ranked above me? Not after tonight.', if: { rank: 'above' } },
       { t: 'YOU AIN\'T GUARDING ME TONIGHT.', if: { topic: 'pre' } },
       { t: 'Do that again and see what happens!', if: { ev: 'dunked_on' } },
       { t: 'GET USED TO IT! That\'s all night!', if: { ev: 'got_dunked' } },
@@ -238,6 +271,8 @@ TALK.lines = {
   },
   iceman: {   // says almost nothing; only composure impresses him
     open: [
+      { t: '{theirrank} in the class, you\'re {myrank}. Do the math.', if: { rank: 'below' } },
+      { t: 'You\'re ranked above me? Not after tonight.', if: { rank: 'above' } },
       { t: 'Hm. You.', if: { topic: 'pre' } },
       { t: '…Nice move. Won\'t work twice.', if: { ev: 'dunked_on' } },
       { t: 'Scoreboard.', if: { score: 'down' } },
@@ -251,6 +286,8 @@ TALK.lines = {
   },
   showman: {   // everything is content; lives for the crowd
     open: [
+      { t: '{theirrank} in the class, you\'re {myrank}. Do the math.', if: { rank: 'below' } },
+      { t: 'You\'re ranked above me? Not after tonight.', if: { rank: 'above' } },
       { t: 'Hope you brought your good side, the cameras love me.', if: { topic: 'pre' } },
       { t: 'Oh, you got the crowd on that one? Rent\'s due tomorrow, it\'s mine again.', if: { ev: 'dunked_on' } },
       { t: 'Did you SEE that? Tell me you saw that. Everybody saw that.', if: { ev: 'got_dunked' } },

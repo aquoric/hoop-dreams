@@ -180,7 +180,7 @@ const Engine = (() => {
     if (fx.fans) { const d = Math.round(fx.fans); s.meta.fans = Math.max(0, s.meta.fans + d); out.push({ label: 'Fans', v: d, fmt: 'fans' }); }
     if (fx.money) { s.meta.money = Math.max(0, s.meta.money + fx.money); out.push({ label: 'Money', v: fx.money, fmt: 'money' }); }
     if (fx.rel) for (const id in fx.rel) { const b = s.rel[id] || 0; s.rel[id] = clamp(b + fx.rel[id], -100, 100); const ch = STORY.characters[id]; out.push({ label: (ch ? ch.short || ch.name : id), v: s.rel[id] - b, fmt: 'rel' }); }
-    if (fx.flag) [].concat(fx.flag).forEach(f => s.flags[f] = true);
+    if (fx.flag) [].concat(fx.flag).forEach(f => { const was = s.flags[f]; s.flags[f] = true; if (!was && typeof Rankings !== 'undefined') Rankings.onFlag(s, f); });   // story results move your prospect rank (once)
     if (fx.unflag) [].concat(fx.unflag).forEach(f => delete s.flags[f]);
     if (fx.injury) { s.meta.injury = { games: fx.injury.games, name: fx.injury.name }; out.push({ label: 'Injury: ' + fx.injury.name, v: -fx.injury.games, fmt: 'inj' }); }
     if (fx.log) s.log.push(text(fx.log, s));
@@ -310,6 +310,7 @@ const Engine = (() => {
     for (const k in R.bonus) if (s.flags[k]) sc += R.bonus[k];
     for (const k in R.penalty) if (s.flags[k]) sc += R.penalty[k];
     sc += (s.features && s.features.mix && s.features.mix.bonus) || 0;   // released mixtapes (js/features.js)
+    if (typeof Rankings !== 'undefined') sc += Rankings.recruitBonus(s);   // your prospect rank (js/rankings.js)
     return Math.round(sc);
   }
   function starsFor(score) { let n = 1; RECRUITING.starAt.forEach((t, i) => { if (score >= t) n = i + 1; }); return n; }

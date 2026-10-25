@@ -214,7 +214,7 @@ STORY.chapters.street = {
         ['tariq', 'Bro, you were right there. RIGHT THERE.', 'sad'],
       ], next: 'lou_meet' },
 
-    lou_meet: { scene: 'playground_night',
+    lou_meet: { cine: true, scene: 'playground_night',
       lines: [
         ['narrator', 'Streetlights flicker on and everyone\'s gone home. You\'re still shooting.'],
         ['lou', 'You know what your problem is, kid?'],
@@ -529,9 +529,27 @@ STORY.chapters.street = {
         ['narrator', 'The scout leaves before the trophy ceremony. Nobody calls — not that week, not the next.'],
         ['tariq', 'Forget her, bro — we\'re going to Lincoln High together. We\'ll make them notice.'],
       ],
-      choices: [{ t: '"Then we make them notice."', fx: { rel: { tariq: 8 }, attrs: { clutch: 2 } }, next: 'ch_end' }] },
+      choices: [{ t: '"Then we make them notice."', fx: { rel: { tariq: 8 }, attrs: { clutch: 2 } }, next: 'dee_list_cold' }] },
+    /* the Prospect Rankings: Dee shows you the list (js/rankings.js) — your name is the last one */
+    dee_list_cold: { scene: 'playground_night', cine: true, peaks: { 3: { kind: 'ranks' } }, fx: { unlock: 'rankings' },
+      lines: [
+        ['narrator', 'Three days after the Summer Jam, an email from Elite Hoops Network.'],
+        ['dee', '(email) I didn\'t offer you anything. You weren\'t ready.'],
+        ['dee', '(email) But I added one name to our top three hundred this morning. Scroll to the bottom.', 'smile'],
+        ['narrator', 'Number three hundred: you. Kai Sterling is number three.'],
+      ],
+      choices: [{ t: 'Print it. Tape it above your bed.', fx: { morale: 5 }, next: 'ch_end' }, { t: 'Screenshot it and send it to Tariq.', fx: { rel: { tariq: 4 } }, next: 'ch_end' }] },
+    dee_list: { scene: 'playground', cine: true, peaks: { 2: { kind: 'ranks' }, 4: { kind: 'aura', who: 'you' } }, fx: { unlock: 'rankings' },
+      lines: [
+        ['dee', 'One more thing. Elite Hoops Network ranks the top three hundred players your age.'],
+        ['dee', 'Kai Sterling is number three. Want to see number three hundred?'],
+        ['narrator', 'She turns the tablet around. The last name on the list is yours.'],
+        ['dee', 'I put you there myself this morning. Last isn\'t nothing — last is on the list.', 'smile'],
+        ['you', 'Then I\'m coming for every name above me.'],
+      ],
+      choices: [{ t: '"Write my name in pen."', fx: { morale: 4 }, next: 'ch_end' }, { t: 'Screenshot it. Send it to Kai.', fx: { rel: { kai: -3 }, rep: 1 }, next: 'ch_end' }] },
 
-    dee_offer: { scene: 'playground', cutscene: 'scouted', fx: { flag: 'scouted', xp: 50, post: { by: 'ehn', text: 'Scouting note 📋 {first} {last} ({height} {pos}, {hometown}): raw, competitive, gets better when it gets harder. Unranked — for now.' } },
+    dee_offer: { cine: true, scene: 'playground', cutscene: 'scouted', fx: { flag: 'scouted', xp: 50, post: { by: 'ehn', text: 'Scouting note 📋 {first} {last} ({height} {pos}, {hometown}): raw, competitive, gets better when it gets harder. Unranked — for now.' } },
       lines: [
         ['dee', '{first} {last}? Dee Carter, Elite Hoops Network — nineteen years in this business.'],
         ['dee', 'You\'re raw. Your left hand is a rumor and your shot selection gave me a headache.'],
@@ -560,12 +578,12 @@ STORY.chapters.street = {
         ['tariq', 'Westbrook, huh? …Nah, it\'s cool — good look for you, really.', 'sad'],
         ['narrator', 'He doesn\'t look at you when he says it.'],
         ['kai', '(text message) Heard you\'re coming to Westbrook. Don\'t get comfy — that starting spot is mine.', 'fierce'],
-      ], next: 'ch_end' },
+      ], next: 'dee_list' },
     pick_lincoln: { scene: 'playground_night',
       lines: [
         ['tariq', 'LINCOLN LIONS, BABY! Me and you, starting backcourt — Kai\'s gonna HATE this!', 'smile'],
         ['kai', '(text message) Lincoln? Bold — see you in December, bring tissues.', 'fierce'],
-      ], next: 'ch_end' },
+      ], next: 'dee_list' },
 
     ch_end: { type: 'chapterEnd', nextChapter: 'highschool', fx: { develop: 'street' },
       summary: 'Summer\'s over. You came in a nobody and leave a {ovr}-Overall {posName} with a rival who knows your name.',

@@ -120,6 +120,6 @@ const USA = (() => {
   }
 
   /* invite score: good enough to be on the list */
-  const inviteScore = s => Engine.ovr(s) + 4 * ((s.recruit && s.recruit.stars) || 0) + (s.meta.rep || 0) * .2;
+  const inviteScore = s => Engine.ovr(s) + 4 * ((s.recruit && s.recruit.stars) || 0) + (s.meta.rep || 0) * .2 + (typeof Rankings !== 'undefined' ? Rankings.inviteBonus(s) : 0);   // + your prospect rank
   return { camp, field, rankOf, board, drill, talk, inviteScore };
 })();

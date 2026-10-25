@@ -35,6 +35,7 @@ const Features = (() => {
   function unlock(s, id, opts = {}) {
     const F = state(s), f = FEATURE_BY_ID[id]; if (!f) return false;
     s.flags['feat_' + id] = true;                       // story branches can ask "already unlocked?"
+    if (id === 'rankings' && typeof Rankings !== 'undefined' && !Rankings.on(s)) Rankings.init(s, false);   // Dee's list: you're #300
     if (F.on[id]) return false;
     F.on[id] = Date.now();
     const after = s.story ? s.story.chapter + ':' + s.story.node : null;   // the card waits until this scene is over
@@ -64,6 +65,9 @@ const Features = (() => {
       for (const f of FEATURES) if (!F.on[f.id] && f.legacy && cond(s, f.legacy)) { F.on[f.id] = Date.now(); got.push(f.id); if (f.tab) F.newTabs[f.tab] = true; }
       delete F.on.rep_map; delete F.legends; F.queue = (F.queue || []).filter(q => q.ids && q.ids.every(id => FEATURE_BY_ID[id]));   // the Court Rep Map is gone
       F.v = 2;
+    }
+    if (!F.on.rankings && typeof Rankings !== 'undefined' && (s.flags.done_street || chIdx(s.story && s.story.chapter) > 0)) {   // careers from before the rankings: a fair spot from their progress
+      F.on.rankings = Date.now(); F.newTabs.ranks = true; Rankings.init(s, true); F.queue.push({ ids: ['rankings'], after: null });
     }
     Object.keys(F.on).forEach(id => { s.flags['feat_' + id] = true; });
     starters(s, got.length > 0);
@@ -96,7 +100,7 @@ const Features = (() => {
     requestAnimationFrame(() => el.classList.add('in'));
     return new Promise(res => {
       const close = k => { removeEventListener('keydown', kd); el.classList.remove('in'); el.classList.add('out'); setTimeout(() => el.remove(), 320); SFX.play('click');
-        if (inHub && Game.hubCtx) UI.hub(Object.assign({}, Game.hubCtx, k === 'go' ? { tab: one.tab } : {})); res(); };
+        if (inHub && Game.hubCtx && document.body.dataset.screen === 'hubscreen') UI.hub(Object.assign({}, Game.hubCtx, k === 'go' ? { tab: one.tab } : {})); res(); };   // only if you're still in the hub (never over a game or a scene)
       const kd = e => { if (e.code === 'Enter' || e.code === 'Space' || e.code === 'Escape') { e.preventDefault(); close('ok'); } };
       setTimeout(() => addEventListener('keydown', kd), 600);
       el.querySelectorAll('[data-k]').forEach(b => b.onclick = () => close(b.dataset.k));
@@ -105,11 +109,11 @@ const Features = (() => {
 
   /* ---------- hub tabs ---------- */
   const seenTab = (s, tab) => { if (s.features && s.features.newTabs && s.features.newTabs[tab]) { delete s.features.newTabs[tab]; Game.save(); } };
-  const TAB_NAMES = { playbook: 'Playbook', mixtape: 'Mixtape', chem: 'Chemistry', celebs: 'Celebrations', mentor: 'Mentor', combine: 'Combine', shoe: 'Shoe', rivals: 'Rivals' };
+  const TAB_NAMES = { ranks: 'Rankings', playbook: 'Playbook', mixtape: 'Mixtape', chem: 'Chemistry', celebs: 'Celebrations', mentor: 'Mentor', combine: 'Combine', shoe: 'Shoe', rivals: 'Rivals' };
   function tabs(s) {
     if (!s.features) return [];
     const seen = new Set(), out = [];
-    FEATURES.forEach(f => { if (f.tab && on(s, f.id) && !seen.has(f.tab)) { seen.add(f.tab); out.push([f.tab, f.tab === 'playbook' && !on(s, 'playbook') ? 'Jelly' : TAB_NAMES[f.tab] || f.name, s.features.newTabs && s.features.newTabs[f.tab] ? 'new' : true]); } });
+    FEATURES.forEach(f => { if (f.tab && on(s, f.id) && !seen.has(f.tab)) { seen.add(f.tab); out.push([f.tab, f.tab === 'ranks' && Rankings.bigBoard(s) ? 'Big Board' : f.tab === 'playbook' && !on(s, 'playbook') ? 'Jelly' : TAB_NAMES[f.tab] || f.name, s.features.newTabs && s.features.newTabs[f.tab] ? 'new' : true]); } });
     return out;
   }
   const hub = () => Game.hubCtx, ap = s => s.hub ? s.hub.ap : 0;
@@ -153,11 +157,14 @@ const Features = (() => {
       case 'combine': return `<div class="glass panel"><h4>Combine Leaderboard</h4><table class="tbl"><thead><tr><th>Event</th><th>You</th><th>Class rank</th><th>All-time record</th></tr></thead><tbody>${COMBINE.events.map(e => { const r = F.combine[e.id];
           return `<tr><td>${esc(e.name)}</td><td>${r ? r.v + e.unit : '—'}</td><td>${r ? '#' + r.rank + ' / ' + COMBINE.draftClass : '—'}</td><td>${e.record.v}${e.unit} · ${esc(e.record.by)}</td></tr>`; }).join('')}</tbody></table></div>`;
       case 'shoe': { const sh = s.shoe || {}; return `<div class="glass panel"><h4>Signature Shoe</h4>${sh.name ? `<p><b>${esc(sh.name)}</b> · ${esc(sh.sil || '')} · pairs sold: ${Engine.fmtFans(sh.sold || 0)}</p>` : '<p class="muted">Your designer is waiting on you. (Chapter 5)</p>'}</div>`; }
+      case 'ranks': return rankTab(s);
       case 'rivals': return `<div class="glass panel"><h4>Rivalries</h4>${Object.entries(F.rivals).map(([n, r]) => `<div class="clip"><i>⚔</i><div><b>${esc(n)}</b><small>Heat ${r.heat} · ${r.w}-${r.l}</small></div></div>`).join('') || '<p class="muted">No rivals yet.</p>'}</div>`;
     }
     return '';
   }
   function bind(tab, body, s, rerender) {
+    body.querySelectorAll('[data-rkgo]').forEach(b => b.onclick = () => { const L = body.querySelector('.rk-list'), row = L && L.querySelector(`[data-rk="${b.dataset.rkgo}"]`); if (row) L.scrollTop = row.offsetTop - L.clientHeight / 2 + row.clientHeight / 2; SFX.play('click'); });
+    if (tab === 'ranks') setTimeout(() => { const g = body.querySelector('[data-rkgo="me"]'); if (g) g.click(); }, 30);
     body.querySelectorAll('[data-practice]').forEach(b => b.onclick = () => practice());
     body.querySelectorAll('[data-release]').forEach(b => b.onclick = () => release());
     body.querySelectorAll('[data-mission]').forEach(b => b.onclick = () => mission(b.dataset.mission));
@@ -209,7 +216,27 @@ const Features = (() => {
     F.mix.bonus = (F.mix.bonus || 0) + sc * B.recruit; F.mix.clips = [];
     const changes = Game.applyFx({ fans: Math.round(sc * B.fans), rep: Math.round(sc * B.rep), morale: 4, recruit: true, post: { by: 'courtvision', text: `📼 NEW MIXTAPE: "${title}" — ${sc >= 50 ? 'this tape is RIDICULOUS.' : sc >= 30 ? 'certified heat.' : 'the kid can play.'} Link in bio. #HoopDreams` } });
     SFX.play('sig'); UI.toast(`📼 Mixtape released: <b>"${esc(title)}"</b>`, 'ach', 4500); UI.fxToasts(changes);
+    if (Rankings.on(s)) { const rr = Rankings.bump(s, sc * B.recruit * BALANCE.rankings.mixtape, 'Mixtape drop'); if (rr && rr.to < rr.from) UI.toast(`📈 Prospect rank <b>#${rr.from} → #${rr.to}</b> after the tape drops`, 'ach', 3800); }
     Game.save(); UI.hub(Object.assign({}, Game.hubCtx, { tab: 'mixtape' }));
+  }
+
+  /* ---------- Prospect Rankings (js/rankings.js) ---------- */
+  function rankTab(s) {
+    if (!Rankings.on(s)) Rankings.ensure(s);
+    const L = Rankings.list(s), R = s.rank, me = L.find(r => r.me), kai = Rankings.kai(), kr = kai && L.find(r => r.id === kai.id), BB = Rankings.bigBoard(s), cut = BALANCE.rankings.bigBoard;
+    const prev = R.prevMap || R.last || {}, near = n => { const i = L.indexOf(me); return L.slice(Math.max(0, i - n), i + n + 1); };
+    const showAv = new Set(L.slice(0, 10).map(r => r.id).concat(near(3).map(r => r.id), kr ? [kr.id] : []));
+    const av = r => r.me ? portrait(Engine.look(s)) : showAv.has(r.id) ? portrait(Art.lookFromSeed(r.p.name)) : `<i class="rk-init">${esc(r.p.name.replace(/"[^"]*"\s*/g, '').split(' ').map(w => w[0]).join('').slice(0, 2))}</i>`;
+    const mv = r => { const was = r.me ? R.prev : prev[r.id]; if (!was || was === r.rank) return '<em class="rk-mv">–</em>'; return was > r.rank ? `<em class="rk-mv up">▲${was - r.rank}</em>` : `<em class="rk-mv dn">▼${r.rank - was}</em>`; };
+    const row = r => `<div class="rk-row${r.me ? ' me' : ''}${kr && r.id === kr.id ? ' kai' : ''}${BB && r.rank === cut ? ' cutline' : ''}" data-rk="${r.me ? 'me' : r.id}"><b class="rk-n">#${r.rank}</b>${mv(r)}<span class="rk-av">${av(r)}</span>
+      <span class="rk-name"><b>${esc(r.p.name)}</b><small>${esc(r.p.pos)} · ${esc(r.p.home)}</small></span><span class="rk-ovr">${r.me ? Engine.ovr(s) : Rankings.ovrOf(s, r.p)}<small>OVR</small></span>
+      <span class="rk-wpn">${r.p.weapon && WEAPONS[r.p.weapon] ? '⚔ ' + esc(WEAPONS[r.p.weapon].name) : BB ? (r.rank <= cut / 2 ? 'Round 1' : r.rank <= cut ? 'Round 2' : 'Undrafted') : ''}</span></div>`;
+    const ch = R.prev && R.prev !== me.rank ? (R.prev > me.rank ? `<em class="up">▲${R.prev - me.rank} last update</em>` : `<em class="dn">▼${me.rank - R.prev} last update</em>`) : '<em>No change last update</em>';
+    return `<div class="rk-wrap"><div class="glass panel rk-head">
+        <div class="rk-me"><span class="rk-av big">${portrait(Engine.look(s))}</span><div><small>${BB ? 'DRAFT BIG BOARD' : 'ELITE HOOPS NETWORK · CLASS RANKINGS'}</small><b>#${me.rank}<i>/ ${BALANCE.rankings.size}</i></b>${ch}<span class="muted small">Best: #${R.best} · ${BB ? (me.rank <= cut ? `Projected pick: <b>#${me.rank}</b> (Round ${me.rank <= cut / 2 ? 1 : 2})` : 'Projected: undrafted') : 'Climb with big games, wins over ranked players and titles.'}</span></div></div>
+        <div class="rk-near">${near(2).map(r => `<div class="${r.me ? 'me' : ''}"><b>#${r.rank}</b> ${esc(r.me ? 'YOU' : r.p.name)}</div>`).join('')}</div>
+        <div class="rk-btns"><button class="btn small glow" data-rkgo="me">My spot</button><button class="btn small ghost" data-rkgo="${L[0].id}">Top 10</button>${kr ? `<button class="btn small ghost" data-rkgo="${kr.id}">Kai · #${kr.rank}</button>` : ''}</div>
+      </div><div class="glass panel rk-list">${L.slice(0, BALANCE.rankings.size).map(row).join('')}${me.rank > BALANCE.rankings.size ? row(me) : ''}</div></div>`;
   }
 
   /* ---------- Chemistry ---------- */

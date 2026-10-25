@@ -185,7 +185,13 @@ const Game = {
     let court = s.pickupCourt && Venues.unlocked(s).includes(s.pickupCourt) && (!route || pool.includes(s.pickupCourt)) ? s.pickupCourt : route ? pool[0] : 'street_night';
     const fresh = pool.filter(id => !Venues.unlocked(s).includes(id) && id !== court);
     if (fresh.length && Math.random() < .3) { court = Engine.pick(fresh); UI.toast(`📍 The run moved tonight: <b>${VENUES[court].name}</b>`, 'ach', 3500); }
-    const r = await Match.play({ us: Object.assign({}, home, { id: 'yourrun', name: 'Your Run', abbr: 'YOU' }), them: this.team(route ? ROUTE_CREW[route] : 'pickup_crew'), oppRating: o - 2, mateRating: o - 3, moments: 7, level: 'street', size, target, fullArcade: true, venueId: court, title: 'Pickup Run', sub: `${VENUES[court].name} · ${size}v${size}, first to ${target}` });
+    let them = this.team(route ? ROUTE_CREW[route] : 'pickup_crew'), us = Object.assign({}, home, { id: 'yourrun', name: 'Your Run', abbr: 'YOU' }), oppR = o - 2, starSub;
+    if (Rankings.on(s)) {   // ranked prospects run here too: a crew from just above your spot, teammates from just below
+      const opp = Rankings.crew(s, 3, true), mates = Rankings.crew(s, 2, false);
+      if (opp.length) { them = Object.assign({}, them, { roster: opp.map(x => x.name), star: { name: opp[0].name, perD: opp[0].ovr, intD: opp[0].ovr - 4 } }); oppR = Math.round((o - 2 + opp[0].ovr) / 2); starSub = `#${opp[0].rank} in the class · ${opp[0].p.pos} · ${opp[0].p.home}`; }
+      if (mates.length) us.roster = mates.map(x => x.name).concat(us.roster || []);
+    }
+    const r = await Match.play({ us, them, starSub, oppRating: oppR, mateRating: o - 3, moments: 7, level: 'street', size, target, fullArcade: true, venueId: court, title: 'Pickup Run', sub: `${VENUES[court].name} · ${size}v${size}, first to ${target}` });
     this.unlockVenue(r.venueId);
     s.hub.ap--;
     const k = Engine.pick(['three', 'finish', 'handle', 'perD', 'reb']);
@@ -193,7 +199,8 @@ const Game = {
     for (const c in r.counters) s.counters[c] = (s.counters[c] || 0) + r.counters[c];
     Features.afterMatch(s, r, { title: 'Pickup Run' });
     UI.toast(`${r.win ? '🏆 Won' : 'Lost'} the pickup run ${r.us}–${r.them}`, r.win ? 'good' : 'bad'); UI.fxToasts(changes);
-    this.checkAch(); this.save(); UI.hub(this.hubCtx);
+    const rr = Rankings.afterGame(s, r, { pickup: true, why: 'Pickup run' }); if (rr && rr.to !== rr.from) UI.toast(`${rr.to < rr.from ? '📈' : '📉'} Prospect rank <b>#${rr.from} → #${rr.to}</b>`, rr.to < rr.from ? 'ach' : 'bad', 3600);
+    this.checkAch(); this.save(); await this.afterRanks(); UI.hub(this.hubCtx);
   },
   unlockVenue(id) { if (Venues.unlock(this.state, id)) UI.toast(`🏟 New court unlocked: <b>${VENUES[id].name}</b> — pick it for pickup runs.`, 'ach', 3800); },
 
@@ -273,7 +280,7 @@ const Game = {
     // move the story pointer now so a reload never replays the game
     s.story = { chapter: s.story.chapter, node: r.win ? node.win : node.lose, fxApplied: null };
     this.save();
-    UI.postGame(r, summary, () => this.runNode());
+    UI.postGame(r, summary, () => this.afterRanks(() => this.runNode()));
   },
   jellyPayoff(importance) { return this.state.flags.jelly_payoff && importance >= 2 ? { text: 'Their big man leaves his man and slides over to meet you at the rim. Scoop\'s voice in your head: "Around him."', late: true, payoff: true } : null; },
   gradeValue(g) { return { A: 4, B: 3, C: 2, D: 1, F: 0 }[g[0]] + (g[1] === '+' ? .3 : g[1] === '-' ? -.3 : 0); },
@@ -322,8 +329,11 @@ const Game = {
     Engine.post(s, { by, text: text.replace('{pts}', b.pts).replace('{opp}', r.cfg.them.name) });
     Features.afterMatch(s, r, node);   // mixtape clips, chemistry, the jelly story beats
     this.updateRecruit();
-    return { xp: xr.xp, levels: xr.levels, changes, badges: Engine.badgeDiff(bb, s), achievements: Engine.checkAchievements(s) };
+    const rank = Rankings.afterGame(s, r);   // js/rankings.js
+    return { xp: xr.xp, levels: xr.levels, changes, rank, badges: Engine.badgeDiff(bb, s), achievements: Engine.checkAchievements(s) };
   },
+  /* milestone cutscenes from the rankings (top 100 / 50 / 10, passing Kai, #1) — between the result screen and the next scene */
+  async afterRanks(then) { try { await Rankings.playQueue(); } catch (e) { console.warn('rankings', e); } if (then) then(); },
 
   healTick() { const inj = this.state.meta.injury; if (inj && inj.games > 0 && --inj.games <= 0) { inj.name = ''; UI.toast('🩹 You\'re fully healed.', 'good'); } },
 
@@ -405,10 +415,11 @@ const Game = {
       out.push({ r, g: sg, sum });
     }
     s.hub = null; this.updateRecruit(); this.save();
-    UI.simStretch(out, se, () => this.seasonStep());
+    UI.simStretch(out, se, () => this.afterRanks(() => this.seasonStep()));
   },
   async playSeasonGame(sim) {
-    const s = this.state, se = s.season, g = this.seasonGame();
+    const s = this.state, se = s.season; if (!se) return this.runNode();   // a stale click after the season ended: back to the story
+    const g = this.seasonGame();
     Engine.applyFx(s, { fatigue: -8 }); s.hub = null;
     let r, summary;
     if (sim) {
@@ -438,7 +449,7 @@ const Game = {
     const postNode = g.post && (r.win ? g.post.win : g.post.lose);
     s.story = postNode ? { chapter: se.home.chapter, node: postNode, fxApplied: null } : { chapter: se.home.chapter, node: se.home.node, fxApplied: null };
     this.save();
-    const cont = () => this.runNode();
+    const cont = () => this.afterRanks(() => this.runNode());
     if (sim) UI.simResult(r, g, summary, cont); else UI.postGame(r, summary, cont);
     if (outcome) summary.outcome = outcome;
   },
@@ -453,7 +464,8 @@ const Game = {
     const changes = Engine.applyFx(s, { morale: r.win ? 3 : -3, fatigue: 8, fans: Math.round(b.pts * 6 * (1 + s.meta.rep / 50)), trust: r.grade[0] === 'A' ? 2 : r.grade[0] === 'D' ? -2 : 0, rep: r.win ? 1 : 0 });
     s.career.games.push({ label: `${r.cfg.title} · ${r.cfg.sub} (sim)`, opp: r.cfg.them.name, us: r.us, them: r.them, win: r.win, pts: b.pts, reb: b.reb, ast: b.ast, grade: r.grade });
     this.recordOvr(r.cfg.sub);
-    return { xp: xr.xp, levels: xr.levels, changes, badges: Engine.badgeDiff(bb, s), achievements: Engine.checkAchievements(s) };
+    const rank = Rankings.afterGame(s, r, { sim: true });
+    return { xp: xr.xp, levels: xr.levels, changes, rank, badges: Engine.badgeDiff(bb, s), achievements: Engine.checkAchievements(s) };
   },
   finishSeason() {
     const s = this.state, se = s.season, def = se.def, homeNode = STORY.chapters[se.home.chapter].nodes[se.home.node];

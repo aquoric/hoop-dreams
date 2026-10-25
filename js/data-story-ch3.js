@@ -28,7 +28,7 @@ STORY.chapters.college = {
         ['narrator', 'August. The offer letters cover the kitchen table, and three roads lead out of Halsey Street.'],
         ['nia', 'Every school that saw you in Riga called. Even the ones that never called before.', 'smile', { flag: 'usa_made' }],
         ['nia', 'A couple of schools went quiet after the cut. I wrote their names down for you.', 'sad', { flag: 'usa_cut' }],
-        ['priya', 'Priya Shah, agent. Europe wants you, and so does the Grind League. College is the safe road.', null, { minOvr: 54 }],
+        ['priya', 'Priya Shah, agent: Europe and the Grind League both want you. College is the safe road.', null, { minOvr: 54 }],
         ['mom', 'Whatever you pick, baby, pick it for you.'],
       ],
       choices: [
@@ -190,7 +190,7 @@ STORY.chapters.college = {
     cc_kai_loss: { scene: 'arena', fx: { morale: -4, post: { by: 'kai', text: 'Exhibition W. Some things don\'t change. 😴' } },
       lines: [['narrator', 'Kai went for 31. Every time you closed out, he was already gone.'], ['kai', 'You\'re good, Halsey. I\'m paid — there\'s a difference.', 'smile']], next: 'cc_wt' },
     /* Weapon Training: Scoop DeLuca after a rough night (unlocks the Mentor tab) */
-    cc_wt: { scene: 'gym', fx: { unlock: 'weapon_training', rel: { sal: 4 } },
+    cc_wt: { cine: true, scene: 'gym', fx: { unlock: 'weapon_training', rel: { sal: 4 } },
       lines: [
         ['narrator', 'Midnight, practice gym. You\'re still shooting when the side door opens.'],
         ['sal', 'Kid, remember me from court two? Told you I\'d see you again.', 'smile', { flag: 'jelly_met' }],

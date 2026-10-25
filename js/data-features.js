@@ -18,6 +18,8 @@
 const CHAPTER_ORDER = ['street', 'highschool', 'usa', 'college', 'draft', 'pro'];   // 'usa' = the national team summer after high school; 'college', 'draft', 'pro' = Chapters 3–5
 
 const FEATURES = [
+  { id: 'rankings', name: 'Prospect Rankings', icon: '🏅', chapter: 'Chapter 1', tab: 'ranks', color: '#facc15', scene: 'street:dee_list / dee_list_cold',
+    what: ['Three hundred names. Yours is the last one.', 'Good games, wins over ranked players and titles move you up.', 'Bad games, losses and bad decisions drop you. Everyone else moves too.', 'Your rank moves your offers, the national team invite and your draft stock.'] },
   { id: 'street_calls', name: 'Street Calls', icon: '📣', chapter: 'Chapter 1 · Summer Jam', tab: null, color: '#f97316', scene: 'street:jam_calls',
     legacy: { flag: 'done_street' },
     what: ['Three-on-three is a thinking game. Call it.', 'At some dead balls in the Summer Jam you call the next play.', 'Give-and-go, iso for you, feed the hot hand, or clear out.', 'The call sets up your next live possession.'] },
@@ -219,7 +221,7 @@ if (STORY.chapters.usa) {
         ['narrator', 'Big Ike sends it into the bleachers. Two trips later, he does it again.'],
         ['kai', '(laughing) Seven-one, bro. What was the plan?', 'smile'],
       ], next: 'jelly_meet' },
-    jelly_meet: { scene: 'gym', fx: { flag: 'jelly_met' },
+    jelly_meet: { cine: true, scene: 'gym', fx: { flag: 'jelly_met' },
       lines: [
         ['sal', 'Hey. Number {num}. C\'mere.'],
         ['sal', 'You can\'t go through him. Go around him.'],

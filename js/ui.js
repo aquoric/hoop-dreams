@@ -383,8 +383,28 @@ const UI = (() => {
      STORY SCENE (visual-novel style)
      node: resolved node; onChoice(choice) called when done.
      ================================================================= */
-  function story(node, chapter, onChoice) {
+  /* key story conversations as cinematic scenes (node.cine: Cutscene.cine in story mode). node.peaks: { lineIndex: { kind, who } } */
+  const CINE_SCENE = { playground: 'street_sunset', playground_night: 'street_night', street_night: 'street_night', rain_night: 'rain_night', gym: 'gym', rec: 'gym', locker: 'locker', arena: 'arena', hospital: 'hospital', home: 'street_night', abroad: 'street_night', airport: 'arena_ext' };
+  async function storyCine(node, chapter, onChoice) {
+    const s = S(), lines = (node.lines || []).filter(l => Engine.check(s, l[3])), choices = (node.choices || []).filter(c => Engine.check(s, c.req));
+    const ids = [...new Set(lines.map(l => l[0]).filter(w => w !== 'narrator' && w !== 'you' && STORY.characters[w]))]; if (!ids.length) throw new Error('nobody to talk to');
+    const cast = { you: Engine.look(s) }, names = {}, subs = {}; ids.forEach(id => { cast[id] = charLook(id); names[id] = STORY.characters[id].name; subs[id] = STORY.characters[id].role; });
+    let rows = null; if (typeof Rankings !== 'undefined' && Rankings.on(s)) { const L = Rankings.list(s), i = L.findIndex(r => r.me); rows = L.slice(Math.max(0, i - 10), i + 4).map(r => ({ rank: r.rank, name: r.p.name, me: !!r.me })); }
+    const C = await Cutscene.cine({ kind: 'story', scene: CINE_SCENE[node.scene] || 'street_night', ctx: { night: /night|home|abroad/.test(node.scene || '') }, cast, names, subs: Object.assign({ you: s.player.pos }, subs),
+      rim: { you: '#93c5fd' }, title: `${chapter.title} · ${chapter.name}`.toUpperCase(), gauge: null, rankRows: rows, music: node.music });
+    if (!C) throw new Error('busy');
+    for (let k = 0; k < lines.length; k++) { const [who, raw, expr] = lines[k], pk = node.peaks && node.peaks[k]; if (pk) C.peak(pk.kind, pk.who); await C.say(who, Engine.text(raw, s), expr); }
+    const list = choices.length ? choices : [{ t: 'Continue ›', next: node.next, cont: true }];
+    let k = list.length > 1 || !list[0].cont ? await C.ask(list.map(c => Engine.text(c.t, s) + (c.check ? ` (${Engine.checkPct(s, c.check)}%)` : '') + (c.hint ? ` · ${c.hint}` : ''))) : 0;
+    if (k < 0) k = 0;
+    await C.close(); SFX.play('click'); onChoice(list[k]);
+  }
+  function story(node, chapter, onChoice, plain) {
     const s = S();
+    if (node.cine && !plain && typeof Cutscene !== 'undefined' && Cutscene.cine && !Cutscene.playing) {
+      setBg(node.scene || 'playground', (node.scene || '') + (s.career.hs || ''));
+      return storyCine(node, chapter, onChoice).catch(e => { console.warn('story cine', e); story(node, chapter, onChoice, true); });
+    }
     setBg(node.scene || 'playground', (node.scene || '') + (s.career.hs || ''), node.board || (chapter.board && chapter.board(s)));   // arena jumbotron text
     SFX.music(node.music || (node.scene === 'hospital' || node.scene === 'street_night' ? 'sad' : 'story'));
     const lines = (node.lines || []).filter(l => Engine.check(s, l[3]));
@@ -543,7 +563,7 @@ const UI = (() => {
           const d = s.meta.draftStock || 0, ov = s.meta.overseas || 0, tier = d >= 14 ? ['Lottery pick', 'good'] : d >= 10 ? ['First round', 'good'] : d >= 6 ? ['Second round', 'xp'] : ['On the bubble', 'bad'];
           const team = LOCAL_TEAMS[s.career.path === 'overseas' ? s.career.club : s.career.path === 'grind' ? 'gl_ignition' : s.career.college];
           return `<div class="recruit-grid"><div class="glass panel rec-head"><div class="rec-stars">${team ? Art.logo(team, 56) : ''}</div><div><b>Projection: ${tier[0]}</b><span>Draft stock ${d} · Overall ${Engine.ovr(s)}${ov ? ' · Overseas interest ' + ov : ''}${team ? ' · ' + esc(team.name) : ''}</span></div>
-            <p class="muted small">Scouts move you up for big games, wins over ranked teams and Kai, titles, call-ups and your Overall. 10+ is first round, 14+ is the lottery.</p>${bar(Math.min(d, 20), 20, tier[1])}</div></div>`;
+            <p class="muted small">Scouts move you up for big games, wins over ranked teams and Kai, titles, call-ups and your Overall. 10+ is first round, 14+ is the lottery.${Rankings.on(s) ? ` Prospect rank: <b>#${Rankings.rankOf(s)}</b> (Rankings tab).` : ''}</p>${bar(Math.min(d, 20), 20, tier[1])}</div></div>`;
         }
         const R = s.recruit, sc = Engine.recruitScore(s);
         const offers = R.offers.map(id => [id, COLLEGES[id]]).sort((a, b) => b[1].prestige - a[1].prestige);
@@ -649,6 +669,21 @@ const UI = (() => {
   /* =================================================================
      POST-GAME
      ================================================================= */
+  /* the rank change after a game: your name slides past (or behind) the players around you while the number counts */
+  function rankStrip(R) {
+    const up = R.to < R.from, mv = up ? R.passed : R.dropped, rows = mv.slice(-3).map(x => ({ n: x.p.name, r: x.rank })), n = rows.length, P = S().player;
+    const meRow = `<div class="pr-row me" style="--a:${up ? n : 0};--b:${up ? 0 : n}"><b>YOU</b>${esc(P.first + ' ' + P.last)}</div>`;
+    const others = rows.map((x, i) => `<div class="pr-row" style="--a:${up ? i : i + 1};--b:${up ? i + 1 : i}"><b>#${x.r}</b>${esc(x.n)}</div>`).join('');
+    const why = up && R.passed.length ? `You passed <b>${esc(R.passed[0].p.name)}</b> (#${R.passed[0].rank})${R.passed.length > 1 ? ` +${R.passed.length - 1} more` : ''}` : !up && R.dropped.length ? `<b>${esc(R.dropped[0].p.name)}</b> moved past you` : R.to === R.from ? 'Holding your spot' : '';
+    return `<div class="pg-rank glass ${up ? 'up' : R.to > R.from ? 'dn' : ''}"><span class="pr-l">PROSPECT RANK</span><b class="pr-n" data-from="${R.from}" data-to="${R.to}">#${R.from}</b>
+      <em class="pr-d">${R.to === R.from ? '–' : up ? '▲' + (R.from - R.to) : '▼' + (R.to - R.from)}</em>${n ? `<div class="pr-ladder" style="--n:${n + 1}">${others}${meRow}</div>` : ''}<span class="pr-why">${why}</span></div>`;
+  }
+  function animRank(root) {
+    const el = root.querySelector('.pr-n'); if (!el) return; const a = +el.dataset.from, b = +el.dataset.to, t0 = performance.now();
+    setTimeout(() => root.querySelector('.pg-rank') && root.querySelector('.pg-rank').classList.add('go'), 350);
+    const f = now => { const k = Math.min(1, Math.max(0, (now - t0 - 350) / 1400)), e = 1 - Math.pow(1 - k, 3); el.textContent = '#' + Math.round(a + (b - a) * e); if (k < 1 && el.isConnected) requestAnimationFrame(f); else if (a !== b) SFX.play(b < a ? 'coin' : 'bad'); };
+    requestAnimationFrame(f);
+  }
   function postGame(r, summary, onContinue) {
     const s = S(), b = r.box, cfg = r.cfg;
     setBg(r.win ? 'playground' : 'playground_night', 'post');
@@ -662,6 +697,7 @@ const UI = (() => {
         <div class="pg-team">${Art.logo(cfg.them, 56)}<b>${esc(cfg.them.name)}</b></div>
       </div>
       <div class="pg-result ${r.win ? 'win' : 'loss'}">${r.win ? 'VICTORY' : 'DEFEAT'}<small>${esc(cfg.title)}${cfg.sub ? ' · ' + esc(cfg.sub) : ''}</small></div>
+      ${summary.rank ? rankStrip(summary.rank) : ''}
       <div class="pg-grid">
         <div class="glass panel pg-grade-box"><div class="pg-grade g${r.grade[0]}">${r.grade}</div><span>GAME GRADE</span>
           <div class="pg-line">${[['PTS', b.pts], ['REB', b.reb], ['AST', b.ast], ['STL', b.stl], ['BLK', b.blk], ['FG', b.fgm + '/' + b.fga], ['3PT', b.tpm + '/' + b.tpa], ['FT', b.ftm + '/' + b.fta], ['TO', b.to]].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('')}</div>
@@ -680,6 +716,7 @@ const UI = (() => {
       </div>
       <div class="pg-foot"><button class="btn big glow" id="pgCont">Continue ›</button></div>
     </div>`, 'postgame');
+    if (summary.rank) animRank($('.postgame'));
     // animate XP bar
     setTimeout(() => { const i = $('.pg-xp .bar i'); if (i) i.style.width = Math.min(100, s.player.xp / PROGRESSION.xpForLevel(s.player.level) * 100) + '%'; }, 300);
     if (summary.levels) setTimeout(() => levelBurst(`LEVEL ${s.player.level}!`), 700);
@@ -760,11 +797,11 @@ const UI = (() => {
     if (!list.length) return onContinue();
     const P = S().player, me = LOCAL_TEAMS[se.user], rec = se.standings[se.user] || { w: 0, l: 0 };
     const hi = (r, opp) => { const b = r.box; return b.pts >= 28 ? `${P.last} drops ${b.pts} on ${opp.name}.` : b.ast >= 9 ? `${b.ast} assists — ${P.last} runs the show.` : b.reb >= 11 ? `${b.reb} boards. Nobody else touches the glass.` : b.stl + b.blk >= 5 ? `${b.stl} steals, ${b.blk} blocks: a defensive clinic.` : r.win ? Engine.pick([`A grind-it-out win over ${opp.name}.`, `Business as usual against ${opp.name}.`, `${P.last} closes it at the line.`]) : Engine.pick([`${opp.name} get hot from three.`, `Cold shooting night in a loss.`, `Foul trouble, then a late run that falls short.`]); };
-    const xp = list.reduce((t, x) => t + (x.sum.xp || 0), 0);
+    const xp = list.reduce((t, x) => t + (x.sum.xp || 0), 0), rk0 = list[0].sum.rank, rk1 = list[list.length - 1].sum.rank;
     const m = modal(`<div class="simres"><div class="ce-tag">AROUND THE SEASON · ${list.length} GAME${list.length > 1 ? 'S' : ''} SIMULATED</div>
       <h3>${esc(se.name)} highlights</h3>
       <div class="sim-list">${list.map(({ r, g }) => { const opp = LOCAL_TEAMS[g.opp || r.cfg.them.id] || r.cfg.them; return `<div class="sim-row ${r.win ? 'w' : 'l'}">${Art.logo(opp, 30)}<div><b>${r.win ? 'W' : 'L'} ${r.us}-${r.them} vs ${esc(opp.name)}</b><small>${r.box.pts} pts · ${r.box.reb} reb · ${r.box.ast} ast — ${esc(hi(r, opp))}</small></div><span class="grade-s g${r.grade[0]}">${r.grade}</span></div>`; }).join('')}</div>
-      <div class="pg-changes"><span class="chg">${me ? Art.logo(me, 22) : ''} Record <b>${rec.w}-${rec.l}</b></span><span class="chg">XP <b>+${xp}</b></span></div>
+      <div class="pg-changes"><span class="chg">${me ? Art.logo(me, 22) : ''} Record <b>${rec.w}-${rec.l}</b></span><span class="chg">XP <b>+${xp}</b></span>${rk0 && rk1 ? `<span class="chg">Rank <b>#${rk0.from} → #${rk1.to}</b></span>` : ''}</div>
       <div class="row end"><button class="btn glow" id="simCont">Continue ›</button></div></div>`, { noClose: true, cls: 'sim' });
     if (list.some(x => x.sum.levels)) levelBurst();
     SFX.play(list.filter(x => x.r.win).length >= list.length / 2 ? 'good' : 'bad');
@@ -777,7 +814,7 @@ const UI = (() => {
       <div class="sim-score">${Art.logo(me, 52)}<b class="${r.win ? 'w' : ''}">${r.us}</b><span>FINAL</span><b class="${r.win ? '' : 'w'}">${r.them}</b>${Art.logo(opp, 52)}</div>
       <h3>${esc(head)}</h3>
       <div class="pg-line">${[['PTS', b.pts], ['REB', b.reb], ['AST', b.ast], ['STL', b.stl], ['BLK', b.blk]].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('')}</div>
-      <div class="pg-changes">${[{ label: 'XP', v: summary.xp }].concat(summary.changes).map(fmtChange).join('')}<span class="chg"><b class="grade-s g${r.grade[0]}">${r.grade}</b></span></div>
+      <div class="pg-changes">${[{ label: 'XP', v: summary.xp }].concat(summary.changes).map(fmtChange).join('')}<span class="chg"><b class="grade-s g${r.grade[0]}">${r.grade}</b></span>${summary.rank ? `<span class="chg">Rank <b>#${summary.rank.from} → #${summary.rank.to}</b></span>` : ''}</div>
       <div class="row end"><button class="btn glow" id="simCont">Continue ›</button></div></div>`, { noClose: true, cls: 'sim' });
     if (summary.levels) levelBurst();
     SFX.play(r.win ? 'good' : 'bad');

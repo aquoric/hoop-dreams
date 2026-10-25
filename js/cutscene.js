@@ -524,12 +524,25 @@ const Cutscene = (() => {
         P(c, 0, H - 30, W, 30, 'rgba(0,0,0,.35)'); P(c, cx - 2, H - 34, 4, 34, c0);
       } };
   }
+  /* the rankings board: rows of names drifting up, yours glowing gold (ctx.rankRows: [{ rank, name, me }]) */
+  function rankScene(ctx) {
+    const rows = ctx.rankRows || [];
+    return { layers: [], HZ: 216,
+      back(c, S, at) { c.setTransform(1, 0, 0, 1, 0, 0); const W = S.W, g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#020617'); g.addColorStop(1, '#0b1a3a'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+        c.fillStyle = 'rgba(56,189,248,.05)'; for (let x = (S.t * 20) % 16; x < W; x += 16) c.fillRect(Math.round(x), 0, 1, H);
+        at(1); const sc = S.t * 9, mi = rows.findIndex(r => r.me);
+        rows.forEach((r, i) => { const y = (i - mi) * 15 - sc + 10, a = Math.max(0, 1 - Math.abs(y) / 120); if (a <= 0) return;
+          const txt = `#${r.rank}`.padEnd(5, ' ') + '  ' + String(r.name).toUpperCase().slice(0, 24);
+          if (r.me) { const pu = .55 + Math.sin(S.t * 6) * .25; c.save(); c.globalCompositeOperation = 'lighter'; c.fillStyle = `rgba(250,204,21,${pu * .45})`; c.fillRect(-120, y - 4, 240, 14); c.restore(); P(c, -120, y - 4, 240, 1, '#facc15'); P(c, -120, y + 9, 240, 1, '#facc15'); }
+          c.globalAlpha = r.me ? 1 : a * .75; Pixel.text(c, txt, -108, y, r.me ? '#fde047' : '#cbd5e1', 1, 'left'); c.globalAlpha = 1; });
+      } };
+  }
   function sceneFor(id, ctx) {
     const key = id + '|' + teamCols(ctx).join(',') + '|' + themCols(ctx).join(',') + (ctx.night ? 'n' : 'd') + (ctx.city || '');
     if (SCN.has(key)) return SCN.get(key);
     const S = id === 'street_sunset' ? street('sunset') : id === 'street_night' ? street('night') : id === 'rain_night' ? street('rain') : id === 'gym' ? gym(ctx) : id === 'locker' ? locker(ctx)
-      : id === 'arena' ? arena(ctx) : id === 'highway' ? highway(ctx) : id === 'sky' ? skyScene(ctx) : id === 'city' ? cityScene(ctx) : id === 'arena_ext' ? arenaExt(ctx) : id === 'tunnel' ? tunnel(ctx) : id === 'hospital' ? hospital() : id === 'list' || id === 'notebook' ? paper(id, ctx) : id === 'title' ? titleScene() : id === 'vs' ? vsScene() : voidScene();
-    if (!/list|notebook/.test(id)) SCN.set(key, S);     // the paper scenes use the player's name: always fresh
+      : id === 'arena' ? arena(ctx) : id === 'highway' ? highway(ctx) : id === 'sky' ? skyScene(ctx) : id === 'city' ? cityScene(ctx) : id === 'arena_ext' ? arenaExt(ctx) : id === 'tunnel' ? tunnel(ctx) : id === 'hospital' ? hospital() : id === 'list' || id === 'notebook' ? paper(id, ctx) : id === 'title' ? titleScene() : id === 'vs' ? vsScene() : id === 'ranks' ? rankScene(ctx) : voidScene();
+    if (!/list|notebook|ranks/.test(id)) SCN.set(key, S);     // the paper scenes use the player's name: always fresh
     return S;
   }
   /* court shots: the real 16-bit venue (cached) */
@@ -887,7 +900,190 @@ const Cutscene = (() => {
     removeEventListener('keydown', stop, true); M.off(); M.root.remove(); hlOn = false; return true;
   }
 
+  /* =================================================================
+     CINEMATIC CONVERSATIONS — the important talks as full cutscenes (rival face-offs, halftime speeches,
+     clutch huddles, heated refs, key story talks). Same scenes, portraits and effects as the story cutscenes,
+     but interactive: a director cuts between shots line by line (wide · close-up · over-the-shoulder ·
+     extreme close-up on the eyes · split-screen), peaks get anime metaphors (burning aura, a glint in the eye,
+     the background shattering, a predator behind the rival, the rankings flashing behind you), and the
+     choices + gauge live inside the letterbox. Skippable (SKIP / Esc): the rest of the talk resolves itself.
+     o: { kind: 'faceoff'|'halftime'|'huddle'|'ref'|'story', scene, ctx, cast: { you, them, …: look }, names: { them }, subs: { you, them },
+          rim: { you, them }, title, sub, gauge: { label, g, ego } | null, rankRows, rain, music }
+     → api: say(who, text, expr, voice) · ask(opts) → index (-1 when skipped) · face(who, expr) · gauge(g, delta, good) · peak(kind, who) · close()
+     ================================================================= */
+  const CINE_EXPR = ['neutral', 'determined', 'smile', 'fierce', 'angry', 'shocked'];
+  async function cine(o) {
+    if (playing || hlOn) return null;
+    playing = true;
+    const W = viewW(), M = mount('cs cs-cine', W), root = M.root, c = M.c, q = s => root.querySelector(s), kind = o.kind || 'story';
+    const ctx = Object.assign({ night: true }, o.ctx || {}, { looks: o.cast }), ids = Object.keys(o.cast || {}), other = ids.find(i => i !== 'you') || 'them';
+    CUR = { names: Object.assign({}, o.names || {}) };
+    root.insertAdjacentHTML('beforeend', `<div class="cine-top"><b class="cine-title"></b>${o.gauge ? `<div class="cine-gauge${o.gauge.ego ? ' ego' : ''}"><span>${esc(o.gauge.label)}</span><div><i style="width:${Math.min(100, o.gauge.g)}%"></i></div><em></em></div>` : ''}<button class="cine-skip">SKIP ▸▸</button></div>
+      <div class="cine-plate l"></div><div class="cine-plate r"></div><div class="cine-opts"></div>`);
+    SFX.crowd && SFX.crowd.duck(true);
+    // portraits: a core set first (the scene waits up to ~1.5s), the rest load in the background
+    const pk = (id, e, k) => [lookFor(id, ctx), e, k, portH(k, W)];
+    const core = []; ids.forEach(id => { ['neutral', id === 'you' ? 'determined' : 'smile', 'fierce'].forEach(e => core.push(pk(id, e, 'bust'))); core.push(pk(id, 'determined', 'face')); });
+    const loadAll = () => ids.forEach(id => CINE_EXPR.forEach(e => { portrait(...pk(id, e, 'bust')); if (e !== 'neutral') portrait(...pk(id, e, 'face')); }));
+    let skipAll = false, tapRes = null; const T0 = performance.now();
+    const skip = () => { if (performance.now() - T0 < 300 || skipAll) return; skipAll = true; tapRes && tapRes(); SFX.play('whoosh'); };
+    q('.cine-skip').onclick = e => { e.stopPropagation(); skip(); };
+    const kd = e => { if (e.code === 'Escape') { e.preventDefault(); e.stopPropagation(); skip(); } else if (['Space', 'Enter'].includes(e.code) && !asking) { e.preventDefault(); e.stopPropagation(); tapRes && tapRes(); } };
+    addEventListener('keydown', kd, true); root.addEventListener('pointerdown', () => { if (!asking) tapRes && tapRes(); });
+    requestAnimationFrame(() => root.classList.add('in'));
+    await Promise.race([Promise.all(core.map(n => portrait(...n))).catch(() => { }), sleep(1600)]); loadAll();
+    // which expression can we draw right now (a missing one falls back to a loaded one)
+    const has = (id, e, k) => DONE.has(pkey(lookFor(id, ctx), e, k, portH(k, W)));
+    const ex = (id, e, k) => [e, 'fierce', 'determined', 'smile', 'neutral'].find(x => x && has(id, x, k)) || 'neutral';
+    // ---- the director ----
+    const sceneId = o.scene || 'gym', baseGrade = o.grade || (kind === 'halftime' ? 'dark' : kind === 'huddle' ? 'spot' : kind === 'ref' ? 'blue' : kind === 'faceoff' ? 'night' : null);
+    let S = null, cur = null, fx = { aura: null, auraT: 0, predator: 0, ranks: 0, glint: null, shards: null, eyesUsed: false }, lastType = null, nLine = 0, asking = false;
+    const expr = {}; ids.forEach(id => { expr[id] = id === 'you' ? 'determined' : 'neutral'; });
+    const sideOf = id => id === 'you' ? -1 : 1;
+    function wrapScene(id) {   // the scene + what happens behind the characters (predator, rankings wall, aura glow)
+      const base = sceneFor(id, ctx);
+      return Object.assign({}, base, { back(c2, S2, at2) { if (base.back) base.back(c2, S2, at2); behind(c2, S2, at2); } });
+    }
+    function shot(type, spk) {
+      const lis = spk === 'you' ? other : 'you', s = sideOf(spk), rimOf = id => (o.rim && o.rim[id]) || (id === 'you' ? '#93c5fd' : '#fca5a5');
+      const B = (id, x, extra) => Object.assign({ id, kind: 'bust', x, expr: ex(id, expr[id], 'bust'), rim: rimOf(id) }, extra || {});
+      const F = (id, x, extra) => CINE_EXPR.some(e => has(id, e, 'face')) ? Object.assign({ id, kind: 'face', x, expr: ex(id, expr[id], 'face'), rim: rimOf(id) }, extra || {}) : B(id, x, Object.assign({ y: 150 }, extra || {}));   // face frames still loading: a tighter bust
+      let sh;
+      if (type === 'split') sh = { d: 4000, scene: 'vs', speed: 'radial', cam: [[0, 0, 14, 1.42], [1, 0, 10, 1.26, 'out']], cast: [B('you', -.55, { from: { dx: -170, t: 320, ease: 'back' } }), B(other, .55, { from: { dx: 170, t: 320, ease: 'back' } })] };
+      else if (type === 'wide') sh = { d: 5000, scene: sceneId, grade: baseGrade, cam: [[0, 0, 22, 1.24], [1, 0, 18, 1.34]], cast: [B('you', -.46), B(other, .46)] };
+      else if (type === 'cu') sh = { d: 5000, scene: sceneId, grade: baseGrade, cam: [[0, s * 8, -4, 1.04], [1, s * 12, -10, 1.16]], cast: [F(spk, s * .22)] };
+      else if (type === 'ots') sh = { d: 5000, scene: sceneId, grade: baseGrade, cam: [[0, s * 12, 20, 1.3], [1, s * 18, 22, 1.42]], cast: [B(spk, s * .3), B(lis, -s * .66, { y: 156, sil: true, d: 1.3, expr: 'neutral' })] };
+      else if (type === 'eyes') sh = { d: 4000, scene: sceneId, grade: 'red', cam: [[0, s * 22, 26, 2.3], [1, s * 22, 22, 2.55]], cast: [F(spk, s * .22)] };
+      const prevExpr = S ? S.expr : {};
+      S = makeShot(sh, ctx, W, c); S.scn = sh.scene ? wrapScene(sh.scene) : S.scn; S.expr = Object.assign({}, prevExpr); S.type = type; S.spk = spk;
+      if (type === 'split') { S.fx.impact(140, ['#ffffff', '#7f1d1d']); S.fx.shake(6); SFX.play('impact'); }
+      cur = sh; lastType = type;
+    }
+    function pickShot(who, peak) {
+      if (peak === 'split') return 'split';
+      if (peak === 'eyes' || (who !== 'you' && kind === 'faceoff' && !fx.eyesUsed && nLine >= 2 && Math.random() < .5)) { fx.eyesUsed = true; return 'eyes'; }
+      const pool = who === 'you' ? ['ots', 'cu', 'wide'] : kind === 'halftime' ? ['wide', 'ots', 'cu'] : ['cu', 'ots', 'wide'];
+      const c2 = pool.filter(t => t !== lastType); return Math.random() < .65 ? c2[0] : pick(c2);
+    }
+    // ---- effects behind the characters ----
+    function behind(c2, S2, at2) {
+      const t = S2.t;
+      if (fx.ranks > 0 && o.rankRows) { at2(.6); const rows = o.rankRows, mi = Math.max(0, rows.findIndex(r => r.me));
+        rows.forEach((r, i) => { const y = (i - mi) * 13 - 6 + Math.sin(t * 2) * 2, a = Math.max(0, 1 - Math.abs(y) / 110) * fx.ranks; if (a <= .02) return; c2.globalAlpha = a * (r.me ? 1 : .5);
+          if (r.me && Math.floor(t * 6) % 2) P(c2, -200, y - 3, 170, 12, 'rgba(250,204,21,.35)'); Pixel.text(c2, `#${r.rank} ${String(r.name).toUpperCase().slice(0, 20)}`, -195, y, r.me ? '#fde047' : '#94a3b8', 1, 'left'); });
+        c2.globalAlpha = 1; }
+      if (fx.predator > 0) { at2(.8); const x = sideOf(other) * W * .25, y = -10, a = fx.predator, pu = .7 + Math.sin(t * 5) * .3;   // a beast's head looming behind the rival
+        c2.save(); c2.globalAlpha = a; const g = c2.createRadialGradient(x, y, 10, x, y, 160); g.addColorStop(0, 'rgba(127,29,29,.55)'); g.addColorStop(1, 'rgba(127,29,29,0)'); c2.fillStyle = g; c2.fillRect(x - 200, y - 160, 400, 320);
+        c2.fillStyle = '#07030d'; c2.beginPath(); c2.moveTo(x - 92, y + 90); c2.lineTo(x - 98, y - 40); c2.lineTo(x - 120, y - 132); c2.lineTo(x - 52, y - 78); c2.lineTo(x, y - 92); c2.lineTo(x + 52, y - 78); c2.lineTo(x + 120, y - 132); c2.lineTo(x + 98, y - 40); c2.lineTo(x + 92, y + 90); c2.lineTo(x + 30, y + 60); c2.lineTo(x, y + 104); c2.lineTo(x - 30, y + 60); c2.closePath(); c2.fill(); c2.strokeStyle = `rgba(239,68,68,${.55 * pu})`; c2.lineWidth = 2; c2.stroke();
+        c2.globalCompositeOperation = 'lighter'; c2.fillStyle = `rgba(239,68,68,${pu})`; for (const sx of [-1, 1]) { c2.beginPath(); c2.moveTo(x + sx * 22, y - 22); c2.lineTo(x + sx * 58, y - 34); c2.lineTo(x + sx * 46, y - 18); c2.closePath(); c2.fill(); }
+        for (let i = 0; i < 6; i++) P(c2, x + sx2(i) * 70, y - 40 + ((t * 30 + i * 23) % 90), 2, 6, 'rgba(239,68,68,.35)'); c2.restore(); }
+      if (fx.aura && fx.auraT > 0) { const A = S2.actors.find(a => a.id === fx.aura && !a.sil); if (A) { at2(A.d || 1); const x = viewX(S2, A) * W / 2, col = fx.aura === 'you' ? '250,204,21' : '239,68,68';
+        c2.save(); c2.globalCompositeOperation = 'lighter'; const g = c2.createRadialGradient(x, 40, 10, x, 40, 120); g.addColorStop(0, `rgba(${col},${.45 * fx.auraT})`); g.addColorStop(1, `rgba(${col},0)`); c2.fillStyle = g; c2.fillRect(x - 160, -100, 320, 260); c2.restore(); } }
+    }
+    const sx2 = i => (i % 2 ? 1 : -1) * (.5 + (i * 37 % 10) / 20);
+    // ---- effects in front (screen space) ----
+    function front(dt) {
+      const W2 = W, t = S.t;
+      if (fx.aura && fx.auraT > 0) { const A = S.actors.find(a => a.id === fx.aura && !a.sil); if (A) { const sx3 = W2 / 2 + (viewX(S, A) * W2 / 2 - S.cam.x) * S.cam.z, cols = fx.aura === 'you' ? ['#facc15', '#f97316', '#fde68a'] : ['#ef4444', '#a855f7', '#f87171'];
+        for (let i = 0; i < 5 * fx.auraT; i++) S.parts.push({ x: sx3 + rnd(-60, 60), y: H - 20 - rnd(0, 40), vx: rnd(-6, 6), vy: -rnd(40, 90), life: rnd(.5, 1.1), col: pick(cols), ph: rnd(0, 6) }); }
+        fx.auraT = Math.max(0, fx.auraT - dt * .25); }
+      if (fx.glint) { const k = (performance.now() - fx.glint.t0) / 520; if (k >= 1) fx.glint = null; else { const A = S.actors.find(a => a.id === fx.glint.who && !a.sil), P0 = A && DONE.get(pkey(lookFor(A.id, ctx), S.expr[A.id] || A.expr || 'neutral', A.kind, portH(A.kind, W)));
+        if (P0) { at(S, A.d || 1); const px0 = Math.round(viewX(S, A) * W / 2 - P0.w / 2), py0 = Math.round((A.y != null ? A.y : 109) - P0.h), e = P0.eyes[A.id === 'you' ? 1 : 0], gx = px0 + e[0], gy = py0 + e[1], L = Math.sin(k * Math.PI) * 9;
+          c.save(); c.globalCompositeOperation = 'lighter'; c.fillStyle = '#ffffff'; c.fillRect(gx - L, gy, L * 2 + 1, 1); c.fillRect(gx, gy - L, 1, L * 2 + 1); c.fillStyle = 'rgba(255,255,255,.6)'; c.fillRect(gx - L / 2, gy - L / 2, L + 1, L + 1); c.restore(); } } }
+      if (S.type === 'cu' && (kind === 'huddle' || kind === 'faceoff' || kind === 'halftime') && Math.random() < .04) S.parts.push({ x: W2 / 2 + sideOf(S.spk) * W2 * .12 + rnd(-30, 30), y: 60 + rnd(0, 20), vx: 0, vy: rnd(30, 50), life: 1.2, col: '#bae6fd', ph: 0 });   // sweat
+      if (Math.random() < (sceneId === 'locker' ? .25 : .4)) S.parts.push({ x: rnd(0, W2), y: rnd(30, H - 30), vx: rnd(-5, 5), vy: rnd(-8, -2), life: rnd(1.5, 3), col: sceneId === 'locker' ? 'rgba(203,213,225,.35)' : 'rgba(255,236,190,.45)', ph: rnd(0, 6) });   // dust in the light
+      if (S.type === 'split' && Math.random() < .5) S.parts.push({ x: W2 / 2 + rnd(-20, 20), y: rnd(20, H - 20), vx: rnd(-90, 90), vy: rnd(-60, 60), life: .35, col: '#fde68a', ph: 0 });   // sparks on the divide
+      if (o.rain) { c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = 'rgba(186,230,253,.45)'; for (let i = 0; i < 40; i++) { const x = (i * 53 + t * 40) % W2, y = (i * 29 + t * 260) % H; c.fillRect(Math.round(x), Math.round(y), 1, 5); } }
+      if (fx.shards) drawShards();
+      c.setTransform(1, 0, 0, 1, 0, 0); const bar = S.type === 'eyes' ? 58 : 22; c.fillStyle = '#000'; c.fillRect(0, 0, W2, bar); c.fillRect(0, H - bar, W2, bar);   // cinematic letterbox
+    }
+    // the background shatters: the current frame breaks into shards that fly apart
+    function shatter() {
+      const [snap, g] = mk(W, H); g.drawImage(c.canvas, 0, 0); const sh = [], cols = 6, rows = 4, cw = W / cols, rh = H / rows;
+      for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) for (const tri of [[[0, 0], [1, 0], [0, 1]], [[1, 0], [1, 1], [0, 1]]]) {
+        const pts = tri.map(([a, b]) => [(i + a) * cw + rnd(-5, 5), (j + b) * rh + rnd(-5, 5)]), cx = (pts[0][0] + pts[1][0] + pts[2][0]) / 3, cy = (pts[0][1] + pts[1][1] + pts[2][1]) / 3;
+        sh.push({ pts, cx, cy, vx: (cx - W / 2) * rnd(1.2, 2.4), vy: (cy - H / 2) * rnd(1.2, 2.4) - rnd(10, 40), rot: rnd(-3, 3) }); }
+      fx.shards = { snap, sh, t0: performance.now() }; SFX.play('crash'); S.fx.shake(10);
+    }
+    function drawShards() {
+      const k = (performance.now() - fx.shards.t0) / 900; if (k >= 1) { fx.shards = null; return; }
+      c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = `rgba(127,29,29,${1 - k * .4})`; c.fillRect(0, 0, W, H);
+      fx.shards.sh.forEach(s2 => { const ox = s2.vx * k, oy = s2.vy * k + 120 * k * k; c.save(); c.translate(s2.cx + ox, s2.cy + oy); c.rotate(s2.rot * k); c.translate(-s2.cx, -s2.cy);
+        c.beginPath(); c.moveTo(...s2.pts[0]); c.lineTo(...s2.pts[1]); c.lineTo(...s2.pts[2]); c.closePath(); c.clip(); c.drawImage(fx.shards.snap, 0, 0); c.strokeStyle = 'rgba(255,255,255,.7)'; c.stroke(); c.restore(); });
+    }
+    // ---- the render loop ----
+    let last = performance.now(), alive = true;
+    const loop = now => { if (!alive) return; const rdt = Math.min(.05, (now - last) / 1000); last = now;
+      try { if (S) { S.now = now; const k = S.now < S.stopUntil ? 0 : 1, dt = rdt * k; S.T += dt * 1000; S.t = S.T / 1000; S.cam = camAt(cur, clamp(S.T / cur.d, 0, 1));
+        S.shake *= Math.pow(.01, rdt); S.flash *= Math.pow(.02, rdt); S.shx = S.shake > .3 ? Math.round(rnd(-1, 1) * S.shake) : 0; S.shy = S.shake > .3 ? Math.round(rnd(-1, 1) * S.shake) : 0;
+        fx.predator = Math.max(0, fx.predator - rdt * .15); fx.ranks = Math.max(0, fx.ranks - rdt * .12);
+        drawFrame(S, dt); front(rdt); } } catch (e) { console.warn('cine', e); }
+      requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+    const safety = setTimeout(() => skip(), 60000);   // never stuck
+    // ---- intro: establishing shot / split-screen face-off + a title card ----
+    const title = q('.cine-title'), plate = (side, id) => { const el = q('.cine-plate.' + side); el.innerHTML = `<b>${esc(id === 'you' ? nameOf('you') : (o.names && o.names[id]) || nameOf(id))}</b>${o.subs && o.subs[id] ? `<small>${esc(o.subs[id])}</small>` : ''}`; el.classList.add('on'); };
+    if (o.music !== undefined) SFX.music(o.music); else SFX.music(kind === 'faceoff' || kind === 'huddle' ? 'clutch' : kind === 'halftime' ? 'build' : 'story');
+    shot(kind === 'faceoff' ? 'split' : 'wide', other);
+    if (o.title) { title.innerHTML = `${esc(o.title)}${o.sub ? `<small>${esc(o.sub)}</small>` : ''}`; title.classList.add('on'); }
+    plate('l', 'you'); plate('r', other); SFX.play(kind === 'faceoff' ? 'stinger' : 'whoosh');
+    if (kind === 'faceoff' && o.rankRows) fx.ranks = .9;
+    await waitFor(kind === 'faceoff' ? 1700 : 1300);
+    q('.cine-plate.l').classList.remove('on'); q('.cine-plate.r').classList.remove('on');
+    SFX.music(null); await waitFor(350);   // a beat of silence before the first line
+    if (o.music !== null) SFX.music(o.music || (kind === 'faceoff' || kind === 'huddle' ? 'clutch' : 'build'));
+    function waitFor(ms) { if (skipAll) return Promise.resolve(); return new Promise(res => { const t = setTimeout(res, ms); tapRes = () => { clearTimeout(t); tapRes = null; res(); }; }); }
+    const dlg = q('.cs-dialog'), dlgB = dlg.querySelector('b'), dlgP = dlg.querySelector('p');
+    const api = {
+      async say(who, text, e, voice) {
+        if (skipAll || !alive) return;
+        if (e) { expr[who] = e; portrait(...pk(who, e, 'bust')); }
+        const peak = api._peak; api._peak = null; if (who === 'narrator') shot(lastType === 'wide' ? 'ots' : 'wide', other); else shot(pickShot(who, peak), who); nLine++;
+        if (S.expr) S.expr[who] = ex(who, expr[who], S.actors.find(a => a.id === who) ? S.actors.find(a => a.id === who).kind : 'bust');
+        dlg.className = 'cs-dialog on' + (who === 'narrator' ? ' narr' : ''); dlgB.textContent = who === 'narrator' ? '' : who === 'you' ? nameOf('you') : (o.names && o.names[who]) || nameOf(who); dlgB.style.setProperty('--nc', who === 'you' ? '#facc15' : (o.rim && o.rim[who]) || colorOf(who)); dlgP.textContent = '';
+        const v = voice || CS_VOICE[who] || (who === 'you' ? CS_VOICE.you : { f: 220, w: 'square', g: .03 }); S.talker = who;
+        let i = 0, fast = false; tapRes = () => { fast = true; };
+        while (i < text.length && !skipAll && alive) { i = fast ? text.length : i + 1; dlgP.textContent = text.slice(0, i); if (!fast && i % 2 === 0 && /[a-z0-9]/i.test(text[i - 1])) { SFX.play('blip', v); S.lastBlip = performance.now(); } if (!fast) await sleep(24); }
+        tapRes = null; await waitFor(Math.max(650, text.length * 22));
+      },
+      ask(opts) {
+        if (skipAll || !alive) return Promise.resolve(-1);
+        asking = true; dlg.className = 'cs-dialog'; const box = q('.cine-opts');
+        box.innerHTML = opts.map((t, i) => `<button class="cine-opt" data-i="${i}" style="--d:${i * 70}ms"><kbd>${i + 1}</kbd><span>${esc(t)}</span></button>`).join(''); box.classList.add('on'); SFX.play('whoosh');
+        shot(lastType === 'ots' ? 'wide' : 'ots', other);
+        return new Promise(res => {
+          const done = i => { if (!asking) return; asking = false; removeEventListener('keydown', k2, true); clearInterval(sk); box.querySelectorAll('.cine-opt').forEach((b, j) => { b.disabled = true; if (j === i) b.classList.add('picked'); }); SFX.play('click'); setTimeout(() => box.classList.remove('on'), 260); res(i); };
+          const k2 = e => { const n = parseInt(e.key, 10); if (n >= 1 && n <= opts.length) { e.preventDefault(); e.stopPropagation(); done(n - 1); } };
+          addEventListener('keydown', k2, true); box.querySelectorAll('.cine-opt').forEach(b => b.onclick = ev => { ev.stopPropagation(); done(+b.dataset.i); });
+          const sk = setInterval(() => { if (skipAll || !alive) done(-1); }, 100);
+        });
+      },
+      face(who, e) { expr[who] = e; portrait(...pk(who, e, 'bust')); if (S) S.expr[who] = ex(who, e, (S.actors.find(a => a.id === who) || { kind: 'bust' }).kind); },
+      gauge(g, delta, good) { const bar = q('.cine-gauge i'), dl = q('.cine-gauge em'); if (bar) bar.style.width = Math.min(100, g) + '%'; if (dl) { dl.textContent = delta; dl.className = good ? 'good' : 'bad'; void dl.offsetWidth; dl.classList.add('pop'); }
+        if (S) { S.fx.flash(good ? '#86efac' : '#fca5a5', .25); S.fx.shake(good ? 3 : 6); } },
+      /* anime metaphors at the peak moments: aura · glint · shatter · predator · ranks · split · eyes (the next shot) */
+      peak(k, who) {
+        if (skipAll || !alive || !S) return; who = who || 'you';
+        if (k === 'aura') { fx.aura = who; fx.auraT = 1; SFX.play('riser', .8); }
+        else if (k === 'glint') { fx.glint = { who, t0: performance.now() }; SFX.play('glint'); }
+        else if (k === 'shatter') { shatter(); api._peak = 'split'; }
+        else if (k === 'predator') { fx.predator = 1; SFX.play('heartbeat'); }
+        else if (k === 'ranks') { fx.ranks = 1; SFX.play('stinger'); }
+        else api._peak = k;   // 'split' / 'eyes': the next line gets that shot
+      },
+      wait: ms => waitFor(ms),
+      get skipped() { return skipAll; },
+      async close() {
+        if (!alive) return; clearTimeout(safety);
+        if (!skipAll) { dlg.className = 'cs-dialog'; shot('wide', other); await waitFor(500); }
+        alive = false; removeEventListener('keydown', kd, true); M.off(); root.classList.remove('in'); await sleep(260); root.remove();
+        playing = false; CUR = {}; SFX.crowd && SFX.crowd.duck(false);
+      },
+    };
+    return api;
+  }
+
   /* outlined 16-bit portrait frames { base, blink, talk } (each .cv) — used by the in-game dialogue scenes */
   const portraitOf = (look, expr = 'neutral', kind = 'bust', h = 112) => portrait(look, expr, kind, h);
-  return { play, pregame, highlight, prep, ready, portrait: portraitOf, get playing() { return playing; } };
+  return { play, pregame, highlight, cine, prep, ready, portrait: portraitOf, get playing() { return playing; } };
 })();

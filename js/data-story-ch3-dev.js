@@ -101,7 +101,7 @@ Object.assign(STORY.chapters.college.nodes, {
   gg_vets_win: { scene: 'locker', fx: { trust: 4, draftStock: 2 }, lines: [['narrator', 'You won. You also have a black eye shaped like an elbow.'], ['gcoach', 'That\'s the first time this year they looked scared of a kid.', 'smile']], next: 'gg_wt' },
   gg_vets_loss: { scene: 'locker', fx: { morale: -4 }, lines: [['narrator', 'They took your drive, then your jumper, then your confidence.'], ['dez', 'They\'ve seen every move you have. You need new ones.']], next: 'gg_wt' },
   /* Weapon Training: Sal DeLuca, Ignition's skills coach */
-  gg_wt: { scene: 'gym', fx: { unlock: 'weapon_training', rel: { sal: 4 } },
+  gg_wt: { cine: true, scene: 'gym', fx: { unlock: 'weapon_training', rel: { sal: 4 } },
     lines: [
       ['sal', 'Kid, the league hired me to fix prospects. Guess who\'s first.', 'smile', { flag: 'jelly_met' }],
       ['sal', 'Sal DeLuca, skills coach: eleven years overseas at five-nine. I know how to survive grown men.', 'smile', { notFlag: 'jelly_met' }],

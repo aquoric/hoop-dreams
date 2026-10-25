@@ -138,6 +138,31 @@ const BALANCE = {
   // in-game conversations (coach / ref / rival): at most this many per game, only after something meaningful
   // (an opponent run, three misses in a row, a bad call, ankles broken, the star taking over)
   talk: { perGame: 1, every: 3 },
+  /* ---------- CINEMATIC CONVERSATIONS (Cutscene.cine) — the important in-game talks become full cutscenes ----------
+     every: games between cinematic talks in regular play · big: importance at which any eligible talk goes cinematic
+     bigChance: chance in important games (rivalry / playoffs) when the gap isn't there yet
+     halftimeDown: points behind at the half for a locker-room speech (any big game gets one) · clutchBy: margin for a clutch-timeout huddle */
+  cine: { every: 3, big: 3, bigChance: .55, halftimeDown: 4, clutchBy: 4 },
+  /* ---------- PROSPECT RANKINGS (js/rankings.js, prospects in js/data-prospects.js) ----------
+     Everyone has ranking points (pts); the list is sorted by them. #1 starts at top, #300 at bottom (curve between them).
+     You start below #300 (start). Your points move with games, story results and your Overall (perOvr per point gained).
+     Other prospects drift every update (drift / trend), and now and then someone breaks out or falls off. */
+  rankings: {
+    size: 300, top: 1000, bottom: 120, curve: 1.3, start: 110, perOvr: 11, min: 20, max: 1250,
+    game: { grade: { 'A+': 18, A: 15, 'A-': 12, 'B+': 10, B: 8, 'B-': 6, 'C+': 3, C: 1, 'C-': 0, D: -6, F: -12 }, win: 4, loss: -6,
+      per10pts: 2, assists: [6, 3], efficient: [.55, 6, 3], jelly: 4, gameWinner: 10, poster: 4, importance: [1, 1.35, 1.7, 2.1], pickup: .5, sim: .45 },
+    vs: { beatHigher: [6, .15, 30], loseLower: [5, .08, 18], transfer: .5 },   // [base, per rank of difference, cap]; the other prospect gains/loses transfer × your change
+    drift: 5, trend: 2.5, breakout: [.01, 45, 95], falloff: [.008, 60, 120],
+    flags: { summer_champ: 45, good_final: 15, beat_kai: 25, beat_kai_1v1: 25, elite_camp: 15, viral: 15, starter: 10, city_champ: 30, aau_champ: 40, state_champ: 60,
+      usa_made: 50, usa_medal: 20, usa_gold: 45, usa_cut: -35, usa_missed: -15, booster_scandal: -45, police_record: -35, benched_fight: -20, scheme_once: -10, academic_probation: -15,
+      conf_champ: 25, national_champ: 70, league_champ: 40, cup_champ: 45, gl_champ: 35, called_up: 45, beat_kai_c3: 30 },
+    mixtape: 3,   // × the tape's recruiting bonus
+    milestones: [100, 50, 10, 1],
+    milestoneFx: { 100: { draftStock: 1, overseas: 1, rep: 3 }, 50: { draftStock: 1, overseas: 1, rep: 4 }, 10: { draftStock: 2, overseas: 2, rep: 6 }, 1: { draftStock: 3, overseas: 2, rep: 10 }, kai: { draftStock: 1, rep: 5 } },
+    recruit: [[10, 14], [25, 10], [50, 7], [100, 4], [150, 2], [200, 0], [250, -2], [301, -4]],   // [rank at or better, recruiting score bonus]
+    invite: [[10, 10], [25, 7], [50, 5], [100, 3], [200, 0], [301, -2]],                           // national team invite score bonus
+    bigBoard: 60,   // Draft Big Board: prospects ranked this high are projected to be drafted
+  },
   /* ---------- SUMMER JAM (3x3 with choice moments inside the live game) ----------
      first: total points before the first choice moment · every: points between them · max: choice moments (+ the clutch one)
      closeBy / lateBy: the clutch moment comes when it's within closeBy and someone is within lateBy of the target
