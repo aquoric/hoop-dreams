@@ -1,7 +1,7 @@
 # Hoop Dreams — Story Overhaul Outline
 
 Branch `story-overhaul`. Safety tag `before-story-overhaul` marks the version before this work.
-This is the beat-by-beat plan for the whole story, from Chapter 1 to the end. It covers:
+This is the beat-by-beat plan for the whole story, from Chapter 1 to the end (approved with changes: a Summer Jam late run, fixed highs, a new Grind setback, a lighter Chapter 2, and the Chapter 6 overseas road and homecoming). It covers:
 - the structure (arcs)
 - the fixed setbacks and the climb back after each one
 - how each moment is delivered on screen
@@ -34,6 +34,21 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
   - weak offers → junior college, or the Grind League
   - undrafted → the two-way and overseas road
 - The existing early endings stay: the crash, the sneaker flip and playing through the broken foot.
+
+### Fixed highs
+- **Every chapter also has at least one guaranteed big win that feels earned**: a scripted triumph with a huge cinematic, placed after a low.
+  - **Chapter 1:** the Summer Jam semifinal comeback vs the defending champs.
+  - **Chapter 2:** "Halsey Park II", where you finally beat Kai.
+  - **Interlude:** gold in the World Youth final after riding the bench.
+  - **Chapter 3:** the big upset, depending on your road: knocking off #1 in March, the derby in front of 15,000, or the call-up debut win.
+  - **Chapter 4:** the Summer League game against Kai's team after the draft slide.
+  - **Chapter 5:** your first playoff series win.
+  - **Chapter 6:** the homecoming game.
+  - **Chapter 7:** the ring can be won.
+- No two injuries feel the same:
+  - **Chapter 2's ankle:** quiet, alone, in practice. Rehab and playing hurt.
+  - **Interlude:** Kai's ankle mirrors yours. It's his low, and your door.
+  - **Chapter 5's knee:** loud, mid-dunk, in a packed arena. Season-ending surgery and a long rehab.
 
 ### The climb back (after every big low)
 - **A redemption arc with clear goals on screen**, e.g. "Win your spot back · Beat Kai · Crack the top 100 again". The goals show in the hub.
@@ -96,12 +111,17 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
 ### Arc 3: THE SUMMER JAM ARC (climax)
 **Goal:** win the Halsey Summer Jam.
 1. **Arc title card.** Choose your third man, the street calls and your game plans (as now).
-2. **Rounds 1–2,** each game played live in arcade with choice moments. Wins climb you, so you can reach about #200 by the final.
+2. **Round 1** is played live in arcade with choice moments.
+3. **The semifinal is the fixed high:** you're down 6 to the defending champs, Southside, and the scripted comeback ends in your buzzer-beater, a full cinematic. Wins climb you, so you can reach about #200 by the final.
 3. **The party night** branch stays: the crash ending, saving Marcus, Kai's secret.
 4. **Final morning:** silence and your heartbeat. Lou tapes your ankles.
 5. **THE FINAL vs Kai (fixed loss).**
-   - It's played live, and you can be up big.
-   - **The last play is a cutscene:** Kai crosses you up, you fall, and he hits the shot over you, then stands over you. Fully animated, unskippable the first time, about 40s.
+   - It's played live, and you can build a lead.
+   - **Late in the game, Westbrook goes on a scripted run:**
+     - Kai **enters the zone** (a cinematic: his eyes ignite, the court goes quiet).
+     - Your teammate **fouls out or goes down hurt** (Tariq's cramp, or your third man's sixth foul).
+     - The score is pulled back **to a one-possession game**, so the game always comes down to **a last possession**.
+   - **You lose it in the cutscene:** your last shot or drive is stuffed, Kai crosses you on the other end, you fall, and he hits the shot over you, then stands over you. Fully animated, unskippable the first time, about 40s.
    - **The low:** the color drains, the crowd noise cuts to a ringing silence, and one ball rolls to a stop against your hand.
    - **Rank crash:** the list flashes and your number falls back toward the bottom (to about #280–295, depending on how you played).
    - **If you played great:** *"Thirty points, and the only number anyone saw was his."* Dee still circles your name.
@@ -122,6 +142,7 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
 ## Chapter 2: Varsity Blues (sophomore to senior)
 
 *Theme: nobody hands you anything. Earn every minute, then lose it all and earn it back.*
+*Lows: the cut, Mom's money trouble, Lou in the hospital and the ankle. The Tariq falling out moves to Chapter 3.*
 
 ### Arc 1: THE CUT ARC
 **Goal:** make varsity.
@@ -132,7 +153,7 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
    - **If you played well:** *"You were the best player in that gym. Sophomores don't start here."* Coach respects you but holds you back.
    - **If you played badly:** *"You played for yourself."*
    - Small rank drop.
-4. **Off-court:** Tariq made varsity and you didn't. The tension seeds the falling out later.
+4. **Off-court:** Tariq made varsity and you didn't. He's kind about it, which almost makes it worse.
 5. **Next time…** A JV jersey on a hook, number 00, and Lou's voice: *"Good. Now you're hungry."*
 
 ### Arc 2: THE JV ARC
@@ -140,7 +161,7 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
 1. **The JV grind montage** (music, stat bars, 6 a.m. runs, a "PUSH" quick-time).
 2. **Two JV games** (played), plus the redemption goals: average 20, beat the JV rivals, climb back above your Summer Jam rank.
 3. **The call-up (awakening):** Coach in the doorway: *"Varsity. Friday."* A new weapon unlocks (from the learnable list).
-4. **Revenge game: "HALSEY PARK II"** vs Kai and Westbrook, with the boxing-poster intro.
+4. **"HALSEY PARK II", the fixed high and a revenge game:** vs Kai and Westbrook, with the boxing-poster intro. You always win it, through a scripted comeback and a huge cinematic finish: your weapon on Kai and the student section on the floor. Kai's first loss to you in front of Silk.
 5. **Kai's POV:** Silk dissecting the film of you scoring on Kai, frame by frame.
 6. **Next time…** The Peach Slam logo, and Vince Shark's purple suit.
 
@@ -148,7 +169,6 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
 **Goal:** get seen by the country.
 1. **Junior season** (auto-sim stretches and big games as now) and the city playoffs.
 2. **Mom's money low:** she gets hurt at work and rent is due. Your choices: night shifts, Lou, Nia's page, or Vince's envelope. The booster scandal path stays.
-3. **The falling out with Tariq:** a public argument, fully animated. Arguing animation, pointing, he walks away in the rain. Reconciliation is possible later through your choices.
 4. **The Peach Slam** with Lou's AAU team, the Elite 100 camp and Nia's birthday choice.
 5. **Recruiting heats up:** coach visits, and your rank climbs toward the top 100.
 6. **Next time…** Senior Night banners, and a trainer wrapping an ankle.
@@ -198,7 +218,7 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
    - **The one moment:** Reyes: *"You. Now."*
    - Played live: Scoop's voice, the jelly over the seven-footer. Inner monologue, the void, puzzle pieces.
    - **Awakening:** your weapon evolves to tier III, or the jelly evolves.
-4. **The podium** (gold, silver or bronze, as now) and the jersey.
+4. **Gold is the fixed high:** your moment swings the final, and the U.S. wins. The podium, the anthem and the jersey. (Your camp and your one moment decide how big your part was, not the medal.)
 5. **Credits,** then **post-credits:** Kai in the airport, alone, watching your highlight on his phone. Silk's text: *"Next time it's you or me."*
 
 ---
@@ -229,11 +249,11 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
 - **Redemption:** keep playing for a club that can't pay you, or take a loan move to a smaller club.
 - **Revenge game:** the rich club that tried to sign you cheap.
 
-**Grind League: THE STRANDED ARC**
-- **Foreshadowing:** front-office people in suits watching practice.
-- **Mid-season (fixed):** Ignition's coach is fired and the new coach plays veterans only.
-- **Redemption:** prove it in scrimmages and earn minutes back.
-- **Revenge game:** the veterans' team.
+**Grind League: THE STOLEN CALL-UP ARC**
+- **Foreshadowing:** Dez is too quiet, and a scout talks to him instead of you.
+- **Mid-season (fixed):** the NBL call-up you earned goes to Dez. A roster crunch follows and **you're waived**. You're cut, sleeping on a teammate's couch, and playing open runs at the Warehouse.
+- **Redemption:** earn a tryout contract back. Dez sends you his playbook notes from the NBL.
+- **Revenge game:** the team that waived you, in the playoffs.
 
 **Every route:**
 - **Weapon Training** with Scoop unlocks after the low (as now). The awakening is a weapon evolution.
@@ -244,7 +264,11 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
 - **Overseas:** the league playoffs and the Continental Cup.
 - **Grind League:** the playoffs and the ten-day NBL call-up.
 - **Every route:** a big rivalry showdown with Kai (a marked revenge game), and a top-10 push in the rankings.
-- **Off-court:** a falling out with Nia over your brand, the money and her quitting school to manage you. Mended by your choices.
+- **Off-court, the falling out with Tariq (moved here from Chapter 2):** he's stuck at home while you're on TV, and the old-friends story turns sour in public. A fully animated argument in the rain on Halsey Street, with pointing and stepping in, and he walks away. Mended in the climax arc by your choices (or not).
+- **The fixed high:**
+  - **College:** knocking off the #1 team in March.
+  - **Overseas:** the derby win in front of 15,000.
+  - **Grind League:** your first NBL win on the call-up (earned back after the waiver).
 - **Credits,** then **post-credits:** the draft lottery. A GM: *"Projected top five. Kai's projected higher."*
 
 ---
@@ -271,6 +295,7 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
 - **The call:** a team that has wanted you from the start. A chiptune swell, and Mom crying.
 - **Awakening:** a new weapon unlocks: **"Chip on the Shoulder"** (bonus vs every team that passed on you).
 - **Revenge games:** every team that passed on you becomes a marked game in your rookie season.
+- **The fixed high:** the Summer League game vs Kai's team. Forty points, every team that passed on you watching.
 - **Credits,** then **post-credits:** Kai's first NBL practice. A veteran star: *"Rookie. Rebounds and water. That's your job."*
 
 ---
@@ -286,6 +311,8 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
 
 ### Arc 2: THE BREAKOUT ARC
 - All-Star votes, the signature shoe (feature exists), and the rivalry system (feature exists) with Kai, now in the league.
+- **The fixed high:** your first playoff series win.
+- **Off-court:** a falling out with Nia over your brand and the money, mended by your choices.
 - **Foreshadowing:** a sore knee you hide from the trainers, and Lou's warning echoing: *"Highlight players play three."*
 
 ### Arc 3: THE INJURY ARC (fixed setback at your peak)
@@ -302,7 +329,29 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
 
 ---
 
-## Chapter 6: Legacy (the ending; to build later)
+## Chapter 6: Far From Home (the mid-career road, then the homecoming; to build later)
+
+*Theme: you were the face of a franchise. Then you were a question mark.*
+
+### Arc 1: THE CROSSROADS ARC
+- After the Finals loss, your contract year arrives, and the old knee scares teams.
+- **The choice:**
+  - **Overseas:** a mid-career season with a EuroLeeg giant (Madrid, Belgrade or Paris), where Marko and Lena from Chapter 3's overseas road may return.
+  - **Stay:** a smaller NBL team that needs a leader.
+
+### Arc 2: THE EXILE ARC
+- **Overseas:** a new language again, but now you're the veteran the kids are afraid of. A title run in the Continental Cup.
+- **Stay:** you're the mentor now, stuck on a losing team. You teach a #300-type rookie what Lou taught you.
+- **Kai's POV:** Kai wins his first ring without you. Silk calls you, of all people.
+
+### Arc 3: THE HOMECOMING ARC (climax)
+- Your old team, or your hometown team, brings you home.
+- **The fixed high is the homecoming game:** sold out, Halsey Street in the stands, and Lou in the third row.
+- **Credits,** then **post-credits:** the Finals bracket, with your name and Kai's on opposite sides.
+
+---
+
+## Chapter 7: Legacy (the ending; to build later)
 
 ### Arc 1: THE RING ARC
 - One more season, all the climbs paying off, and the Finals again.
@@ -335,7 +384,7 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
 - Add the mid-season setback per route (coach fired, club unpaid, coach replaced) with redemption goals and revenge games.
 - Add the Nia falling out.
 
-**Chapters 4–6**
+**Chapters 4–7**
 - Story data stubs with the arc structure, title cards and setback scenes outlined. The "coming soon" screen shows the "Next time…" teaser.
 
 **New systems**
