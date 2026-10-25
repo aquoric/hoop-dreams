@@ -301,6 +301,16 @@ const Pixel = (() => {
           if (a.t < .2) { o.lean = -.5; o.legs = [[-.4, -.3], [.6, -.6]]; o.arms = [[2.4, .4], [1.8, .3]]; }
           else { o.hip = 3; o.legs = [[1.45, -.05], [1.3, .1]]; o.lean = -.4; o.arms = [[-.6, 0], [-.35, 0]]; o.stars = true; }
           o.rate = 30; break;
+        /* story-scene acting (cutscene actors): kneel · cry · hug · argue · bench · slump · spin (ball on one finger) · lookup */
+        case 'kneel': o.hip = 6; o.legs = [[1.45, -1.45], [-.15, -1.55]]; o.arms = [[.9, .7], [.25, .2]]; o.lean = a.down ? .38 : .12; o.headDown = !!a.down; o.rate = 14; break;
+        case 'cry': { const sob = Math.sin(t * 13) * .5; o.arms = [[2.0, 2.15], [1.9, 2.25]]; o.lean = .28; o.headDown = true; o.bob = Math.max(0, sob); o.legs = [[.12, -.2], [-.1, -.2]];
+          if (a.kneel) { o.hip = 6; o.legs = [[1.45, -1.45], [-.15, -1.55]]; } o.tears = true; o.rate = 12; break; }
+        case 'hug': o.arms = [[1.55, .95], [1.45, 1.05]]; o.lean = .16; o.legs = [[.2, -.2], [-.15, -.2]]; o.rate = 10; o.cheek = true; break;
+        case 'argue': { const jab = Math.max(0, Math.sin(t * 8)); o.arms = [[.5, .6], [1.5 + jab * .25, .08]]; o.lean = .22 + jab * .06; o.legs = [[.35, -.35], [-.3, -.3]]; o.bob = jab * .8; o.shout = jab > .4; o.rate = 30; break; }
+        case 'bench': o.hip = 6.5; o.legs = [[1.5, -1.5], [1.42, -1.45]]; o.arms = [[1.2, .35], [1.1, .3]]; o.lean = a.down ? .42 : .2; o.headDown = !!a.down; o.rate = 12; break;
+        case 'slump': o.lean = .36; o.arms = [[.15, .1], [.1, .12]]; o.legs = [[.06, -.1], [-.06, -.1]]; o.headDown = true; o.rate = 6; break;
+        case 'spin': o.arms = [[.35, .3], [2.95, .02]]; o.ball = 'finger'; o.lean = -.06; o.legs = [[.25, -.25], [-.2, -.2]]; o.rate = 20; break;
+        case 'lookup': o.lean = -.22; o.arms = [[.2, .2], [.25, .25]]; o.legs = [[.15, -.2], [-.12, -.2]]; o.rate = 8; break;
         case 'move': {
           const id = a.id;
           o.ball = id === 'hesi' ? (k < .55 ? 'hip' : 'dribble') : id === 'spin' ? 'chest' : id; o.rate = 36;
@@ -351,7 +361,7 @@ const Pixel = (() => {
       if (s === 'afro') { px(hx - 2, hy - 3, 10, 5, OUT); px(hx - 1, hy - 3, 8, 5, hc); px(hx - 2, hy - 2, 10, 3, hc); return; }
       if (s === 'flattop') { px(hx, hy - 3, 6, 4, hc); px(hx, hy - 4, 6, 1, OUT); return; }
       if (s === 'curly') { px(hx - 1, hy - 2, 8, 3, hc); for (let i = 0; i < 4; i++) px(hx - 1 + i * 2, hy - 3, 1, 1, hc); return; }
-      if (s === 'braids' || s === 'dreads' || s === 'long' || s === 'ponytail') { const sw = Math.round(Math.sin(E.t * 9 + (p.i || 0)) * Math.min(1, Math.hypot(p.vx || 0, p.vy || 0) / 40)); px(hx, hy - 1, 6, 2, hc); px(back - (f > 0 ? sw : -sw), hy, 1, s === 'ponytail' ? 3 : 7, hc); px(back + (f > 0 ? -1 : 1) - (f > 0 ? sw : -sw), hy + 2, 1, s === 'ponytail' ? 5 : 6, hc); return; }
+      if (s === 'braids' || s === 'dreads' || s === 'long' || s === 'ponytail') { const wd = E.wind || 0, sw = Math.round(Math.sin(E.t * 9 + (p.i || 0)) * Math.min(1, Math.hypot(p.vx || 0, p.vy || 0) / 40) + wd * 1.6 * f + Math.sin(E.t * 6 + (p.i || 0)) * Math.abs(wd) * .8);   /* sways with motion and wind */ px(hx, hy - 1, 6, 2, hc); px(back - (f > 0 ? sw : -sw), hy, 1, s === 'ponytail' ? 3 : 7, hc); px(back + (f > 0 ? -1 : 1) - (f > 0 ? sw : -sw), hy + 2, 1, s === 'ponytail' ? 5 : 6, hc); return; }
       px(hx, hy - 1, 6, s === 'buzz' ? 1 : 2, hc); px(back + (f > 0 ? 1 : -1), hy, 1, 2, hc);
     }
     function ballAt(p, K) {
@@ -367,6 +377,7 @@ const Pixel = (() => {
         case 'cross': return [lerp(p.x + a.f0 * 6, p.x + a.f1 * 6, k), lerp(hand[1], floorY - 2, Math.sin(k * Math.PI)), Math.abs(k - .5) < .08 ? .8 : 0];
         case 'btl': return [lerp(p.x + a.f0 * 6, p.x + a.f1 * 6, k), k < .5 ? lerp(hand[1], floorY - 3, k * 2) : lerp(floorY - 3, hand[1], (k - .5) * 2)];
         case 'btb': return [p.x + Math.cos(k * Math.PI) * 6 * a.f0, K.hip[1] + 2];
+        case 'finger': return [hand[0], hand[1] - 4];
       }
       return [hand[0], hand[1]];
     }
@@ -416,6 +427,9 @@ const Pixel = (() => {
       seg(K.hip[0] - f * 3, K.hip[1] - 1, K.neck[0] - f * 3, K.neck[1] + 1, 2, p.colD);
       seg(K.hip[0] + f * 2, K.hip[1] - 2, K.neck[0] + f * 2, K.neck[1] + 2, 1, p.colL);
       px(K.neck[0] - 2, K.neck[1] - 1, 4, 1, p.col2);
+      { const wd = E.wind || 0, spd0 = Math.hypot(p.vx || 0, p.vy || 0), fl = Math.abs(wd) > .15 || spd0 > 30;   // cloth: the jersey hem and shorts flap in the wind / when running
+        if (fl) { const dir = Math.abs(wd) > .15 ? -Math.sign(wd) : -f, wav = Math.floor(E.t * (8 + Math.abs(wd) * 8) + (p.i || 0)) % 2;
+          px(K.hip[0] + dir * 5, K.hip[1] - 2 + wav, 2, 1, p.col); px(sb[0] + dir * 4, sb[1] + wav, 2, 1, p.colD); } }
       if (Math.abs(K.o.rot || 0) < .5 && Math.abs(p._po ? p._po.rot : 0) < .5 && p.num != null) {
         const ds = String(p.num % 100).split('').map(Number), w = ds.length * 4 - 1, nx = Math.round(lerp(K.hip[0], K.neck[0], .55) - w / 2), ny = Math.round(lerp(K.hip[1], K.neck[1], .62) - 2);
         c.fillStyle = p.col2; ds.forEach((d, i) => { const gl = DIG[d]; for (let j = 0; j < 15; j++) if (gl[j] === '1') c.fillRect(nx + i * 4 + j % 3, ny + Math.floor(j / 3), 1, 1); });
@@ -434,8 +448,12 @@ const Pixel = (() => {
       if (po.flick) px(K.arms[1].hand[0] + f, K.arms[1].hand[1] - 1, 2, 2, p.skin);
       const hx = Math.round(K.head[0] - 3), hy = Math.round(K.head[1] - 3);
       px(hx - 1, hy - 1, 8, 8, OUT); px(hx, hy, 6, 6, p.skin); px(hx + (f > 0 ? 0 : 4), hy + 3, 2, 3, p.skinD);
-      if (po.headDown) px(hx + (f > 0 ? 3 : 1), hy + 3, 2, 1, '#111'); else { px(hx + (f > 0 ? 4 : 1), hy + 2, 1, 1, '#111'); px(hx + (f > 0 ? 5 : 0), hy + 4, 1, 1, shade(p.skin, -.4)); }
-      if (['celebrate', 'joy', 'flex', 'point', 'chestbump', 'thump'].includes(p.act && p.act.type)) px(hx + (f > 0 ? 3 : 1), hy + 4, 2, 1, '#7f1d1d');   // shouting
+      const blink = p.blinks && ((E.t + (p.i || 0) * 1.37) % 3.3) < .13;   // story actors blink
+      if (po.headDown) px(hx + (f > 0 ? 3 : 1), hy + 3, 2, 1, '#111'); else { px(hx + (f > 0 ? 4 : 1), hy + 2, 1, 1, blink ? p.skinD : '#111'); px(hx + (f > 0 ? 5 : 0), hy + 4, 1, 1, shade(p.skin, -.4)); }
+      if (po.shout || ['celebrate', 'joy', 'flex', 'point', 'chestbump', 'thump'].includes(p.act && p.act.type)) px(hx + (f > 0 ? 3 : 1), hy + 4, 2, 1, '#7f1d1d');   // shouting
+      else if (p.talking && Math.floor(E.t * 11 + (p.i || 0)) % 2) px(hx + (f > 0 ? 3 : 1), hy + 4, 2, Math.floor(E.t * 7) % 3 ? 1 : 2, '#3f0d12');   // lips move while talking
+      if (po.tears) for (let i = 0; i < 2; i++) { const u = (E.t * 1.6 + i * .5) % 1; px(hx + (f > 0 ? 4 : 1) + (i ? -2 * f : 0), hy + 4 + u * 7, 1, 2, '#7dd3fc'); }
+      if (po.cheek) px(hx + (f > 0 ? 4 : 1), hy + 3, 1, 1, '#f9a8d4');
       drawHair(p, hx, hy, f);
       if (p.band) { px(hx - 1, hy + 1, 8, 1, p.band); px(hx + (f > 0 ? -2 : 7), hy + 1, 1, 3, p.band); }
       if (po.ball && high) held();

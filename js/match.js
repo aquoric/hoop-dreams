@@ -1702,6 +1702,14 @@ const Match = (() => {
       if (st.tutI >= TUT_STEPS.length) endTutorial(false);
       return 'tut_' + id;
     }
+    /* INNER MONOLOGUE (js/story-fx.js lines, drawn by Cutscene.monologue): time freezes at a big play and your thoughts slam in.
+       At most 2 a game: the final possession of a big game, the story's jelly moment, the Summer Jam's clutch possession. */
+    async function innerVoice(kind) {
+      if ((st.monoN || 0) >= 2 || typeof Story === 'undefined' || typeof Cutscene === 'undefined' || !Cutscene.monologue || tutOn()) return;
+      const m = Story.mono(kind, s); if (!m) return; st.monoN = (st.monoN || 0) + 1;
+      const D = kind === 'final_def' ? STAR : opp(U);
+      try { await Cutscene.monologue(Object.assign(m, { look: U.look, look2: D && D.look, colors: cfg.us.colors, colors2: cfg.them.colors, name: myName })); } catch (e) { console.warn('monologue', e); }
+    }
     /* the jelly moment (story): a rim protector waiting at the rim, once a game (cfg.jellyMoment) */
     const JM = cfg.jellyMoment && FEAT && Features.jellyOn(s) ? cfg.jellyMoment : null;
     const jmDue = () => !!JM && !st.jmDone && !st.clutch && (JM.first || st.i >= Math.floor(n * .55));
@@ -2781,7 +2789,7 @@ const Match = (() => {
         }
         // a key possession (or the clutch one): the usual decision moment + minigame, then the other team's ball
         const u0 = st.us, t0 = st.them, mine = b.next === 0, d = st.us - st.them;
-        if (kind === 'clutch') { st.clutch = true; SFX.play('heartbeat'); SFX.music('clutch'); }
+        if (kind === 'clutch') { st.clutch = true; SFX.play('heartbeat'); SFX.music('clutch'); if (mine) await innerVoice('jam'); }
         const txt = kind === 'clutch' ? `${d === 0 ? 'Tied' : d > 0 ? `Up ${d}` : `Down ${-d}`} near ${cfg.target}. ${mine ? 'Your ball. Make it count.' : `${STAR.short} wants it. Get a stop.`}` : null;
         if (mine) await offPossession(txt ? { text: txt } : null); else await withMirror(() => defPossession(txt ? { text: txt } : null));
         st.clutch = false; idle(); SFX.music('game');
@@ -2844,15 +2852,17 @@ const Match = (() => {
       const periodEnds = !last && clockFor(i + 1).per !== clk.per;
       const type = await guardMoment(async () => { let type;
       if (tutOn() && st.tutI < TUT_STEPS.length) type = await tutMoment();
-      else if (jmDue() && !last) { await RUN.off_poss(); type = 'off_poss'; }   // the story's jelly moment comes first
+      else if (jmDue() && !last) { if (JM.payoff || JM.first) await innerVoice('jelly'); await RUN.off_poss(); type = 'off_poss'; }   // the story's jelly moment comes first
       else if (last && st.clutch && canSeg()) {   // FINAL POSSESSION — the biggest moment of the game, played live
         const secs = clamp(Math.ceil(clk.rem), 6, 14);
         if (diff <= 0) {
           pbp(diff === 0 ? `Tied ${st.us}-${st.them}. ${secs} seconds left. Ball in your hands. Win it.` : `Down ${-diff}. ${secs} seconds left. ${-diff >= 3 ? 'You need a three to tie.' : 'Everybody knows who\'s taking this shot.'}`, 'hot');
+          if (imp0 >= 2 || cfg.revenge) await innerVoice('final');
           const before = st.us; await arcadeSegment('final', { offense: 0, clock: secs, sub: diff === 0 ? `TIED · ${secs} SECONDS · WIN IT` : `DOWN ${-diff} · ${secs} SECONDS` }); type = 'final_off';
           if (st.us > st.them && before <= st.them) { st.gameWinner = true; cnt('gameWinners'); st.highlights.push('Hit the game-winner'); }
         } else {
           pbp(`Up ${diff}, ${secs} seconds left. ${star.name} has the ball. Get one stop.`, 'hot');
+          if (imp0 >= 2 || cfg.revenge) await innerVoice('final_def');
           const before = st.them; await arcadeSegment('final', { offense: 1, clock: secs, sub: `UP ${diff} · GET ONE STOP` }); type = 'final_def';
           if (st.them - before < diff) { st.sealPlay = st.lastStop || Object.assign(playOf(U, 'stop', { def: STAR }), { side: 'us', clock: 0 }); cnt('clutchMakes'); st.clutchW++; st.highlights.push(`Game-sealing stop on ${star.name}`); }
         }

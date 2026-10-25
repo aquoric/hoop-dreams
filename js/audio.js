@@ -79,6 +79,17 @@ const SONGS = [
     drums: { k: 'x.....x.x.......', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.' },
     drumsB: { k: 'x.....x.x..x....', s: '....x.......x...', h: 'x.xxx.x.x.xxx.x.', oh: '..............x.' },
     bass: 'x.....x.x...o...', bassType: 'sub', keys: 'stab', keysPat: 'x...x.....x.....', lead: 'pluck', leadDensity: .5 },
+  // ---------------- THEME (the chapter opening) + CHARACTER THEMES ----------------
+  { name: 'Hoop Dreams (Opening)', gain: 0.8, mood: 'theme', bpm: 132, swing: 0, root: 45, scale: 'minor', prog: [0, 5, 3, 4], barsPerChord: 1,
+    drums: { k: 'x...x...x..x....', c: '....x.......x...', h: 'x.x.x.x.x.x.x.x.', oh: '..............x.' },
+    drumsB: { k: 'x...x.x.x..x..x.', c: '....x.......x..x', h: 'xxx.x.xxx.x.xxx.', oh: '......x.......x.' },
+    bass: 'x.o.x.o.x.o.x.5.', bassType: 'saw', keys: 'stab', keysPat: 'x.....x...x.....', lead: 'saw', leadDensity: .62 },
+  { name: 'Cold Gold (Kai)', gain: 0.7, mood: 'kai', bpm: 120, swing: 0, root: 42, scale: 'phryg', prog: [0, 1, 0, 6],   // cold, synthetic
+    drums: { k: 'x.......x.......', h: '..x...x...x...x.' }, drumsB: { k: 'x.....x.x.......', c: '........x.......', h: 'x.x.x.x.x.x.x.x.' },
+    bass: 'x.x.x.x.x.x.x.x.', bassType: 'saw', keys: 'pad', lead: 'arp', leadDensity: .8 },
+  { name: 'Back Porch (Lou)', gain: 1.5, mood: 'lou', bpm: 68, swing: .3, root: 43, scale: 'dorian', prog: [0, 3, 0, 4],   // warm and bluesy
+    drums: { k: 'x.......x.......', h: 'o..o..o..o..o..o' }, drumsB: { k: 'x.......x..x....', s: '....o.......o...', h: 'o..o..o..o..o..o' },
+    bass: 'x..5..o.x..5..o.', bassType: 'pluck', keys: 'ep', keysPat: 'x.....x.........', lead: 'pluck', leadDensity: .25, crackle: true },
   // ---------------- SAD ----------------
   { name: 'Empty Gym', gain: 1.2, mood: 'sad', bpm: 64, swing: 0, root: 45, scale: 'minor', prog: [0, 5, 2, 6],
     drums: { k: '' }, drumsB: { k: 'x...............', h: '........o.......' },
@@ -187,6 +198,12 @@ const SFX = (() => {
     /* the jelly: a soft kiss off the glass, then a rubbery "bloop" + sparkle */
     kiss: () => { noise(0.05, 'bandpass', 4200, 0.12, 0, 2600, 3); tone(1760, 0.12, 'sine', 0.07, 0, sfxBus, 1320); tone(2640, 0.08, 'sine', 0.03, 0.01); },
     jelly: () => { tone(220, 0.28, 'sine', 0.22, 0, sfxBus, 660); tone(330, 0.22, 'triangle', 0.1, 0.05, sfxBus, 990); [1319, 1568, 2093].forEach((f, i) => tone(f, 0.16, 'triangle', 0.05, 0.12 + i * 0.05)); },
+    /* story systems: a single low piano note (the lows) · the boxing-ring bell (revenge posters) · the arc title sting · quick-time taps */
+    piano: () => { [110, 220, 330.5, 440.3].forEach((f, i) => tone(f, 3.2 - i * .5, i ? 'sine' : 'triangle', [.22, .12, .05, .03][i])); noise(0.03, 'lowpass', 900, 0.08); },
+    bell: () => { for (let k = 0; k < 3; k++) [1150, 2470, 3330].forEach((f, i) => tone(f, 0.9 - i * .2, 'sine', [.16, .07, .04][i], k * .22)); },
+    sting: () => { [0, 3, 7, 12, 15].forEach((n, i) => tone(220 * Math.pow(2, n / 12), 0.16, 'square', 0.06, i * 0.055)); tone(55, 0.7, 'sawtooth', 0.12, 0.28, sfxBus, 41); noise(0.4, 'highpass', 5000, 0.06, 0.28); },
+    qte: () => tone(1320 + Math.random() * 120, 0.04, 'square', 0.05),
+    rumble: () => { noise(1.6, 'lowpass', 140, 0.4, 0, 60, 0.7, sfxBus, 0.3); tone(41, 1.6, 'sine', 0.3, 0, sfxBus, 33); },
     blip: (v = {}) => tone((v.f || 300) * (0.94 + Math.random() * 0.12), 0.05, v.w || 'square', v.g || 0.035),
     /* venue ambience: one recorded loop at a time (Crowd.ambience); h = crowd excitement 0..1 */
     amb_city: h => Crowd.ambience('street', h), amb_park: h => Crowd.ambience('street', h), amb_wind: h => Crowd.ambience('street', h), amb_waves: h => Crowd.ambience('street', h), amb_rain: h => Crowd.ambience('street', h),

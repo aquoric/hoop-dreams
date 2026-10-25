@@ -22,6 +22,7 @@ const Game = {
   /* ---------- career lifecycle ---------- */
   newCareer(o) {
     const s = this.state = Engine.createState(o);
+    s.arcs = { v: 1, cur: null, openings: {}, ended: {} };   // story arcs (js/story-fx.js): the chapter opening + the first arc card play at the start
     Engine.post(s, { by: 'nia', text: 'my big brother {first} is gonna be in the NBL one day. screenshot this. 💜' });
     s.log.push(Engine.text('Age 16. A nobody from {hometown} with a dream.', s));
     this.goto('street', STORY.chapters.street.start);
@@ -31,7 +32,7 @@ const Game = {
     if (!s) return UI.toast('That save could not be loaded.', 'bad');
     this.loadState(s);
   },
-  loadState(s) { this.state = s; this.save(); this.resume(); },
+  loadState(s) { this.state = s; if (typeof Story !== 'undefined' && s.story) Story.ensure(s); this.save(); const prev = typeof Story !== 'undefined' && !s.ended ? Story.previously(s) : null; (prev || Promise.resolve()).then(() => this.resume()); },   // "Previously…" first
   resume() { const s = this.state; if (s.ended) return UI.ending(s.ended); this.runNode(); },
   save() { if (this.state) Engine.save(this.state, 'auto'); },
   startChapter(id) {
@@ -55,14 +56,19 @@ const Game = {
     if (!ch || !node) { console.error('Missing story node', s.story); UI.toast('Story node missing: ' + s.story.chapter + '/' + s.story.node, 'bad'); return UI.title(); }
     s.career.stage = typeof ch.stage === 'function' ? ch.stage(s) : ch.stage;   // Chapter 3: College / Overseas Pro / Grind League
     Features.check(s);   // new chapter / story beat → feature unlocks (popup waits for a calm screen)
+    // story systems (js/story-fx.js): a new chapter → its opening sequence; a new arc → "Next time…" + its title card
+    if (typeof Story !== 'undefined') { const pre = Story.beforeNode(s, s.story.chapter, s.story.node); if (pre) return pre.then(() => this.runNode()); }
     // node entry effects (applied once, even across reloads)
     const nid = s.story.chapter + ':' + s.story.node;
     if (node.fx && s.story.fxApplied !== nid) { s.story.fxApplied = nid; const ch2 = this.applyFx(node.fx); node._fxChanges = ch2; this.save(); }
     else node._fxChanges = null;
-    // cinematic cutscene when entering this node (once per visit, unskippable)
+    // a weapon evolved (fx.evolve, after a low): the awakening sequence
+    if (typeof Story !== 'undefined') { const aw = Story.afterFx(s); if (aw) return aw.then(() => this.runNode()); }
+    // cinematic cutscene when entering this node (once per visit; unskippable the first time you ever see it)
     if (node.cutscene && s.story.cs !== nid && typeof Cutscene !== 'undefined') {
       s.story.cs = nid; this.save();
       const cctx = this.csCtx(s.story.node); if (node.csTeam && LOCAL_TEAMS[node.csTeam]) cctx.team = { colors: LOCAL_TEAMS[node.csTeam].colors };
+      if (typeof Story !== 'undefined') return Story.cut(node.cutscene, cctx).then(() => { Story.noteCut(s, node.cutscene); this.save(); this.runNode(); });
       return Cutscene.play(node.cutscene, cctx).then(() => this.runNode());
     }
     switch (node.type) {
@@ -83,6 +89,7 @@ const Game = {
         s.flags['done_' + s.story.chapter] = true; this.recordOvr(ch.title + ' end');
         if (!(s.career.milestones || (s.career.milestones = [])).some(m => m.chapter === s.story.chapter)) s.career.milestones.push({ chapter: s.story.chapter, label: ch.title + ' end', ovr: Engine.ovr(s), age: s.player.age });
         this.save();
+        if (typeof Story !== 'undefined') { const end = Story.chapterEnd(s, s.story.chapter); if (end) return end.then(() => this.runNode()); }   // credits + post-credits (once)
         const nextId = typeof node.nextChapter === 'function' ? node.nextChapter(s) : node.nextChapter, next = STORY.chapters[nextId];
         return UI.chapterEnd(ch, node, {
           dev: node.fx && node.fx.develop ? s.lastDevelop : null, next,   // only chapters that grow you show the development box
@@ -146,6 +153,9 @@ const Game = {
     if (fx.draftStock) { s.meta.draftStock = (s.meta.draftStock || 0) + fx.draftStock; changes.push({ label: 'Draft stock', v: fx.draftStock }); }
     if (fx.overseas) { s.meta.overseas = (s.meta.overseas || 0) + fx.overseas; changes.push({ label: 'Overseas interest', v: fx.overseas }); }
     if (fx.medal) { (s.career.medals || (s.career.medals = [])).push({ event: 'World Youth Championship', medal: fx.medal, age: s.player.age }); changes.push({ label: { gold: '🥇 Gold medal', silver: '🥈 Silver medal', bronze: '🥉 Bronze medal' }[fx.medal], v: 1, special: 'grow' }); }
+    /* story systems (js/story-fx.js): weapon evolution after a low · a rival marked for a revenge game */
+    if (fx.evolve && typeof Story !== 'undefined') { const e = Story.evolve(s, fx.evolve); if (e) changes.push({ label: `⚔ ${e.name}`, v: e.bonus, special: 'grow' }); }
+    if (fx.mark && typeof Story !== 'undefined') Story.mark(s, fx.mark);
     if (fx.gear && SHOP_BY_ID[fx.gear] && !s.inventory.owned.includes(fx.gear)) { s.inventory.owned.push(fx.gear); UI.toast(`🎽 Unlocked: <b>${SHOP_BY_ID[fx.gear].name}</b> — equip it in the Shop`, 'ach', 4200); }
     if (Engine.ovr(s) !== before) this.recordOvr('Story');
     Engine.badgeDiff(bb, s).forEach(x => UI.toast(`${Art.badge(x.b, x.tier, 30)} Badge: <b>${x.b.name}</b> ${BADGE_TIERS[x.tier]}`, 'ach', 4000));
@@ -267,12 +277,14 @@ const Game = {
       cfg.mods = [Object.assign({ label: P ? P.name : 'Practice' }, us), Object.assign({ label: P ? P.name : 'Game plan' }, them)]; cfg.jam = true;
     }
     if (node.pickup && !(node.tutorial && !s.flags.tutorial_done)) Object.assign(cfg, { fullArcade: true, size: node.pickup.size || 3, target: node.pickup.target || 21, sub: `${cfg.sub ? cfg.sub + ' · ' : ''}${node.pickup.size || 3}v${node.pickup.size || 3}, first to ${node.pickup.target || 21}` });
+    if (typeof Story !== 'undefined') await Story.prematch(s, cfg, node);   // a marked rival: the revenge-game poster
     const r = await Match.play(cfg);
     if (cfg.tutorial) s.flags.tutorial_done = true;
     if (cfg.jam && s.jam) s.jam.boost = false;   // the practice boost lasts one game
     this.unlockVenue(r.venueId);
     await this.bigMoment(r);
     const summary = this.applyMatch(r, node);
+    this.afterStoryGame(r, cfg, node.title);
     if (node.gradeFlag && r.gradeScore >= node.gradeFlag.min) s.flags[node.gradeFlag.flag] = true;
     if (node.camp && s.usa) { const cp = (USA_CAMP.grade[r.grade[0]] || 0) + (r.win ? USA_CAMP.win : 0); s.usa.pts += cp; UI.toast(`🇺🇸 Camp points <b>${cp >= 0 ? '+' : ''}${cp}</b> (grade ${r.grade})`, cp >= 0 ? 'good' : 'bad', 3200); }
     const rfx = r.win ? node.winFx : node.loseFx; if (rfx) UI.fxToasts(this.applyFx(rfx));
@@ -281,6 +293,12 @@ const Game = {
     s.story = { chapter: s.story.chapter, node: r.win ? node.win : node.lose, fxApplied: null };
     this.save();
     UI.postGame(r, summary, () => this.afterRanks(() => this.runNode()));
+  },
+  /* "Previously…" remembers the big games; a revenge game won gets its moment */
+  afterStoryGame(r, cfg, title) {
+    if (typeof Story === 'undefined') return; const s = this.state;
+    Story.noteGame(s, r, title);
+    if (cfg.revenge && r.win) { UI.toast(`🥊 <b>${cfg.revenge}</b> — revenge.`, 'ach', 4500); Story.note(s, { line: `${cfg.revenge}: you got your revenge, ${r.us}-${r.them}.`, scene: 'poster', cast: [{ id: 'you', kind: 'bust', x: 0, expr: 'smile', rim: '#fde68a' }] }); }
   },
   jellyPayoff(importance) { return this.state.flags.jelly_payoff && importance >= 2 ? { text: 'Their big man leaves his man and slides over to meet you at the rim. Scoop\'s voice in your head: "Around him."', late: true, payoff: true } : null; },
   gradeValue(g) { return { A: 4, B: 3, C: 2, D: 1, F: 0 }[g[0]] + (g[1] === '+' ? .3 : g[1] === '-' ? -.3 : 0); },
@@ -436,10 +454,12 @@ const Game = {
       const finalGame = g.playoff && se.playoffs && se.playoffs.rounds[se.playoffs.round].length === 1;
       cfg.venue = g.away ? 'away' : g.home ? 'home' : (se.week + (g.opp || '').length) % 2 ? 'away' : 'home';
       cfg.venueId = finalGame ? (se.def.finalVenue || (se.level === 'hs' ? 'college_arena' : 'tournament')) : g.venue && VENUES[g.venue] ? g.venue : Venues.forMatch(cfg);
+      if (typeof Story !== 'undefined') await Story.prematch(s, cfg, g);   // a marked rival: the revenge-game poster
       r = await Match.play(cfg);
       this.unlockVenue(r.venueId);
       await this.bigMoment(r);
       summary = this.applyMatch(r, { title: se.name, sub: g.sub });
+      this.afterStoryGame(r, cfg, g.playoff ? g.sub : null);
     }
     // record in the season
     let outcome = null;

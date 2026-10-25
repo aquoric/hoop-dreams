@@ -203,6 +203,16 @@ const WEAPONS = {
   lob_threat:   { name: 'Lob Threat', rarity: 'common', type: 'dunk', charge: 3, icon: 'wing', learn: true, stats: { vert: .5, dunk: .4, iq: .1 }, desc: 'Throw it anywhere near the rim. He\'ll go get it.' },
   dream_shake:  { name: 'Dream Shake', rarity: 'legendary', type: 'post', charge: 4, icon: 'yin', learn: true, stats: { str: .35, handle: .35, finish: .3 }, desc: 'Fake, pivot, fake again — the defender is already in the air.' },
 };
+/* WEAPON EVOLUTION — every big low in the story ends with an awakening: your weapon gains a tier (II → III → IV) with a new name.
+   "Ignite Pass" → "Ignite Pass II: Overdrive". Names by weapon (id) or by type; the bonus % per tier is in js/balance.js (BALANCE.weapons.evo). */
+const WEAPON_EVO = {
+  type: { drive: ['Overdrive', 'Afterimage', 'Thunder God'], three: ['Long Range', 'Sky Piercer', 'Infinite Range'], mid: ['Silent', 'Phantom', 'Absolute'], dunk: ['Overdrive', 'Meteor Fall', 'Cataclysm'],
+    pass: ['Overdrive', 'Wildfire', 'Supernova'], post: ['Anchor', 'Fortress', 'Monolith'], steal: ['Shadow Hands', 'Phantom Thief', 'Grand Larceny'], block: ['Wall', 'Fortress', 'Judgment'],
+    stop: ['Mirror', 'Prison', 'Absolute Zero'], zone: ['Deeper', 'Flow State', 'Godspeed'] },
+  id: { ignite_pass: ['Overdrive', 'Wildfire', 'Supernova'], lightning_dribble: ['Overdrive', 'Storm Step', 'Thunder God'], barrier_jumper: ['Fortress', 'Iron Curtain', 'Infinite Wall'],
+    vanishing_drive: ['Afterimage', 'Phantom Step', 'Nothingness'], phantom_shot: ['Silent', 'Ghost Release', 'Absolute'], meteor_jam: ['Comet', 'Meteor Shower', 'Extinction'],
+    sky_three: ['Stratosphere', 'Orbit', 'Infinite Range'], ankle_break: ['Emperor\'s Eye', 'Absolute Reign', 'Heavenly Decree'], the_zone: ['Deeper', 'Flow State', 'Godspeed'] },
+};
 /* Every named player's weapons (1–2, fitting their position and style). Anyone not listed gets
    1–2 weapons picked from their name + role (Weapons.forName), so every key player has them. */
 const PLAYER_WEAPONS = {

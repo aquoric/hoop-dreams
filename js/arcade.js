@@ -232,7 +232,7 @@ const Arcade = (() => {
         const out = p.bonusFn ? p.bonusFn(action) : [];
         if (p.team !== me.team && BALANCE.defense[diff]) out.push({ label: 'Difficulty', v: BALANCE.defense[diff] * .6 });
         if (p.fire > 0) out.push({ label: 'On fire', v: 6 });
-        if (p.wpn && p.wpn.t > 0 && Weapons.fits(p.wpn.id, action)) out.push({ label: WEAPONS[p.wpn.id].name, v: WA.bonus + (p.wpn.rank - 1) * WA.perRank });
+        if (p.wpn && p.wpn.t > 0 && Weapons.fits(p.wpn.id, action)) out.push({ label: WEAPONS[p.wpn.id].name, v: WA.bonus + (p.wpn.rank - 1) * WA.perRank + (BALANCE.weapons.evo.arcade[(p.wpn.evo || 1) - 1] || 0) });
         if (BREAK && p.team === 0 && ['layup', 'dunk', 'catchMid', 'pullMid', 'catch3', 'pull3'].includes(action)) out.push({ label: 'Fast break', v: 6 });
         if (p.duoT > 0 && p.duoB) out.push({ label: 'Duo move', v: p.duoB });
         if (p.callT > 0 && p.callB) out.push({ label: 'Street call', v: p.callB });
@@ -269,11 +269,11 @@ const Arcade = (() => {
       const wReady = p => p.weapons.length && p.wUsed < wLimit(p) && !(p.wpn && p.wpn.t > 0);
       function activateWeapon(p, id) {
         const w = WEAPONS[id]; if (!w) return false;
-        const rank = (p.weapons.find(x => x.id === id) || { rank: 1 }).rank, mine = p.team === me.team;
-        p.wpn = { id, t: WA.aura, rank }; p.wUsed++;
+        const wx = p.weapons.find(x => x.id === id) || { rank: 1 }, rank = wx.rank, evo = wx.evo || 1, mine = p.team === me.team, wName = evo > 1 ? Weapons.name(id, evo) : w.name;   // evolved weapons: tier name + bonus
+        p.wpn = { id, t: WA.aura, rank, evo }; p.wUsed++;
         G.stop = Math.max(G.stop, .32); G.flash = Math.max(G.flash, .35); G.flashCol = mine ? '250,204,21' : '239,68,68'; G.kick = Math.max(G.kick, .06);
-        pop(`⚔ ${w.name.toUpperCase()}`, mine ? '#facc15' : '#f87171', true); tag(p === me ? 'WEAPON!' : p.short.toUpperCase(), p, mine ? '#fde68a' : '#fca5a5'); SFX.play('sig');
-        RD.ring(p.x, p.y, mine ? '#facc15' : '#ef4444', 120, .5, 2, .4); G.wlog.push({ name: p.name, weapon: w.name, team: p.team }); logLine(`${p.name} uses ${w.name}`);
+        pop(`⚔ ${wName.toUpperCase()}`, mine ? '#facc15' : '#f87171', true); tag(p === me ? 'WEAPON!' : p.short.toUpperCase(), p, mine ? '#fde68a' : '#fca5a5'); SFX.play('sig');
+        RD.ring(p.x, p.y, mine ? '#facc15' : '#ef4444', 120, .5, 2, .4); G.wlog.push({ name: p.name, weapon: wName, team: p.team }); logLine(`${p.name} uses ${wName}`);
         return true;
       }
       /* the weapon that fits what p is doing right now */
@@ -1304,7 +1304,7 @@ const Arcade = (() => {
     const s = Game.state, arch = Engine.archOf(s);
     const bonus = action => { const k = KEYMAP[action], m = arch.passive.mods || {}, out = []; const v = (m[k] || 0) + (m.all || 0); if (v) out.push({ label: arch.passive.name, v }); const bb = Engine.badgeBonus(s, k); if (bb) out.push({ label: 'Badges', v: bb }); return out; };
     const F = typeof Features !== 'undefined';
-    return { name: `${s.player.first} ${s.player.last}`, stats: Balance.userStats(s), look: Engine.look(s), num: s.player.num, arch: s.player.arch, isUser: true, bonus, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank })),
+    return { name: `${s.player.first} ${s.player.last}`, stats: Balance.userStats(s), look: Engine.look(s), num: s.player.num, arch: s.player.arch, isUser: true, bonus, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank, evo: x.evo })),
       jelly: F && Features.jellyOn(s), jellyLvl: F ? Features.jellyLevel(s) : 0, celeb: F ? Features.celebPose(s) : null };
   }
   function crew(team, rating, n, star) {

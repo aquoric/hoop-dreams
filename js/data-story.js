@@ -511,7 +511,9 @@ STORY.chapters.street = {
         ['narrator', 'You lose by a bucket. Kai walks off with the trophy and a microphone in his face.'],
         ['narrator', 'But three hundred people saw you take the #1 sophomore in America to the final possession.'],
         ['kai', 'You\'re annoying, you know that? Most people quit by the second half.'],
-      ], next: 'scout_branch' },
+      ], next: 'm3_low' },
+    // the low: that night, the awakening (your weapon evolves to tier II) + Kai is marked for a revenge game (HALSEY PARK II)
+    m3_low: { type: 'branch', fx: { evolve: { tier: 2, line: 'Most people quit here.' }, mark: { id: 'kai', star: 'Kai Sterling', title: 'HALSEY PARK II', sub: 'The Reckoning' } }, branches: [], else: 'scout_branch' },
 
     scout_branch: { type: 'branch',
       branches: [

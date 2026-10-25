@@ -71,7 +71,8 @@ const Engine = (() => {
   function archOf(s) { return ARCHETYPES[s.player.arch] || ARCHETYPES.lightning; }
   function weaponOf(s) { return WEAPONS[s.player.weapon] || WEAPONS.lightning_dribble; }
   /* your weapons: [{ id, rank, w }] — the rolled one first, more unlock as you level up (BALANCE.weapons.slots) */
-  function weapons(s) { if (!s.player.weapons) s.player.weapons = [{ id: s.player.weapon || 'lightning_dribble', rank: 1 }]; return s.player.weapons.filter(x => WEAPONS[x.id]).map(x => ({ id: x.id, rank: x.rank || 1, w: WEAPONS[x.id] })); }
+  function weapons(s) { if (!s.player.weapons) s.player.weapons = [{ id: s.player.weapon || 'lightning_dribble', rank: 1 }];
+    return s.player.weapons.filter(x => WEAPONS[x.id]).map(x => { const evo = x.evo || 1; return { id: x.id, rank: x.rank || 1, evo, w: evo > 1 ? Object.assign({}, WEAPONS[x.id], { name: Weapons.name(x.id, evo), base: WEAPONS[x.id].name, evo }) : WEAPONS[x.id] }; }); }   // evolved weapons (story awakenings) carry their tier name
   function weaponSlots(s) { return BALANCE.weapons.slots.filter(l => s.player.level >= l).length; }
   /* three weapons you can learn for an open slot — fitting your best stats, stable until you pick */
   function weaponOffers(s) {
@@ -83,7 +84,7 @@ const Engine = (() => {
   function weaponUpgradeInfo(s, id) { const x = weapons(s).find(y => y.id === id), R = BALANCE.weapons.ranks; if (!x) return null; const next = x.rank + 1; return { rank: x.rank, max: x.rank >= R.max, cost: R.cost(x.rank), level: R.level(next), ok: x.rank < R.max && s.player.sp >= R.cost(x.rank) && s.player.level >= R.level(next) }; }
   function upgradeWeapon(s, id) { const i = weaponUpgradeInfo(s, id); if (!i || !i.ok) return false; s.player.sp -= i.cost; s.player.weapons.find(y => y.id === id).rank++; return true; }
   /* % of one of your weapons against a defender (stats) */
-  function weaponPct(s, id, def, bonus) { const x = weapons(s).find(y => y.id === id) || { rank: 1 }; return Weapons.pct(id, Balance.userStats(s), { def, level: s.player.level, rank: x.rank, diff: s.difficulty, bonus }); }
+  function weaponPct(s, id, def, bonus) { const x = weapons(s).find(y => y.id === id) || { rank: 1, evo: 1 }; return Weapons.pct(id, Balance.userStats(s), { def, level: s.player.level, rank: x.rank, evo: x.evo, diff: s.difficulty, bonus }); }
   function passiveMod(s, key) { const m = archOf(s).passive.mods || {}; return (m[key] || 0) + (m.all || 0); }
   function passiveMg(s, key) { const m = archOf(s).passive.mg || {}; return m[key] || 1; }
   function hasSpecial(s, id) { return archOf(s).passive.special === id; }
@@ -328,7 +329,7 @@ const Engine = (() => {
   function list() {
     return SLOTS.map(slot => {
       const s = load(slot);
-      return { slot, s, summary: s ? { name: s.player.first + ' ' + s.player.last, ovr: ovr(s), stage: s.career.stage, date: new Date(s.updatedAt).toLocaleString(), look: s.player.look } : null };
+      return { slot, s, summary: s ? { name: s.player.first + ' ' + s.player.last, ovr: ovr(s), stage: s.career.stage, arc: typeof Story !== 'undefined' ? Story.label(s) : '', date: new Date(s.updatedAt).toLocaleString(), look: s.player.look } : null };
     });
   }
   function latest() { return list().filter(x => x.s).sort((a, b) => b.s.updatedAt - a.s.updatedAt)[0] || null; }

@@ -176,7 +176,7 @@ const UI = (() => {
   function loadMenu() {
     const rows = Engine.list();
     const m = modal(`<h2>Load Game</h2><div class="slots">${rows.map(r => r.s ? `
-      <div class="slot"><div class="slot-av">${Art.avatar(r.summary.look, { mode: 'portrait' })}</div><div class="slot-info"><b>${esc(r.summary.name)}</b><span>${r.summary.ovr} OVR · ${esc(r.summary.stage)}</span><small>${r.slot === 'auto' ? 'Autosave' : 'Slot ' + r.slot} · ${r.summary.date}</small></div>
+      <div class="slot"><div class="slot-av">${Art.avatar(r.summary.look, { mode: 'portrait' })}</div><div class="slot-info"><b>${esc(r.summary.name)}</b><span>${r.summary.ovr} OVR · ${esc(r.summary.stage)}</span>${r.summary.arc ? `<em class="slot-arc">${esc(r.summary.arc)}</em>` : ''}<small>${r.slot === 'auto' ? 'Autosave' : 'Slot ' + r.slot} · ${r.summary.date}</small></div>
       <button class="btn sm" data-load="${r.slot}">Load</button><button class="btn sm ghost" data-del="${r.slot}">✕</button></div>` : `<div class="slot empty">${r.slot === 'auto' ? 'Autosave' : 'Slot ' + r.slot} — empty</div>`).join('')}</div>
       <div class="row"><label class="btn ghost sm">Import save file<input type="file" accept=".json,application/json" hidden id="impFile"></label></div>`);
     $$('[data-load]', m.el).forEach(b => b.onclick = () => { m.close(); Game.loadSlot(b.dataset.load); });
@@ -510,7 +510,7 @@ const UI = (() => {
     const s = S(), p = s.player, need = PROGRESSION.xpForLevel(p.level), tier = Engine.tierOf(Engine.ovr(s));
     $('#hubTop').innerHTML = `
       <div class="ht-av">${Art.avatar(Engine.look(s), { mode: 'portrait' })}</div>
-      <div class="ht-id"><b>${esc(p.first)} ${esc(p.last)}</b><span>${p.pos} · ${ARCHETYPES[p.arch].name} · Age ${p.age} · ${esc(s.career.stage)}</span></div>
+      <div class="ht-id"><b>${esc(p.first)} ${esc(p.last)}</b><span>${p.pos} · ${ARCHETYPES[p.arch].name} · Age ${p.age} · ${esc(s.career.stage)}</span>${typeof Story !== 'undefined' && Story.label(s) ? `<em class="ht-arc">${esc(Story.label(s))}</em>` : ''}</div>
       <div class="ht-ovr tier-${tier.id}"><b>${Engine.ovrLabel(s)}</b><span>OVR</span></div>
       <div class="ht-lvl"><span>LVL <b>${p.level}</b></span>${bar(p.xp, need, 'xp')}<small>${p.xp}/${need} XP</small></div>
       <div class="ht-stats"><div title="Skill Points"><b>${p.sp}</b><span>SP</span></div><div title="Money"><b>${Engine.fmtMoney(s.meta.money)}</b><span>CASH</span></div><div title="Fans"><b>${Engine.fmtFans(s.meta.fans)}</b><span>FANS</span></div><div title="Reputation"><b>${s.meta.rep}</b><span>REP</span></div>${s.recruit ? `<div title="Recruiting stars · national rank"><b class="stars">${Engine.starStr(s.recruit.stars)}</b><span>#${s.recruit.rank}</span></div>` : ''}</div>
@@ -530,7 +530,7 @@ const UI = (() => {
         return `<div class="home-grid">
           <div class="home-card">${cardFromState(s)}</div>
           <div class="home-main">
-            <div class="glass panel next-card">${ctx.next ? `<div class="nc-vs">${Art.logo(LOCAL_TEAMS[S().season ? S().season.user : 'lincoln'], 54)}<span>VS</span>${Art.logo(LOCAL_TEAMS[ctx.next.opp], 54)}${ctx.next.key ? '<em class="keytag">🔑 KEY GAME</em>' : ''}</div>` : ''}<div class="nc-tag">${esc(ctx.chapter || '')}</div><h3>${esc(ctx.title || '')}</h3><p>${esc(ctx.intro || 'Train, upgrade and gear up — then continue the story.')}</p></div>
+            <div class="glass panel next-card">${ctx.next ? `<div class="nc-vs">${Art.logo(LOCAL_TEAMS[S().season ? S().season.user : 'lincoln'], 54)}<span>VS</span>${Art.logo(LOCAL_TEAMS[ctx.next.opp], 54)}${ctx.next.key ? '<em class="keytag">🔑 KEY GAME</em>' : ''}</div>` : ''}<div class="nc-tag">${esc(ctx.chapter || '')}</div><h3>${esc(ctx.title || '')}</h3><p>${esc(ctx.intro || 'Train, upgrade and gear up — then continue the story.')}</p>${typeof Story !== 'undefined' ? Story.goalsHtml(s) : ''}</div>
             <div class="glass panel"><h4>Status</h4><div class="meters">
               <div class="mtr"><span>Confidence</span>${bar(m.morale, 100, m.morale >= 60 ? 'good' : m.morale < 35 ? 'warn' : '')}<b>${m.morale}</b></div>
               <div class="mtr"><span>Fatigue</span>${bar(m.fatigue, 100, m.fatigue >= 60 ? 'warn' : '')}<b>${m.fatigue}</b></div>

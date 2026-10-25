@@ -121,6 +121,7 @@ const BALANCE = {
            pass: { perD: .5, iq: .5 }, steal: { handle: .8, iq: .2 }, block: { finish: .5, dunk: .3, str: .2 }, stop: { handle: .6, speed: .4 }, zone: null },
     npc: { base: 45, k: .7, max: 72, star: 4, charge: 2 },     // star: extra % for a team's star · charge: their makes before a weapon is ready
     ranks: { max: 5, cost: r => 2 + r * 2, level: r => (r - 1) * 3 },
+    evo: { max: 4, bonus: [0, 4, 7, 10], arcade: [0, 3, 5, 8] },   // weapon evolution (story awakenings): % added at tier I–IV (arcade: on the matching action)
     slots: [1, 5, 11, 18],
     arcade: { bonus: 12, perRank: 2, aura: 4, aiUse: .4 },   // arcade: % bonus on the matching action while the aura is up (s)
   },
@@ -413,14 +414,18 @@ const Weapons = (() => {
     if (dw && o.def) { const dShift = (o.diff && BALANCE.defense[o.diff]) || 0, theirs = eff(Balance.blend(o.def, dw) + dShift); p = base + (mine - theirs) * k; parts.push({ label: 'vs defender', v: Math.round((mine - theirs) * k) }); }
     else { p = base + (mine - 50) * k * .6; }
     const add = (label, v) => { if (v) { p += v; parts.push({ label, v: Math.round(v) }); } };
-    if (!o.npc) { add('Your level', (o.level || 1) * C.perLevel); add(`Rank ${o.rank || 1}`, ((o.rank || 1) - 1) * C.perRank); }
+    if (!o.npc) { add('Your level', (o.level || 1) * C.perLevel); add(`Rank ${o.rank || 1}`, ((o.rank || 1) - 1) * C.perRank); if (o.evo > 1) add(`Tier ${ROMAN[o.evo]}`, C.evo.bonus[o.evo - 1] || 0); }
     add(RARITY[w.rarity].name, C.rarity[w.rarity] || 0);
     if (o.star) add('Star', C.npc.star);
     (o.bonus || []).forEach(b => add(b.label, b.v));
     return { pct: Math.round(Math.max(BALANCE.minPct, Math.min(o.npc ? C.npc.max : C.max, p))), parts };
   }
+  /* weapon evolution: "Ignite Pass II: Overdrive" (WEAPON_EVO in js/data-game.js) */
+  const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
+  function suffix(id, evo) { const w = WEAPONS[id], E = typeof WEAPON_EVO !== 'undefined' ? WEAPON_EVO : { id: {}, type: {} }; if (!w || !(evo > 1)) return ''; const L = E.id[id] || E.type[w.type] || ['Awakened', 'Ascended', 'Transcendent']; return L[Math.min(L.length, evo - 1) - 1]; }
+  function name(id, evo) { const w = WEAPONS[id]; if (!w) return ''; return evo > 1 ? `${w.name} ${ROMAN[evo]}: ${suffix(id, evo)}` : w.name; }
   /* which weapon fits a situation: action → weapon types that can be used for it */
   const FITS = { catch3: ['three'], pull3: ['three'], catchMid: ['mid'], pullMid: ['mid'], fade: ['mid', 'post'], hook: ['post'], layup: ['drive'], dunk: ['dunk', 'drive'], pass: ['pass'], steal: ['steal'], block: ['block'], stop: ['stop', 'steal'], contest: ['stop', 'block'] };
   const fits = (id, action) => { const w = WEAPONS[id]; return !!w && (FITS[action] || []).includes(w.type); };
-  return { forName, npc, pct, fits, roleOf, FITS, hash };
+  return { forName, npc, pct, fits, roleOf, FITS, hash, name, suffix, ROMAN };
 })();

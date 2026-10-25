@@ -77,7 +77,7 @@ const Features = (() => {
 
   /* ---------- the "NEW FEATURE UNLOCKED" card: right after the scene that introduced it (never mid-game) ---------- */
   let showing = false;
-  const calm = () => ['hubscreen', 'story'].includes(document.body.dataset.screen) && !document.querySelector('.cs-cv, .arc, .tkc, #modals .modal, .feat-pop, .tut');
+  const calm = () => ['hubscreen', 'story'].includes(document.body.dataset.screen) && !document.querySelector('.cs-cv, .cs, .arc-card, .arc, .tkc, #modals .modal, .feat-pop, .tut');
   function flush() {
     const s = Game.state; if (!s || !s.features || showing || !s.features.queue.length) return;
     const item = s.features.queue[0], here = s.story ? s.story.chapter + ':' + s.story.node : null;
