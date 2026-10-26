@@ -2757,6 +2757,8 @@ const Match = (() => {
     function jamBreak(b) {
       const J = st.jam || (st.jam = { n: 0, at: rnd(BALANCE.jam.first[0], BALANCE.jam.first[1]), matched: false, clutch: 0 }), JB = BALANCE.jam;
       const [u, t] = b.score, tgt = cfg.target || 21, mine = b.next === 0, close = Math.abs(u - t) <= JB.closeBy, late = Math.max(u, t) >= tgt - JB.lateBy;
+      // a scripted ending (cfg.script, js/data-story-ch1.js): late in the game the story takes over — its cinematic, then the final score
+      if (cfg.script && !st.scripted && Math.max(u, t) >= (cfg.script.at || 13)) { st.scripted = true; return runScript(b); }
       let kind = null;
       if (late && close && J.clutch < 1) kind = 'clutch';
       else if (J.n < JB.max && u + t >= J.at) kind = !J.matched && !mine ? 'matchup' : mine && s.flags.street_calls !== false && Math.random() < .55 ? 'call' : 'key';
@@ -2796,6 +2798,14 @@ const Match = (() => {
         return { pts: [Math.max(0, st.us - u0), Math.max(0, st.them - t0)], next: mine ? 1 : 0 };
       } catch (e) { console.error('[match] jam break', e); idle(); return {}; }
     }
+    async function runScript(b) {
+      try {
+        st.us = b.score[0]; st.them = b.score[1]; updBug(); idle();
+        const ctx = { score: `${b.score[0]}-${b.score[1]}`, usAbbr: cfg.us.abbr, themAbbr: cfg.them.abbr, team: { colors: cfg.us.colors }, them: { colors: cfg.them.colors }, venue: court.venueId, night: true };
+        const fin = await cfg.script.run({ score: b.score.slice(), lead: b.score[0] - b.score[1], ctx, cfg }); st.script = { at: b.score.slice(), final: fin };
+        return fin ? { final: fin } : {};
+      } catch (e) { console.error('[match] script', e); return {}; }
+    }
     async function fullArcadeGame() {
       st.inSeg = true; cnt('arcadeGames');
       const toPl = p => p.isUser ? Object.assign(Arcade.userPlayer(), { stamina: 100 - st.fatigue })
@@ -2806,6 +2816,7 @@ const Match = (() => {
       document.querySelectorAll('.arc').forEach(el => el.remove()); document.body.classList.remove('arc-open'); st.inSeg = false;
       if (!r || !r.score) { const w = Math.random() < .5; r = { score: w ? [cfg.target || 21, (cfg.target || 21) - 4] : [(cfg.target || 21) - 4, cfg.target || 21], box: {}, all: [] }; }   // the game couldn't run: neutral result
       st.us = r.score[0]; st.them = r.score[1]; st.done = r.forfeit ? 'them' : st.us > st.them ? 'us' : 'them';
+      if (st.script) r.play = null;   // a scripted ending: the story already showed how it ended
       if (r.play && !r.forfeit) { const P = Object.assign(fromArc(r.play), { side: r.play.team === 0 ? 'us' : 'them', us: st.us, them: st.them }); if (P.side === 'us' && st.done === 'us') st.gwPlay = P; if (P.side === 'them' && st.done === 'them') st.lwPlay = P; }
       const b = r.box || {}; ['pts', 'reb', 'ast', 'stl', 'blk', 'fgm', 'fga', 'tpm', 'tpa', 'to', 'ftm', 'fta'].forEach(k => st.box[k] = (st.box[k] || 0) + (b[k] || 0));
       (r.all || []).forEach(x => { if (x.isUser) return; const p = (x.team === 0 ? US : TH).find(q => (q.full || q.name) === x.name); if (p && p.box) ['pts', 'reb', 'ast', 'stl', 'blk', 'fgm', 'fga', 'tpm', 'tpa', 'to'].forEach(k => p.box[k] += (x.box && x.box[k]) || 0); });
@@ -2961,7 +2972,7 @@ const Match = (() => {
     const grade = gs >= 92 ? 'A+' : gs >= 85 ? 'A' : gs >= 80 ? 'A-' : gs >= 75 ? 'B+' : gs >= 68 ? 'B' : gs >= 62 ? 'B-' : gs >= 56 ? 'C+' : gs >= 50 ? 'C' : gs >= 44 ? 'C-' : gs >= 36 ? 'D' : 'F';
     court.destroy();
     return {
-      win, us: st.us, them: st.them, box: st.box, grade, gradeScore: gs, successes: st.succ, attempts: st.att, clutchMoments: st.clutchN, clutchWins: st.clutchW,
+      win, us: st.us, them: st.them, box: st.box, grade, gradeScore: gs, script: st.script || null, successes: st.succ, attempts: st.att, clutchMoments: st.clutchN, clutchWins: st.clutchW,
       gameWinner: st.gameWinner, highlights: st.highlights, counters: st.counters, perfects: st.perfects, posterizers: st.posterizers, segments: st.seg, segKinds: st.segKinds, segMoments: st.segMoments || [], moments: n, venueId: court.venueId,
       fatigue: st.fatigue, level: cfg.level, importance: cfg.importance || 1, cfg, teams, closeCalls: st.closeN, winPlay, losePlay,
     };

@@ -163,6 +163,7 @@ const Arcade = (() => {
         G.inBreak = false; root.classList.remove('hold'); document.body.classList.add('arc-open'); last = performance.now();
         if (r.pts) { [0, 1].forEach(t => { if (r.pts[t]) { G.score[t] += r.pts[t]; $('ahS' + t).textContent = G.score[t]; } }); }
         if (r.guard) G.myMatch = players.find(q => q.team !== me.team && q.name === r.guard) || null;
+        if (r.final) { [0, 1].forEach(t => { G.score[t] = r.final[t]; $('ahS' + t).textContent = G.score[t]; }); G.resume = null; return endSoon({ scripted: true }, .3); }   // a scripted ending: the story decided the final score
         if (G.score[0] >= target || G.score[1] >= target) { G.resume = null; return endSoon({}, .6); }
         const nx = r.next != null ? r.next : G.resume ? G.resume.next : 0; G.resume = null; setupHalf(nx); G.paused = false;
         if (r.call && nx === me.team) applyCall(r.call);

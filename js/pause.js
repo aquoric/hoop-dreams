@@ -72,8 +72,9 @@ const Pause = (() => {
     ptrsUp.forEach(id => { const tg = ptrs.get(id); ptrs.delete(id); if (!tg || !tg.isConnected) return; for (const type of ['pointerup', 'pointercancel']) { let ev; try { ev = new PointerEvent(type, { pointerId: id, bubbles: true }); } catch (err) { ev = new Event(type, { bubbles: true }); } ev.__hd = true; tg.dispatchEvent(ev); } }); ptrsUp.clear();
   }
   // auto-pause: switching tabs, minimizing the window, locking the phone
-  document.addEventListener('visibilitychange', () => { if (document.hidden && pausable()) pause(true); });
-  addEventListener('pagehide', () => { if (pausable()) pause(true); });
+  let autoOn = true;   // (tests in a hidden browser pane turn it off)
+  document.addEventListener('visibilitychange', () => { if (autoOn && document.hidden && pausable()) pause(true); });
+  addEventListener('pagehide', () => { if (autoOn && pausable()) pause(true); });
 
   /* ---------- pause / resume ---------- */
   let anims = [], el = null, curMode = null;
@@ -180,5 +181,5 @@ const Pause = (() => {
 
   /* test hook: a test page can drive frames / timers itself (hidden browser panes) — the pause still controls them */
   function useNative(o) { Object.assign(N, o); }
-  return { pause, resume, get paused() { return paused; }, mode, pausable, now: vnow, useNative };
+  return { pause, resume, get paused() { return paused; }, mode, pausable, now: vnow, useNative, set auto(v) { autoOn = !!v; } };
 })();

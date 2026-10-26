@@ -203,6 +203,9 @@ const SFX = (() => {
     bell: () => { for (let k = 0; k < 3; k++) [1150, 2470, 3330].forEach((f, i) => tone(f, 0.9 - i * .2, 'sine', [.16, .07, .04][i], k * .22)); },
     sting: () => { [0, 3, 7, 12, 15].forEach((n, i) => tone(220 * Math.pow(2, n / 12), 0.16, 'square', 0.06, i * 0.055)); tone(55, 0.7, 'sawtooth', 0.12, 0.28, sfxBus, 41); noise(0.4, 'highpass', 5000, 0.06, 0.28); },
     qte: () => tone(1320 + Math.random() * 120, 0.04, 'square', 0.05),
+    cough: () => { for (let i = 0; i < 3; i++) { noise(0.14, 'bandpass', 520 - i * 60, 0.22, i * 0.2, 260, 1.4); tone(140 - i * 10, 0.08, 'sawtooth', 0.04, i * 0.2); } },
+    ring: () => { tone(3950, 3.6, 'sine', 0.035); tone(4010, 3.2, 'sine', 0.02, 0.4); },   // the ringing in your ears after the loss
+    tape: () => { noise(0.42, 'highpass', 2600, 0.12, 0, 5200, 0.9); noise(0.1, 'bandpass', 900, 0.08, 0.38); },
     rumble: () => { noise(1.6, 'lowpass', 140, 0.4, 0, 60, 0.7, sfxBus, 0.3); tone(41, 1.6, 'sine', 0.3, 0, sfxBus, 33); },
     blip: (v = {}) => tone((v.f || 300) * (0.94 + Math.random() * 0.12), 0.05, v.w || 'square', v.g || 0.035),
     /* venue ambience: one recorded loop at a time (Crowd.ambience); h = crowd excitement 0..1 */

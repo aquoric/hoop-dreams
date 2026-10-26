@@ -72,7 +72,11 @@ const Game = {
     if (node.cutscene && s.story.cs !== nid && typeof Cutscene !== 'undefined') {
       s.story.cs = nid; this.save();
       const cctx = this.csCtx(s.story.node); if (node.csTeam && LOCAL_TEAMS[node.csTeam]) cctx.team = { colors: LOCAL_TEAMS[node.csTeam].colors };
-      if (typeof Story !== 'undefined') return Story.cut(node.cutscene, cctx).then(() => { Story.noteCut(s, node.cutscene); this.save(); this.runNode(); });
+      const csId = typeof node.cutscene === 'function' ? node.cutscene(s, cctx) : node.cutscene;   // a scene built for this career (e.g. Lou's montage)
+      if (typeof Story !== 'undefined') return Story.cut(csId, cctx, { seenId: node.seenId }).then(() => {
+        Story.noteCut(s, csId);
+        if (node.qteFx) { const Q = typeof node.qteFx === 'function' ? node.qteFx(s) : node.qteFx, ok = !!(Cutscene.lastQte || {})[Q.id], f = ok ? Q.ok : Q.fail; if (f) UI.fxToasts(this.applyFx(f)); if (ok && Q.okToast) UI.toast(Q.okToast, 'ach', 3200); }   // a quick-time press can add a bonus
+        this.save(); this.runNode(); });
       return Cutscene.play(node.cutscene, cctx).then(() => this.runNode());
     }
     switch (node.type) {
@@ -160,6 +164,11 @@ const Game = {
     /* story systems (js/story-fx.js): weapon evolution after a low · a rival marked for a revenge game */
     if (fx.evolve && typeof Story !== 'undefined') { const e = Story.evolve(s, fx.evolve); if (e) changes.push({ label: `⚔ ${e.name}`, v: e.bonus, special: 'grow' }); }
     if (fx.mark && typeof Story !== 'undefined') Story.mark(s, fx.mark);
+    if (fx.rankAt && Rankings.on(s)) {   // the story moves you on the list: { to, better } or by flag { good_final: 280, else: 295 }
+      const R = fx.rankAt, k = R.to == null && Object.keys(R).find(f => f !== 'else' && f !== 'why' && s.flags[f]), n = R.to != null ? R.to : k ? R[k] : R.else;
+      const res = n && Rankings.setRank(s, n, R.why || 'Story', { better: !!R.better });
+      if (res && res.to !== res.from) UI.toast(`${res.to < res.from ? '📈' : '📉'} Prospect rank <b>#${res.from} → #${res.to}</b>`, res.to < res.from ? 'ach' : 'bad', 4200);
+    }
     if (fx.gear && SHOP_BY_ID[fx.gear] && !s.inventory.owned.includes(fx.gear)) { s.inventory.owned.push(fx.gear); UI.toast(`🎽 Unlocked: <b>${SHOP_BY_ID[fx.gear].name}</b> — equip it in the Shop`, 'ach', 4200); }
     if (Engine.ovr(s) !== before) this.recordOvr('Story');
     Engine.badgeDiff(bb, s).forEach(x => UI.toast(`${Art.badge(x.b, x.tier, 30)} Badge: <b>${x.b.name}</b> ${BADGE_TIERS[x.tier]}`, 'ach', 4000));
@@ -283,6 +292,7 @@ const Game = {
     }
     if (node.pickup && !(node.tutorial && !s.flags.tutorial_done)) Object.assign(cfg, { fullArcade: true, size: node.pickup.size || 3, target: node.pickup.target || 21, sub: `${cfg.sub ? cfg.sub + ' · ' : ''}${node.pickup.size || 3}v${node.pickup.size || 3}, first to ${node.pickup.target || 21}` });
     if (typeof Story !== 'undefined') await Story.prematch(s, cfg, node);   // a marked rival: the revenge-game poster
+    if (node.script && typeof JAM_SCRIPTS !== 'undefined' && JAM_SCRIPTS[node.script]) cfg.script = JAM_SCRIPTS[node.script];   // a scripted ending (the Summer Jam semifinal / final)
     this.activity = { kind: 'story', node, cfg, title: node.title };   // what "Quit" in the pause menu forfeits
     const r = await Match.play(cfg); this.activity = null;
     if (cfg.tutorial) s.flags.tutorial_done = true;
@@ -292,6 +302,7 @@ const Game = {
     const summary = this.applyMatch(r, node);
     this.afterStoryGame(r, cfg, node.title);
     if (node.gradeFlag && r.gradeScore >= node.gradeFlag.min) s.flags[node.gradeFlag.flag] = true;
+    if (node.leadFlag && r.script && r.script.at[0] - r.script.at[1] >= node.leadFlag.min) s.flags[node.leadFlag.flag] = true;   // a scripted game: how far ahead you were when the story took over
     if (node.camp && s.usa) { const cp = (USA_CAMP.grade[r.grade[0]] || 0) + (r.win ? USA_CAMP.win : 0); s.usa.pts += cp; UI.toast(`🇺🇸 Camp points <b>${cp >= 0 ? '+' : ''}${cp}</b> (grade ${r.grade})`, cp >= 0 ? 'good' : 'bad', 3200); }
     const rfx = r.win ? node.winFx : node.loseFx; if (rfx) UI.fxToasts(this.applyFx(rfx));
     this.checkAch();

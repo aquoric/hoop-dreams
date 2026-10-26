@@ -614,7 +614,7 @@ const Cutscene = (() => {
       const A = Object.assign({ blinkAt: rnd(.8, 2.4) }, a);
       if (a.kind === 'sprite') { const look = a.look || (a.id === 'you' ? lookFor('you', ctx) : Art.lookFromSeed('cs-' + a.id + (a.team || 0))), cols = a.team ? ((ctx.them && ctx.them.colors) || ['#1e3a8a', '#e5e7eb']) : teamCols(ctx);
         const sp = Pixel.sprite(Object.assign({}, look, { num: a.num != null ? a.num : a.id === 'you' && you() ? you().num : look.num }), cols, { x: a.x, y: a.y, i: S.actors.length }); sp.face = 1; S.sp[a.id] = sp; A.sp = sp; }
-      if (a.kind === 'actor') { const look = lookFor(a.id, ctx), tc = teamCols(ctx), jersey = a.id === 'you' || look.outfit === 'jersey';
+      if (a.kind === 'actor') { const look = a.look || lookFor(a.id, ctx), tc = teamCols(ctx), jersey = a.id === 'you' || look.outfit === 'jersey';
         const sp = Pixel.sprite(look, [look.jersey || tc[0], look.trim || tc[1]], { i: S.actors.length, num: a.num != null ? a.num : jersey ? (a.id === 'you' && you() ? you().num : look.num != null ? look.num : null) : null, blinks: true });
         sp.face = a.face || 1; sp.hasBall = !!a.ball; sp.holdBall = !!a.hold; A.sp = sp; S.sp[a.id] = sp; }
       if (a.kind === 'ball' && a.phys) A.b = Object.assign({ x: a.x * W / 2, y: a.y || 80, z: 0, vx: 0, vz: 0, e: .62, f: .6, at: 0, spin: 0, live: false }, a.phys, { x: (a.phys.x != null ? a.phys.x : a.x) * W / 2 });
@@ -691,7 +691,8 @@ const Cutscene = (() => {
     if (A.hidden) return; const al = winAlpha(S, A); if (al <= 0) return;
     at(S, A.d || 1); c.save(); c.globalAlpha = al; c.translate(Math.round(wx), Math.round(y)); c.scale(sc, sc);
     if (S.aura && S.aura.who === A.id) { c.save(); c.scale(1 / sc, 1 / sc); drawAura(c, S, 0, -30 * sc / 2, 34 * sc); c.restore(); }
-    sp.x = 0; sp.y = 0; sp.z = A.z || 0; S.R.E.t = S.t; S.R.E.wind = S.wind; S.R.player(sp, {}); S.R.E.fx.length = 0;
+    let z = A.z || 0; if (A.zs) { let a = A.zs[0], b = null; A.zs.forEach(e => { if (e[0] <= S.T) a = e; else if (!b) b = e; }); z = b ? lerp(a[1], b[1], clamp((S.T - a[0]) / Math.max(1, b[0] - a[0]), 0, 1)) : a[1]; }   // jumps: height keyframes
+    sp.x = 0; sp.y = 0; sp.z = z; S.R.E.t = S.t; S.R.E.wind = S.wind; S.R.player(sp, {}); S.R.E.fx.length = 0;
     c.restore();
   }
   /* extreme close-up of a hand: open → clenched fist (curl), trembling, or gripping a ball */
@@ -720,7 +721,8 @@ const Cutscene = (() => {
     if (B.live && dt > 0) { const n = Math.ceil(dt / .01); for (let i = 0; i < n; i++) { const h = dt / n; B.vz -= 420 * h; B.z += B.vz * h; B.x += B.vx * h; B.spin += B.vx * h * .3;
       if (B.z <= 0) { B.z = 0; if (B.vz < -40) { SFX.play('bounce', clamp(-B.vz / 260, .15, .9)); B.vz = -B.vz * B.e; B.sq = .8; } else { B.vz = 0; B.vx *= Math.pow(B.f, h * 6); } } } }
     B.sq = Math.max(0, (B.sq || 0) - dt * 6);
-    at(S, A.d || 1); const ss = Math.max(2, 6 - B.z * .05); P(c, B.x - ss / 2, B.y + 1, ss, 1, 'rgba(0,0,0,.45)'); S.R.ball(B.x, B.y - B.z - 2, false, B.spin, B.sq);
+    at(S, A.d || 1); const k = A.s || 1, ss = Math.max(2, 6 - B.z * .05) * k; P(c, B.x - ss / 2, B.y + 1, ss, Math.max(1, k * .6), 'rgba(0,0,0,.45)');
+    if (k === 1) S.R.ball(B.x, B.y - B.z - 2, false, B.spin, B.sq); else { c.save(); c.translate(B.x, B.y - B.z - 2 * k); c.scale(k, k); S.R.ball(0, 0, false, B.spin, B.sq); c.restore(); }   // a close-up ball
   }
   function drawProp(c, S, A) {
     at(S, A.d || .9); const x = Math.round(viewX(S, A) * S.W / 2); let y = A.y || 60;

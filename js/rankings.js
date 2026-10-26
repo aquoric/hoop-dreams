@@ -122,6 +122,13 @@ const Rankings = (() => {
   }
   const FLAG_LABEL = { summer_champ: 'Summer Jam champion', beat_kai: 'Beat Kai', beat_kai_1v1: 'Beat Kai 1-on-1', city_champ: 'City champion', aau_champ: 'Peach Slam champion', state_champ: 'State champion', usa_made: 'Made the national team', usa_gold: 'World Youth gold', usa_medal: 'World Youth medal', usa_cut: 'Cut by the national team', usa_missed: 'Missed the national team', booster_scandal: 'Booster scandal', police_record: 'Police record', benched_fight: 'Locker-room fight', viral: 'Went viral', national_champ: 'National champion', conf_champ: 'Conference champion', league_champ: 'League champion', cup_champ: 'Continental Cup', gl_champ: 'Grind League champion', called_up: 'NBL call-up', beat_kai_c3: 'Beat Kai again', elite_camp: 'Elite 100 Camp', starter: 'Varsity starter', good_final: 'Summer Jam final', scheme_once: 'Bad decision', academic_probation: 'Academic probation' };
   function bump(s, v, why) { return apply(s, Math.round(v), why || 'Story', { noTick: true }); }
+  /* the story puts you at a spot on the list (the Summer Jam final's crash, the semifinal's climb); o.better: only if that's higher than now */
+  function setRank(s, n, why, o = {}) {
+    if (!on(s)) return null; const cur = rankOf(s); if (o.better && cur <= n) return null;
+    const pts = Object.values(s.rank.npc).sort((a, b) => b - a), hi = pts[n - 2] != null ? pts[n - 2] : pts[0] + 6, lo = pts[n - 1] != null ? pts[n - 1] : hi - 6;
+    s.rank.ovr = Engine.ovr(s);   // no Overall growth folded into this move
+    return apply(s, Math.round((hi + lo) / 2 - s.rank.me), why || 'Story', { noTick: true });
+  }
 
   /* ---------- effects elsewhere: recruiting, the national team invite, the Draft Big Board ---------- */
   const tier = (s, table) => { const r = rankOf(s); if (!r) return 0; const t = table.find(([at]) => r <= at); return t ? t[1] : 0; };
@@ -160,5 +167,5 @@ const Rankings = (() => {
     return Cutscene.play('_rank', ctx, { skippable: true });
   }
   const pick = a => a[Math.floor(Math.random() * a.length)];
-  return { init, ensure, on, list, rankOf, rankMap, infoFor, ovrOf, afterGame, onFlag, bump, apply, tick, recruitBonus, inviteBonus, bigBoard, crew, playQueue, kai: KAI, ptsAt };
+  return { init, ensure, on, list, rankOf, rankMap, infoFor, ovrOf, afterGame, onFlag, bump, setRank, apply, tick, recruitBonus, inviteBonus, bigBoard, crew, playQueue, kai: KAI, ptsAt };
 })();

@@ -17,16 +17,18 @@
   /* ---------------- CHAPTER 1: Concrete Dreams ---------------- */
   A('street', [
     { id: 'halsey', name: 'The Halsey Park Arc', goal: 'Prove you belong on your own court.',
-      nodes: 'start lou_first kai_arrives kai_trash kai_ignored pre_m1 m1 m1_win m1_loss',
-      next: { who: 'lou', line: 'Kid. Six a.m. Don\'t be late.', scene: 'street_sunset', grade: 'sunset', cast: [{ id: 'lou', kind: 'bust', x: .1, expr: 'neutral', rim: '#fdba74' }] } },
+      nodes: 'start lou_first kai_arrives kai_trash kai_ignored pre_m1 m1 m1_win m1_loss kai_pov',
+      goals: [{ t: 'Run with Kai Sterling', done: { flag: 'tutorial_done' } }, { t: 'Beat Kai', done: { flag: 'beat_kai' } }],
+      next: { who: 'lou', line: 'Kid. Six a.m. Don\'t be late.', scene: 'street_night', grade: 'night', cast: [{ id: 'lou', kind: 'bust', x: .1, expr: 'neutral', rim: '#fdba74' }] } },
     { id: 'lou', name: 'The Lou Banks Arc', goal: 'Get Lou to train you. Learn the game the right way.',
-      nodes: 'lou_meet lou_why lou_snub train_lou lou_story lou_laugh tut_hub home1 home1_end',
-      next: { who: 'narrator', line: 'The Summer Jam bracket goes up. Westbrook Elite is circled in red.', scene: 'street_night', grade: 'red', cast: [{ id: 'kai', kind: 'bust', x: .35, sil: true, rim: '#facc15' }] } },
+      nodes: 'lou_meet lou_why lou_snub train_lou train_montage lou_story lou_laugh dee_rec home1 home1_end jam_reg tut_hub lou_cough',
+      goals: [{ t: 'Train with Lou', done: { flag: 'lou_trained' } }, { t: 'Get on the list', done: { flag: 'feat_rankings' } }, { t: 'Crack the top 250', done: { rank: 250 } }],
+      next: { who: 'narrator', line: 'The Summer Jam bracket goes up. Westbrook Elite, circled in red.', scene: 'poster', grade: 'red', cast: [{ id: 'kai', kind: 'bust', x: .45, sil: true, rim: '#ef4444' }] } },
     { id: 'jam', name: 'The Summer Jam Arc', goal: 'Win the Halsey Summer Jam.', climax: true,
-      nodes: 'jam_intro jam_dee jam_calls jam_team jam_plan1 m2 m2_win jam_cel_check jam_celebrate m2_loss jam_rest hub2 party_invite party_ok party_bad party_escape party_stay party_caught party_full keys_ok keys_fail crash crash2 end_crash final_morning jam_plan2 m3 m3_win jam_final_cel jam_celebrate2 m3_loss m3_low scout_branch lou_calls no_scout dee_list_cold dee_list dee_offer hs_talk pick_westbrook pick_lincoln ch_end',
-      goals: [{ t: 'Win the Summer Jam', done: { flag: 'summer_champ' } }, { t: 'Get on Dee\'s list', done: { flag: 'scouted' } }] },
+      nodes: 'jam_intro jam_dee jam_calls jam_team jam_plan1 m2 m2_win m2_loss semi_pre m_semi semi_win jam_cel_check jam_celebrate jam_rest hub2 party_invite party_ok party_bad party_escape party_stay party_caught party_full keys_ok keys_fail crash crash2 end_crash final_morning jam_plan2 m3 m3_win jam_final_cel jam_celebrate2 m3_loss m3_rain m3_low scout_branch lou_calls no_scout dee_list_cold dee_list dee_offer hs_talk pick_westbrook pick_lincoln ranks_check ch_end',
+      goals: [{ t: 'Win Round 1', done: { flag: 'jam_r1' } }, { t: 'Beat the champs', done: { flag: 'semi_win' } }, { t: 'Beat Kai in the final', done: { flag: 'summer_champ' } }] },
   ]);
-  if (C.street) { C.street.cast = ['you', 'lou', 'tariq', 'kai', 'mom', 'nia', 'dee', 'marcus', 'hammer', 'mc']; C.street.postCredits = 'pc_kai_gym'; }
+  if (C.street) { C.street.cast = ['you', 'lou', 'tariq', 'kai', 'mom', 'nia', 'dee', 'silk', 'marcus', 'hammer', 'mc']; C.street.postCredits = 'pc_kai_gym'; }
 
   /* ---------------- CHAPTER 2: Varsity Blues ---------------- */
   A('highschool', [

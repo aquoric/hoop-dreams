@@ -204,6 +204,7 @@ const Engine = (() => {
     if (c.opp && !(s.season && [].concat(c.opp).includes(s.season.nextOpp))) return false;
     if (c.notOpp && s.season && [].concat(c.notOpp).includes(s.season.nextOpp)) return false;
     if (c.minStars && !(s.recruit && s.recruit.stars >= c.minStars)) return false;
+    if (c.rank && !(typeof Rankings !== 'undefined' && Rankings.on(s) && Rankings.rankOf(s) <= c.rank)) return false;   // prospect rank #c.rank or better
     if (c.maxStars && s.recruit && s.recruit.stars > c.maxStars) return false;
     if (c.college && ![].concat(c.college).includes(s.career.college)) return false;
     if (c.notCollege && [].concat(c.notCollege).includes(s.career.college)) return false;

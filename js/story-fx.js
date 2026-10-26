@@ -212,14 +212,14 @@ const Story = (() => {
     const o = typeof spec === 'object' ? spec : { tier: typeof spec === 'number' ? spec : 2 }, x = s.player.weapons.find(y => y.id === (o.weapon || W[0].id)) || s.player.weapons[0];
     const E = BALANCE.weapons.evo, from = x.evo || 1, to = Math.min(E.max, Math.max(from, o.tier || from + 1)); if (to <= from) return null;
     x.evo = to;
-    const info = { id: x.id, from, to, name: Weapons.name(x.id, to), base: WEAPONS[x.id].name, suffix: Weapons.suffix(x.id, to), bonus: (E.bonus[to - 1] || 0) - (E.bonus[from - 1] || 0), line: o.line, scene: o.scene };
+    const info = { id: x.id, from, to, name: Weapons.name(x.id, to), base: WEAPONS[x.id].name, suffix: Weapons.suffix(x.id, to), bonus: (E.bonus[to - 1] || 0) - (E.bonus[from - 1] || 0), line: o.line, scene: o.scene, intro: o.intro };
     s.pendingAwaken = info; return info;
   }
   function afterFx(s) { const A = s.pendingAwaken; if (!A || !csOk()) return null; return awaken(s, A).then(() => { delete s.pendingAwaken; Game.save(); }); }
   function awaken(s, A) {
     let after = 50; try { after = Engine.weaponPct(s, A.id).pct; } catch (e) { }
     const before = Math.max(5, after - A.bonus), sc = A.scene || 'rain_night', lie = { id: 'you', kind: 'actor', x: 0, y: 64, s: 3, acts: [[0, 'down', 99]] };
-    CUTSCENES._awaken = { name: 'Awakening', shots: [
+    CUTSCENES._awaken = { name: 'Awakening', shots: [   // A.intro === false: the story already played the low and the GET UP (Chapter 1's rain scene)
       { d: 2800, scene: sc, weather: 'rain', drain: .9, music: null, tr: 'fade', cam: [[0, 0, 26, 1.2], [1, 0, 30, 1.32]], cast: [lie], ev: [[200, 'sfx', 'piano'], [500, 'line', A.line || 'Most people quit here.']] },
       { d: 2600, scene: sc, weather: 'rain', drain: .9, rot: -.14, cam: [[0, 0, 34, 1.55], [1, 0, 26, 1.7]], cast: [Object.assign({}, lie)],
         ev: [[250, 'qte', { kind: 'mash', label: 'GET UP', id: 'getup', n: 12, time: 6500 }], [260, 'act', 'you', 'kneel', 99], [260, 'drain', .25, 900], [260, 'sfx', 'heartbeat'], [1500, 'act', 'you', null], [1500, 'sfx', 'heartbeat']] },
@@ -231,6 +231,7 @@ const Story = (() => {
       { d: 3200, scene: 'title', cam: [[0, 0, 0, 1.1], [1, 0, -4, 1.16]], cast: [{ id: 'you', kind: 'bust', x: -.42, expr: 'determined', rim: '#facc15' }],
         ev: [[0, 'aura', 'you'], [200, 'stats', [['SUCCESS %', before, after, after + '%']], `Weapon evolved · Tier ${ROMAN[A.to]}`]], title: { text: 'AWAKENING', sub: `${A.name} · +${A.bonus}% success`, style: 'rise', at: 100 } },
     ] };
+    if (A.intro === false) CUTSCENES._awaken.shots.splice(0, 3, Object.assign({}, CUTSCENES._awaken.shots[2], { say: ['you', 'Not yet. I\'m not done.'], tr: 'fade' }));
     return cut('_awaken', ctxNow(), { seenId: 'awaken_' + A.to }).then(() => {
       if (typeof UI !== 'undefined') UI.toast(`⚔ Weapon evolved: <b>${esc(A.name)}</b> (+${A.bonus}% success)`, 'ach', 5000);
       note(s, { line: `You got up. ${A.name} awakened.`, scene: sc, cast: [{ id: 'you', kind: 'bust', x: 0, expr: 'fierce', rim: '#facc15' }] });
