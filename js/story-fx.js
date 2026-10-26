@@ -61,19 +61,20 @@ const Story = (() => {
   /* entering a story node: a new chapter → its opening + the first arc's title card; a later arc → "Next time…" + its card */
   function beforeNode(s, chId, nodeId) {
     if (!csOk()) return null;
-    const A = ensure(s), arc = arcFor(s, chId, nodeId), cur = A.cur, curArc = cur && cur.ch === chId ? arcById(chId, cur.id) : null, seq = [];
+    const A = ensure(s), arc = arcFor(s, chId, nodeId), cur = A.cur, curArc = cur && cur.ch === chId ? arcById(chId, cur.id) : null, seq = [], set = {};
     if (!cur || cur.ch !== chId) {
       const G = A.gamesAt || (A.gamesAt = {}); if (G[chId] == null) G[chId] = (s.career.games || []).length;   // credits: the people you met this chapter
-      if (!A.openings[chId] && STORY.openings && STORY.openings[chId]) { A.openings[chId] = 1; seq.push(() => opening(s, chId)); }
+      if (!A.openings[chId] && STORY.openings && STORY.openings[chId]) { set.opening = chId; seq.push(() => opening(s, chId)); }
       const first = arc || arcsOf(chId).find(a => routeOk(a, s));
-      A.cur = { ch: chId, id: first ? first.id : null }; if (first) seq.push(() => card(s, chId, first));
+      set.cur = { ch: chId, id: first ? first.id : null }; if (first) seq.push(() => card(s, chId, first));
     } else if (arc && (!curArc || arc.order > curArc.order)) {
       if (curArc && curArc.next) seq.push(() => nextTime(s, chId, curArc, arc));
-      A.cur = { ch: chId, id: arc.id }; seq.push(() => card(s, chId, arc));
+      set.cur = { ch: chId, id: arc.id }; seq.push(() => card(s, chId, arc));
     }
-    if (!seq.length) return null;
+    const commit = () => { if (set.opening) A.openings[set.opening] = 1; if (set.cur) A.cur = set.cur; Game.save(); };
+    if (!seq.length) { if (set.cur) commit(); return null; }
     Game.save();
-    return seq.reduce((p, f) => p.then(() => f()).catch(e => console.warn('story', e)), Promise.resolve());
+    return seq.reduce((p, f) => p.then(() => f()).catch(e => console.warn('story', e)), Promise.resolve()).then(commit);   // committed once it has played
   }
   /* the animated arc title card */
   async function card(s, chId, arc) { await clear(); return cardNow(s, chId, arc); }
@@ -163,9 +164,8 @@ const Story = (() => {
   /* ---------- credits + post-credits (a chapter's final arc ends) ---------- */
   function chapterEnd(s, chId) {
     if (!csOk()) return null; const A = ensure(s); if (A.ended[chId]) return null;
-    A.ended[chId] = 1; Game.save();
     const ch = STORY.chapters[chId];
-    return (async () => { await credits(s, chId); const pc = val(ch.postCredits, s); if (pc && CUTSCENES[pc]) { await cut(pc, ctxNow()); noteCut(s, pc); } })().catch(e => console.warn('credits', e));
+    return (async () => { await credits(s, chId); const pc = val(ch.postCredits, s); if (pc && CUTSCENES[pc]) { await cut(pc, ctxNow()); noteCut(s, pc); } })().catch(e => console.warn('credits', e)).then(() => { A.ended[chId] = 1; Game.save(); });
   }
   function credits(s, chId) {
     const ch = STORY.chapters[chId], O = (STORY.openings || {})[chId] || {}, cast = (ch.cast || ['you', 'lou', 'tariq', 'kai', 'mom']).filter(id => id === 'you' || STORY.characters[id]);
@@ -215,7 +215,7 @@ const Story = (() => {
     const info = { id: x.id, from, to, name: Weapons.name(x.id, to), base: WEAPONS[x.id].name, suffix: Weapons.suffix(x.id, to), bonus: (E.bonus[to - 1] || 0) - (E.bonus[from - 1] || 0), line: o.line, scene: o.scene };
     s.pendingAwaken = info; return info;
   }
-  function afterFx(s) { const A = s.pendingAwaken; if (!A || !csOk()) return null; delete s.pendingAwaken; Game.save(); return awaken(s, A); }
+  function afterFx(s) { const A = s.pendingAwaken; if (!A || !csOk()) return null; return awaken(s, A).then(() => { delete s.pendingAwaken; Game.save(); }); }
   function awaken(s, A) {
     let after = 50; try { after = Engine.weaponPct(s, A.id).pct; } catch (e) { }
     const before = Math.max(5, after - A.bonus), sc = A.scene || 'rain_night', lie = { id: 'you', kind: 'actor', x: 0, y: 64, s: 3, acts: [[0, 'down', 99]] };

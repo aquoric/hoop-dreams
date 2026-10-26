@@ -109,7 +109,7 @@ const SFX = (() => {
     return b;
   }
   function init() {
-    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    if (ctx) { if (ctx.state === 'suspended' && !held) ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     ctx = new AC();
     comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 3; comp.attack.value = .01; comp.release.value = .2;
@@ -224,6 +224,8 @@ const SFX = (() => {
     const MAX = 2, XF = 1.6, FADE = 1.2;
     const buf = {}, files = location.protocol === 'file:';
     let amb = null, ambKind = null, level = .4, lastLevel = 0, react = [], last = {}, ducks = 0, el = {};
+    const liveEls = new Set();   // <audio> fallback elements (paused / resumed with the game)
+    const track = a => { liveEls.add(a); a.addEventListener('pause', () => { if (!a.__held) liveEls.delete(a); }); return a; };
     const vol1 = () => vol.muted ? 0 : vol.master * vol.sfx;
     function load() {
       if (files) { for (const k in FILES) el[k] = 'assets/audio/' + FILES[k] + '.mp3'; return; }
@@ -245,7 +247,7 @@ const SFX = (() => {
       return { k, out, stop(f = FADE) { alive = false; clearInterval(iv); const t = ctx.currentTime; out.gain.cancelScheduledValues(t); out.gain.setValueAtTime(out.gain.value, t); out.gain.linearRampToValueAtTime(0, t + f); srcs.forEach(s => { try { s.stop(t + f + .05); } catch (e) { } }); setTimeout(() => { try { out.disconnect(); } catch (e) { } }, (f + .3) * 1000); } };
     }
     /* <audio> fallback (file://): one looping element, faded with a timer */
-    function elLoop(k) { const a = new Audio(el[k]); a.loop = true; a.volume = 0; a.play().catch(() => { }); const o = { k, a, v: 0, t: 1 }; o.iv = setInterval(() => { o.v += (o.t * GAIN[k] * (.55 + level * .7) * vol1() - o.v) * .15; a.volume = Math.max(0, Math.min(1, o.v * (ducks ? .35 : 1))); if (o.t === 0 && o.v < .01) { clearInterval(o.iv); a.pause(); } }, 60); o.stop = () => { o.t = 0; }; return o; }
+    function elLoop(k) { const a = track(new Audio(el[k])); a.loop = true; a.volume = 0; a.play().catch(() => { }); const o = { k, a, v: 0, t: 1 }; o.iv = setInterval(() => { o.v += (o.t * GAIN[k] * (.55 + level * .7) * vol1() - o.v) * .15; a.volume = Math.max(0, Math.min(1, o.v * (ducks ? .35 : 1))); if (o.t === 0 && o.v < .01) { clearInterval(o.iv); a.pause(); } }, 60); o.stop = () => { o.t = 0; }; return o; }
     function ambience(k, h) {
       if (h != null) setLevel(h);
       if (k === ambKind && (amb || (!files && !buf[k]))) return;
@@ -267,7 +269,7 @@ const SFX = (() => {
     function oneShot(kind, v = 1, isReact) {
       if (!ctx) return false;
       const len = LEN[kind] || 3, g0 = GAIN[kind] * v;
-      if (files) { if (!el[kind]) return false; const a = new Audio(el[kind]); a.volume = Math.min(1, g0 * vol1() * (ducks && kind !== 'buzzer' ? .4 : 1)); a.play().catch(() => { }); const t = setTimeout(() => a.pause(), len * 1000); if (isReact) react.push({ end: ctx.currentTime + len, fade: () => { clearTimeout(t); a.pause(); } }); return true; }
+      if (files) { if (!el[kind]) return false; const a = track(new Audio(el[kind])); a.volume = Math.min(1, g0 * vol1() * (ducks && kind !== 'buzzer' ? .4 : 1)); a.play().catch(() => { }); const t = setTimeout(() => a.pause(), len * 1000); if (isReact) react.push({ end: ctx.currentTime + len, fade: () => { clearTimeout(t); a.pause(); } }); return true; }
       const b = buf[kind]; if (!b) return false;
       const s = ctx.createBufferSource(), g = ctx.createGain(), t = ctx.currentTime, start = kind === 'buzzer' ? 0 : Math.min(.4, Math.max(0, b.duration - len) * Math.random() * .2);
       s.buffer = b; s.connect(g); g.connect(kind === 'buzzer' ? sfxBus : crowdBus);
@@ -281,7 +283,8 @@ const SFX = (() => {
     /* duck the crowd under dialogue / cutscenes (counted, so nested calls are safe) */
     function duck(on) { ducks = on === null ? 0 : Math.max(0, ducks + (on ? 1 : -1)); if (!ctx || !duckGain) return; const t = ctx.currentTime; duckGain.gain.cancelScheduledValues(t); duckGain.gain.setTargetAtTime(ducks ? .3 : 1, t, .25); }
     const info = () => ({ amb: ambKind, playing: !!amb, level: +level.toFixed(2), reacts: ctx ? react.filter(r => r.end > ctx.currentTime).length : 0, ducks, loaded: Object.keys(files ? el : buf).length });
-    return { load, ambience, level: setLevel, react: reactTo, oneShot, stopAll, duck, info, vol() { }, get kind() { return ambKind; } };
+    function hold(on) { liveEls.forEach(a => { if (on && !a.paused) { a.__held = true; a.pause(); } else if (!on && a.__held) { a.__held = false; a.play().catch(() => { }); } }); }
+    return { load, ambience, level: setLevel, react: reactTo, oneShot, stopAll, duck, info, hold, vol() { }, get kind() { return ambKind; } };
   })();
   function loadCrowd() { Crowd.load(); }
   function play(name, arg) { if (!ctx || vol.muted) return; try { LIB[name] && LIB[name](arg); } catch (e) { } }
@@ -478,6 +481,10 @@ const SFX = (() => {
   let pendingMood = null;
   function onSong(song) { try { window.dispatchEvent(new CustomEvent('hd-song', { detail: song })); } catch (e) { } }
   function music(mood) { pendingMood = mood; if (!band) return; band.setMood(mood); }
+  /* the pause (js/pause.js): everything stops where it is and carries on from there — the audio clock stands still too */
+  let held = false;
+  function suspend() { if (!ctx || held) return; held = true; try { ctx.suspend(); } catch (e) { } try { Crowd.hold(true); } catch (e) { } }
+  function resume() { if (!ctx || !held) return; held = false; try { ctx.resume(); } catch (e) { } try { Crowd.hold(false); } catch (e) { } }
   function stopMusic() { music(null); }
   function skip() { if (band) band.skip(); }
   /* crowd API: venue ambience ('arena' | 'gym' | 'street' | null), excitement level, reactions, ducking, stop */
@@ -485,5 +492,5 @@ const SFX = (() => {
   const safe = f => (...a) => { try { return f(...a); } catch (e) { console.warn('crowd audio', e); } };
   const crowd = { ambience: safe((k, h) => { if (ctx) Crowd.ambience(k, h); }), level: safe(h => Crowd.level(h)), react: safe((k, v) => !vol.muted && Crowd.react(k, v)), duck: safe(on => Crowd.duck(on)),
     info: () => Crowd.info(), stop: safe(() => { if (ctx) Crowd.stopAll(); }), reset: safe(() => Crowd.duck(null)) };
-  return { init, play, has, music, stopMusic, skip, setVol, toggleMute, vol, crowd, get mood() { return band ? band.mood : pendingMood; }, get song() { return band && band.song; } };
+  return { init, play, has, music, stopMusic, skip, setVol, toggleMute, vol, crowd, suspend, resume, get mood() { return band ? band.mood : pendingMood; }, get song() { return band && band.song; } };
 })();

@@ -16,7 +16,11 @@ const Game = {
     mute.onclick = () => { SFX.init(); SFX.toggleMute(); syncMute(); };
     syncMute();
     document.getElementById('setBtn').onclick = () => UI.settingsModal();
+    // back from "Quit" in the pause menu (js/pause.js): the page reloads into the saved career, at the hub (or the story beat after a forfeit)
+    let q = null; try { q = JSON.parse(sessionStorage.getItem('hd_quit') || 'null'); sessionStorage.removeItem('hd_quit'); } catch (e) { }
+    if (q && q.to === 'hub' && Engine.load('auto')) { this.loadState(Engine.load('auto'), { quiet: true }); return UI.toast(q.msg, 'bad', 3800); }
     UI.title();
+    if (q) UI.toast(q.msg, 'info', 3800);
   },
 
   /* ---------- career lifecycle ---------- */
@@ -32,7 +36,7 @@ const Game = {
     if (!s) return UI.toast('That save could not be loaded.', 'bad');
     this.loadState(s);
   },
-  loadState(s) { this.state = s; if (typeof Story !== 'undefined' && s.story) Story.ensure(s); this.save(); const prev = typeof Story !== 'undefined' && !s.ended ? Story.previously(s) : null; (prev || Promise.resolve()).then(() => this.resume()); },   // "Previously…" first
+  loadState(s, o = {}) { this.state = s; if (typeof Story !== 'undefined' && s.story) Story.ensure(s); this.save(); const prev = typeof Story !== 'undefined' && !s.ended && !o.quiet ? Story.previously(s) : null; (prev || Promise.resolve()).then(() => this.resume()); },   // "Previously…" first
   resume() { const s = this.state; if (s.ended) return UI.ending(s.ended); this.runNode(); },
   save() { if (this.state) Engine.save(this.state, 'auto'); },
   startChapter(id) {
@@ -201,8 +205,9 @@ const Game = {
       if (opp.length) { them = Object.assign({}, them, { roster: opp.map(x => x.name), star: { name: opp[0].name, perD: opp[0].ovr, intD: opp[0].ovr - 4 } }); oppR = Math.round((o - 2 + opp[0].ovr) / 2); starSub = `#${opp[0].rank} in the class · ${opp[0].p.pos} · ${opp[0].p.home}`; }
       if (mates.length) us.roster = mates.map(x => x.name).concat(us.roster || []);
     }
+    this.activity = { kind: 'pickup', title: 'Pickup Run', cfg: { them } };
     const r = await Match.play({ us, them, starSub, oppRating: oppR, mateRating: o - 3, moments: 7, level: 'street', size, target, fullArcade: true, venueId: court, title: 'Pickup Run', sub: `${VENUES[court].name} · ${size}v${size}, first to ${target}` });
-    this.unlockVenue(r.venueId);
+    this.activity = null; this.unlockVenue(r.venueId);
     s.hub.ap--;
     const k = Engine.pick(['three', 'finish', 'handle', 'perD', 'reb']);
     const changes = this.applyFx(Object.assign({ xp: r.win ? 60 : 30, fatigue: 10, morale: r.win ? 3 : -1 }, r.win ? { attrs: { [k]: 1 } } : {}));
@@ -278,7 +283,8 @@ const Game = {
     }
     if (node.pickup && !(node.tutorial && !s.flags.tutorial_done)) Object.assign(cfg, { fullArcade: true, size: node.pickup.size || 3, target: node.pickup.target || 21, sub: `${cfg.sub ? cfg.sub + ' · ' : ''}${node.pickup.size || 3}v${node.pickup.size || 3}, first to ${node.pickup.target || 21}` });
     if (typeof Story !== 'undefined') await Story.prematch(s, cfg, node);   // a marked rival: the revenge-game poster
-    const r = await Match.play(cfg);
+    this.activity = { kind: 'story', node, cfg, title: node.title };   // what "Quit" in the pause menu forfeits
+    const r = await Match.play(cfg); this.activity = null;
     if (cfg.tutorial) s.flags.tutorial_done = true;
     if (cfg.jam && s.jam) s.jam.boost = false;   // the practice boost lasts one game
     this.unlockVenue(r.venueId);
@@ -455,7 +461,8 @@ const Game = {
       cfg.venue = g.away ? 'away' : g.home ? 'home' : (se.week + (g.opp || '').length) % 2 ? 'away' : 'home';
       cfg.venueId = finalGame ? (se.def.finalVenue || (se.level === 'hs' ? 'college_arena' : 'tournament')) : g.venue && VENUES[g.venue] ? g.venue : Venues.forMatch(cfg);
       if (typeof Story !== 'undefined') await Story.prematch(s, cfg, g);   // a marked rival: the revenge-game poster
-      r = await Match.play(cfg);
+      this.activity = { kind: 'season', g, cfg, title: se.name };
+      r = await Match.play(cfg); this.activity = null;
       this.unlockVenue(r.venueId);
       await this.bigMoment(r);
       summary = this.applyMatch(r, { title: se.name, sub: g.sub });
@@ -527,7 +534,7 @@ const Game = {
     const s = this.state, d = TRAINING.find(t => t.id === id);
     if (!s.hub || s.hub.ap <= 0) return UI.toast('No actions left.', 'bad');
     SFX.play('click');
-    const { m, layer } = await UI.trainingModal(d);
+    const { m, layer } = await UI.trainingModal(d); this.activity = { kind: 'train', d };
     const A = k => Engine.attr(s, k), W = DIFFICULTY[s.difficulty].window, fat = s.meta.fatigue;
     let q = 0;
     if (d.mg === 'shotMeter') {
@@ -538,6 +545,7 @@ const Game = {
     else if (d.mg === 'rebound') { let t = 0; for (let i = 0; i < 2; i++) { const r = await Match.MG.rebound(layer, { title: `BOX-OUT DRILL ${i + 1}/2`, zone: (.08 + A('reb') / 99 * .14) * W }); t += r.success ? r.quality : 0; } q = t / 2; }
     else if (d.mg === 'freeThrow') { const base = Balance.pct('ft', Balance.userStats(s), { fatigue: fat }).pct; const r = await Match.MG.freeThrow(layer, { title: 'FREE THROW ROUTINE', shots: 3, base, stat: A('ft'), zone: (.75 + Balance.eff(A('ft')) / 99) * W, wobble: 1.55 + fat * .012, shooter: { num: s.player.num, name: s.player.last, color: s.player.look.jersey, trim: s.player.look.trim, skin: s.player.look.skin, hair: s.player.look.hairColor } }); q = r.made / 3; }
     // gains: 0–3 attribute points per session, spread over the drill's attributes (main one first)
+    this.activity = null;
     const pts = Math.min(PROGRESSION.trainPoints, Math.floor(q * PROGRESSION.trainPoints + Math.random() * .8));
     const attrs = {}; for (let i = 0; i < pts; i++) { const k = d.keys[i % d.keys.length]; attrs[k] = (attrs[k] || 0) + 1; }
     let injured = false;
@@ -577,6 +585,29 @@ const Game = {
     UI.toast(`Upgrades applied. Overall <b>${before} → ${Engine.ovr(s)}</b>`, 'good');
     Engine.badgeDiff(bb, s).forEach(x => UI.toast(`${Art.badge(x.b, x.tier, 30)} Badge: <b>${x.b.name}</b> ${BADGE_TIERS[x.tier]}`, 'ach', 4000));
     this.recordOvr('Upgrade'); this.checkAch(); this.save();
+  },
+  /* "Quit" in the pause menu: a match counts as a loss (a forfeit in pickup games), a training session is lost.
+     The result goes into the save, then the page reloads straight back into the career, so nothing that was running carries on. */
+  quitActivity(mode) {
+    const s = this.state, A = this.activity || {}, num = q => { const e = document.querySelector(q); return e ? parseInt(e.textContent, 10) || 0 : 0; };
+    if (s && A.kind) {
+      const arc = document.querySelector('#ahS0'), us = arc ? num('#ahS0') : num('#sbUs'), them0 = arc ? num('#ahS1') : num('#sbThem'), them = Math.max(them0, us + 1);
+      if (A.kind !== 'train') {
+        s.counters.games++; s.counters.losses++;
+        s.career.games.push({ label: `${A.title || 'Game'} (forfeit)`, opp: (A.cfg && A.cfg.them && A.cfg.them.name) || 'Opponent', us, them: them0, win: false, pts: 0, reb: 0, ast: 0, grade: 'F', forfeit: true });
+        Engine.applyFx(s, { morale: -6, fatigue: 8 }); this.healTick();
+        Engine.post(s, { by: 'streetball', text: `${A.kind === 'pickup' ? 'Pickup run' : 'Game'} over early: {name} walked off. Forfeit.` });
+      }
+      if (A.kind === 'story') { s.story = { chapter: s.story.chapter, node: A.node.lose, fxApplied: null }; if (A.node.loseFx) this.applyFx(A.node.loseFx); }
+      if (A.kind === 'season' && s.season) { const se = s.season, box = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 };
+        if (A.g.playoff) Season.finishUserPlayoff(s, se, us, them, box); else Season.finishUserWeek(s, se, us, them, box);
+        const post = A.g.post && A.g.post.lose; s.story = post ? { chapter: se.home.chapter, node: post, fxApplied: null } : { chapter: se.home.chapter, node: se.home.node, fxApplied: null }; s.hub = null; }
+      if ((A.kind === 'pickup' || A.kind === 'train') && s.hub) { s.hub.ap = Math.max(0, s.hub.ap - 1); if (A.kind === 'train') s.counters.trainings++; }
+    } else if (s && s.story) s.story.cs = null;   // a story cutscene (or a drill / lesson): it starts again when you continue
+    if (s) Engine.save(s, 'auto');
+    const msg = { story: 'You forfeited. It counts as a loss.', season: 'You quit the game. It counts as a loss.', pickup: 'You walked off the run. Forfeit.', train: 'Session quit. No gains this time.' }[A.kind] || 'Progress saved. Continue whenever you\'re ready.';
+    try { sessionStorage.setItem('hd_quit', JSON.stringify({ to: A.kind ? 'hub' : 'title', msg })); } catch (e) { }
+    location.reload();
   },
   endCareer(id) { const s = this.state; s.ended = id; this.save(); UI.ending(id); },
 };

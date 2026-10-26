@@ -1445,3 +1445,39 @@ body.fs[data-screen=match] .corner .icon-btn { width: 30px; height: 30px; font-s
 .arc-goals span { background: #00000044; border: 1px solid #ffffff1a; border-radius: 4px; padding: 1px 6px; }
 .arc-goals span.done { color: #86efac; border-color: #86efac55; }
 .slot-info .slot-arc { display: block; font-family: var(--px); font-size: .55rem; letter-spacing: .08em; color: #fde68a; text-transform: uppercase; }
+
+/* =====================================================================
+   PAUSE (js/pause.js): the ⏸ button, the menu, the dimmed + blurred game behind it, the 3-2-1
+   ===================================================================== */
+.pz-btn { position: fixed; z-index: 190; top: calc(8px + env(safe-area-inset-top, 0px)); left: calc(8px + env(safe-area-inset-left, 0px)); width: 40px; height: 40px; display: none; align-items: center; justify-content: center;
+  font: 700 1rem/1 var(--px); color: #fde68a; background: #0b0f1ccc; border: 2px solid #facc15; box-shadow: 0 0 0 2px #000, 3px 3px 0 #000; border-radius: 0; padding: 0; cursor: pointer; opacity: .85; }
+.pz-btn.on { display: flex; } .pz-btn:hover, .pz-btn:focus-visible { opacity: 1; background: #1e293b; }
+body.paused .pz-btn { display: none; }
+body.paused *:not(#pz):not(#pz *) { animation-play-state: paused !important; }
+.pz { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px; opacity: 0; transition: opacity .15s;
+  background: rgba(3, 6, 14, .72); -webkit-backdrop-filter: blur(7px) saturate(.6); backdrop-filter: blur(7px) saturate(.6); font-family: var(--px); color: #e2e8f0; user-select: none; -webkit-user-select: none; }
+.pz.in { opacity: 1; }
+.pz::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .18) 0 1px, transparent 1px 3px); }
+.pz-sit { position: relative; z-index: 1; text-align: center; max-width: min(560px, 92vw); padding: 8px 14px; background: #00000066; border: 2px solid #ffffff22; }
+.pz-sit small { display: block; font-size: .58rem; letter-spacing: .18em; color: #94a3b8; text-transform: uppercase; }
+.pz-sit b { display: block; font-size: clamp(1.1rem, 4vw, 1.6rem); color: #fff; text-shadow: 2px 2px 0 #000; margin-top: 2px; }
+.pz-sit em { display: inline-block; font-style: normal; font-size: .72rem; color: #fde68a; margin-top: 2px; }
+.pz-sit p { margin: 6px 0 0; font-family: var(--pxb); font-size: 1.05rem; line-height: 1.1; color: #cbd5e1; }
+.pz-box { position: relative; z-index: 1; width: min(340px, 92vw); padding: 14px 16px 16px; background: #0b0f1c; border: 3px solid #facc15; box-shadow: 0 0 0 3px #000, 7px 7px 0 #000; }
+.pz-box h2 { margin: 0 0 12px; text-align: center; font-family: var(--px); font-weight: 700; font-size: clamp(1.6rem, 6vw, 2.2rem); letter-spacing: .06em; color: #fff; text-shadow: 3px 3px 0 #9a3412, 5px 5px 0 #000; }
+.pz-box h2 small { display: block; margin-top: 6px; font-size: .55rem; font-weight: 400; letter-spacing: .14em; color: #93c5fd; text-shadow: none; }
+.pz-p { display: none; flex-direction: column; gap: 8px; } .pz-p.on { display: flex; }
+.pz-p button { font: 400 .78rem/1 var(--px); letter-spacing: .08em; text-transform: uppercase; color: #fff; background: #1e293b; border: 2px solid #000; box-shadow: inset 0 -3px 0 #0f172a, 0 0 0 1px #334155; padding: 12px 12px 13px; text-align: left; cursor: pointer; border-radius: 0; min-height: 44px; }
+.pz-p button:hover, .pz-p button:focus-visible { outline: none; background: #f97316; color: #0b0f1c; box-shadow: inset 0 -3px 0 #9a3412, 0 0 0 2px #facc15; }
+.pz-p button[data-a="resume"] { background: #facc15; color: #0b0f1c; box-shadow: inset 0 -3px 0 #a16207, 0 0 0 1px #000; }
+.pz-p button.danger { color: #fca5a5; } .pz-p button.danger:hover, .pz-p button.danger:focus-visible { background: #b91c1c; color: #fff; }
+.pz-p label { display: grid; gap: 4px; font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: #cbd5e1; }
+.pz-p input[type=range] { width: 100%; accent-color: #facc15; min-height: 28px; }
+.pz-p dl { margin: 0 0 4px; display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; font-family: var(--pxb); font-size: 1.05rem; line-height: 1.05; }
+.pz-p dt { font-family: var(--px); font-size: .58rem; letter-spacing: .08em; color: #fde68a; text-transform: uppercase; padding-top: 3px; } .pz-p dd { margin: 0; color: #e2e8f0; }
+.pz-p p { margin: 0 0 4px; font-family: var(--pxb); font-size: 1.15rem; line-height: 1.1; color: #fde68a; }
+.pz-count { display: none; position: absolute; z-index: 2; inset: 0; align-items: center; justify-content: center; font: 700 clamp(5rem, 22vw, 11rem)/1 var(--px); color: #fff; text-shadow: 6px 6px 0 #9a3412, 12px 12px 0 #000; pointer-events: none; }
+.pz.count .pz-sit, .pz.count .pz-box { display: none; } .pz.count .pz-count { display: flex; }
+.pz-count.pop { animation: pzPop .6s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes pzPop { 0% { transform: scale(2.2); opacity: 0; } 35% { transform: scale(.92); opacity: 1; } 100% { transform: scale(1); opacity: .9; } }
+@media (max-height: 520px) { .pz { flex-direction: row; } .pz-sit { max-width: 40vw; } }
