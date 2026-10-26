@@ -31,18 +31,27 @@
   if (C.street) { C.street.cast = ['you', 'lou', 'tariq', 'kai', 'mom', 'nia', 'dee', 'silk', 'marcus', 'hammer', 'mc']; C.street.postCredits = 'pc_kai_gym'; }
 
   /* ---------------- CHAPTER 2: Varsity Blues ---------------- */
+  /* JV goals: average 20 in the JV games · beat the JV rivals · climb back above your Summer Jam rank */
+  const jvAvg = s => { const G = (s.career.games || []).filter(g => /JV Season/.test(g.label || '')); return G.length > 0 && G.reduce((t, g) => t + (g.pts || 0), 0) / G.length >= 20; };
+  const jamRank = s => { const h = ((s.rank && s.rank.hist) || []).filter(x => /Summer Jam semifinal/.test(x.label || '')).pop(); return h ? h.rank : 200; };
   A('highschool', [
-    { id: 'varsity', name: 'The Varsity Arc', goal: 'Earn your spot, then make the town know your name.',
-      nodes: 'start L_day1 L_tryout_pre L_tryout L_starter L_bench L_playbook W_day1 W_vale W_tryout_pre W_tryout W_starter W_bench W_playbook c2_cel_check c2_celebrate L_season1 L_brick L_brick_fight L_kai1_pre L_kai1_win L_kai_hall L_kai1_loss W_season1 W_kai_freeze W_kai_talk_ok W_tariq_pre W_tariq_win W_tariq_loss c2_opener_pre c2_promoted c2_cityfinal_pre c2_jr_champ c2_jr_out c2_viral_jr',
-      goals: [{ t: 'Win your spot', done: { flag: 'starter' } }, { t: 'Beat Kai', done: { flag: 'beat_kai' } }],
-      next: { who: 'narrator', line: 'One summer. Every scout in the country. One gym down south.', scene: 'arena', grade: 'gold', cast: [{ id: 'dee', kind: 'bust', x: .3, expr: 'smile', rim: '#fde68a' }] } },
-    { id: 'peach', name: 'The Peach Slam Arc', goal: 'Make the summer circuit count.',
-      nodes: 'c2_summer c2_nia_bday c2_camp c2_kai_1v1 c2_kai_1v1_win c2_kai_1v1_loss c2_bday c2_lou_aau c2_lou_team c2_lou_return c2_marcus c2_scheme c2_scheme2 end_locked c2_aau c2_aau_pre c2_vince c2_aau_final_pre c2_aau_champ c2_aau_out c2_coach_visit',
-      next: { who: 'lou', line: 'Senior year. Last chance to leave something on this town.', scene: 'gym', grade: 'blue', cast: [{ id: 'lou', kind: 'bust', x: .2, expr: 'neutral', rim: '#93c5fd' }] } },
-    { id: 'state', name: 'The State Arc', goal: 'Win state. Get out.', climax: true,
-      nodes: 'c2_senior_branch L_senior_open L_season2 L_kai2_pre L_kai2_win L_kai2_loss W_senior_open W_season2 W_silk W_lincoln2_pre c2_tariq_test c2_tariq_grades W_tariq_beef W_tariq_call c2_injury c2_injury_worse c2_scandal_check c2_booster_news c2_mom_hurt c2_senior_night c2_semi_pre c2_semi_talk c2_pills c2_broken end_broken c2_final_pre c2_state_champ c2_state_out c2_state_missed c2_offers c2_graduation ch_end' },
+    { id: 'cut', name: 'The Cut Arc', goal: 'Make varsity.',
+      nodes: 'start L_day1 L_tryout_pre L_tryout W_day1 W_vale W_tryout_pre W_tryout c2_cut c2_cut_after',
+      goals: [{ t: 'Make varsity', done: { flag: 'called_up_v' } }],
+      next: { who: 'lou', line: 'Good. Now you\'re hungry.', scene: 'locker', grade: 'dark', cast: [{ id: 'jersey', kind: 'jersey', x: .1, y: 60, s: 3, num: '00', d: 1 }] } },
+    { id: 'jv', name: 'The JV Arc', goal: 'Win your spot back. Get called up.',
+      nodes: 'c2_jv c2_jv1_pre c2_jv1 c2_jv1_post c2_jv2 c2_jv2_win c2_jv2_loss c2_callup c2_callup_wpn L_playbook W_playbook L_hp2_pre L_hp2 W_hp2_pre W_hp2 c2_hp2_win L_kai_hall c2_kai_pov c2_junior_branch',
+      goals: [{ t: 'Average 20 in JV', test: jvAvg }, { t: 'Beat the JV rivals', done: { flag: 'jv_rivals' } }, { t: 'Climb back above your Summer Jam rank', test: s => Rankings.on(s) && Rankings.rankOf(s) <= jamRank(s) }, { t: 'Get called up', done: { flag: 'called_up_v' } }],
+      next: { who: 'narrator', line: 'The Peach Slam. Five hundred coaches. And a man in a purple suit.', scene: 'arena', grade: 'gold', cast: [{ id: 'vince', kind: 'bust', x: .35, expr: 'smile', rim: '#a855f7' }] } },
+    { id: 'peach', name: 'The Peach Slam Arc', goal: 'Get seen by the country.',
+      nodes: 'L_season1 W_season1 L_brick L_brick_fight W_kai_freeze W_kai_talk_ok W_tariq_pre W_tariq_win W_tariq_loss c2_opener_pre c2_promoted c2_cityfinal_pre c2_jr_champ c2_jr_out c2_viral_jr L_kai1_pre L_kai1_win L_kai1_loss c2_cel_check c2_money c2_summer c2_nia_bday c2_camp c2_kai_1v1 c2_kai_1v1_win c2_kai_1v1_loss c2_kai_mark c2_kai_marked c2_bday c2_lou_aau c2_lou_team c2_lou_return c2_marcus c2_scheme c2_scheme2 end_locked c2_aau c2_aau_pre c2_vince c2_aau_final_pre c2_aau_champ c2_aau_out c2_coach_visit',
+      goals: [{ t: 'Win the city', done: { flag: 'city_champ' } }, { t: 'Win the Peach Slam', done: { flag: 'aau_champ' } }, { t: 'Crack the top 100', done: { rank: 100 } }],
+      next: { who: 'narrator', line: 'Senior Night banners. And a trainer, wrapping an ankle.', scene: 'gym', grade: 'blue', cast: [{ id: 'you', kind: 'hand', x: 0, y: 168, s: 3, curl: .2, tape: '#f8fafc' }] } },
+    { id: 'state', name: 'The State Arc', goal: 'Win the state championship.', climax: true,
+      nodes: 'c2_senior_branch L_senior_open L_season2 L_kai2_pre L_kai2_win L_kai2_loss W_senior_open W_season2 W_silk W_lincoln2_pre c2_tariq_test c2_tariq_grades c2_lou_cough c2_lou_hosp c2_scandal_check c2_booster_news c2_senior_night c2_ankle c2_rehab c2_pills c2_semi_pre c2_injury c2_injury_worse c2_mom_hurt c2_semi_talk c2_broken end_broken c2_final_pre c2_state_champ c2_trophy c2_state_out c2_state_missed c2_offers c2_graduation ch_end',
+      goals: [{ t: 'Win the state championship', done: { flag: 'state_champ' } }] },
   ]);
-  if (C.highschool) C.highschool.cast = ['you', 'lou', 'tariq', 'kai', 'mom', 'nia', 'dee', 'marcus'];
+  if (C.highschool) { C.highschool.cast = ['you', 'lou', 'tariq', 'kai', 'mom', 'nia', 'brennan', 'graves', 'brick', 'vale', 'silk', 'vince', 'marcus']; C.highschool.postCredits = 'pc_reyes'; }
 
   /* ---------------- INTERLUDE: Red, White & Hoops ---------------- */
   A('usa', [
@@ -85,7 +94,7 @@
   STORY.openings = {
     street: { scene: 'street_sunset', grade: 'sunset', place: '{hometown}', sub: 'Halsey Street Courts', cast: ['mom', 'nia', 'tariq', 'lou'], rivals: [], you: 1, rim: '#fdba74',
       court: { base: 'street_night', sky: 'sunset', lights: null, crowd: 0 } },
-    highschool: { scene: 'gym', grade: 'blue', place: '{hs}', sub: 'Sophomore year', cast: ['mom', 'nia', 'tariq', 'lou', 'dee'], rivals: ['vale', 'tank'], you: .62, rim: '#93c5fd', night: true, court: '@venue' },
+    highschool: { scene: 'gym', grade: 'blue', place: '{hs}', sub: 'Sophomore year', cast: ['mom', 'nia', 'tariq', 'lou', 'dee'], rivals: ['vale', 'holt', 'silk'], you: .62, rim: '#93c5fd', night: true, court: '@venue' },
     usa: { scene: 'arena', grade: 'gold', place: 'USA Basketball', sub: 'Selection camp', cast: ['mom', 'lou', 'dee', 'tariq'], rivals: ['dre', 'jet', 'ike'], you: .32, rim: '#fde68a', night: true, court: 'college_arena' },
     college: { scene: 'arena', grade: 'red', place: 'The Next Level', sub: 'One year to prove it', cast: ['mom', 'nia', 'lou', 'tariq', 'dee'], rivals: ['dez', 'vance'], you: .1, rim: '#fca5a5', night: true, court: 'college_arena' },
   };
@@ -111,6 +120,8 @@
     c3_selection: 'Selection Sunday. Your name came up.',
     c3_champs: 'Champions. One shining moment.',
     c3_callup: 'The call came.',
+    _cut: 'Your name wasn\'t on the varsity list.', _callup: 'Then the coach came to the JV gym. "Varsity. Friday."', _hp2: 'Halsey Park II. You beat Kai in front of Silk.',
+    mom_money: 'Mom got hurt at work. Rent was due.', lou_hospital: 'Lou went into the hospital.', ankle: 'Then your ankle went. The week before the tournament.', trophy_lou: 'You carried the trophy to Lou\'s room.', pc_reyes: 'Coach Reyes signed a letter.',
     pc_kai_gym: 'Kai Sterling, alone in a gym at 2 a.m.',
   };
 

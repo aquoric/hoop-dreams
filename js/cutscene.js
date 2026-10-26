@@ -18,7 +18,7 @@
    { d: ms (shot clock),  scene: 'street_sunset'|'street_night'|'rain_night'|'gym'|'locker'|'arena'|'hospital'|'list'|'notebook'|'title'|'void'|'vs'
      court: venue id, '@venue' (the game's venue) or a def object { base, sky, … } (instead of scene) for gameplay shots,
      cam: [[0, x, y, zoom], [1, x, y, zoom, ease]]  (world px from scene center; ease: lin io out in back snap),
-     cast: [{ id, kind:'face'|'bust'|'full'|'sprite'|'car'|'ball', x (view units −1..1, or venue px for sprites), y, expr, flip,
+     cast: [{ id, kind:'face'|'bust'|'full'|'sprite'|'car'|'ball'|'trophy', x (view units −1..1, or venue px for sprites), y, expr, flip,
               d (parallax depth), from:{dx,dy,t,ease} (entrance), move:[[ms,x],[ms,x]], sil (silhouette), rim (rim-light color), team (sprites) }],
      say: [who, text], title: { text, sub, style:'slam'|'rise'|'loc', at }, grade: 'sunset'|'night'|'gold'|'red'|'blue'|'spot'|'dark'|'mono',
      speed: 'radial'|'h', focus:[fx,fy], slow: k or [[t0,t1,k]], tr: 'cut'|'fade'|'flash'|'wipe', music: mood | null (silence),
@@ -443,10 +443,10 @@ const Cutscene = (() => {
       } };
   }
   function paper(kind, ctx) {
-    const s = Game.state, last = s ? s.player.last.toUpperCase() : 'YOU', first = s ? s.player.first.toUpperCase() : '', [c0] = teamCols(ctx);
+    const s = Game.state, last = s ? s.player.last.toUpperCase() : 'YOU', first = s ? s.player.first.toUpperCase() : '', [c0] = teamCols(ctx), cut = kind === 'cutlist'; if (cut) kind = 'list';   // cutlist: the varsity list without your name (Chapter 2)
     const bg = layer((g, px) => { if (kind === 'list') { for (let x = 0; x < WW; x += 40) { px(x, 0, 38, H, shade(c0, -.2)); px(x + 2, 0, 34, H, c0); for (let k = 0; k < 5; k++) px(x + 10, 20 + k * 4, 18, 1, shade(c0, -.45)); } }
       else { px(0, 0, WW, H, '#5b3a1f'); for (let y = 0; y < H; y += 4) px(0, y, WW, 1, '#53351c'); } });
-    const lines = kind === 'list' ? ['VARSITY ROSTER', '', 'HOLLIS', 'COLE', 'PIKE', 'MILES', last + (s ? ' #' + s.player.num : '')] : ['EHN SCOUT NOTES', '', `${first} ${last}`, 'RAW. COMPETITIVE.', 'LEFT HAND: A RUMOR', 'GETS BETTER WHEN', 'IT GETS HARDER'];
+    const lines = cut ? ['VARSITY ROSTER', ''].concat(ctx.listNames || ['HOLLIS', 'COLE', 'PIKE', 'MILES', 'PLATT']) : kind === 'list' ? ['VARSITY ROSTER', '', 'HOLLIS', 'COLE', 'PIKE', 'MILES', last + (s ? ' #' + s.player.num : '')] : ['EHN SCOUT NOTES', '', `${first} ${last}`, 'RAW. COMPETITIVE.', 'LEFT HAND: A RUMOR', 'GETS BETTER WHEN', 'IT GETS HARDER'];
     return { layers: [[bg, .6]], HZ: 200,
       back(c, S, at) {
         at(1); const pw = 230, ph = 200, x0 = -pw / 2, y0 = -ph / 2; let pen = null;
@@ -454,7 +454,7 @@ const Cutscene = (() => {
         if (kind !== 'list') { for (let y = y0 + 30; y < y0 + ph; y += 16) P(c, x0, y, pw, 1, '#93c5fd'); P(c, x0 + 22, y0, 1, ph, '#f87171'); P(c, x0, y0, pw, 12, '#b45309'); }
         else P(c, -3, y0 - 4, 6, 6, '#ef4444');
         lines.forEach((ln, i) => { const t0 = i * .42 + .2, n = Math.floor(clamp((S.t - t0) / .03, 0, ln.length)), y = y0 + 18 + i * 16, x = x0 + 30;
-          if (!n) return; const isMe = kind === 'list' ? i === lines.length - 1 : i === 2;
+          if (!n) return; const isMe = cut ? false : kind === 'list' ? i === lines.length - 1 : i === 2;
           if (isMe && n === ln.length) { const w = Pixel.textWidth(ln, 2); P(c, x - 3, y - 3, w + 6, 15, 'rgba(250,204,21,.7)'); }
           Pixel.text(c, ln.slice(0, n), x, y, i === 0 ? (kind === 'list' ? '#b91c1c' : '#7c2d12') : '#1e293b', 2); if (n < ln.length) pen = [x + Pixel.textWidth(ln.slice(0, n), 2) + 2, y + 6]; });
         if (kind !== 'list' && S.t > 3.1) { c.strokeStyle = '#dc2626'; c.lineWidth = 2; c.beginPath(); c.ellipse(x0 + 30 + 60, y0 + 18 + 5.5 * 16 + 4, 96, 24, -.05, 0, Math.min(1, (S.t - 3.1) * 2.5) * Math.PI * 2); c.stroke(); }
@@ -581,9 +581,9 @@ const Cutscene = (() => {
     const key = id + '|' + teamCols(ctx).join(',') + '|' + themCols(ctx).join(',') + (ctx.night ? 'n' : 'd') + (ctx.city || '');
     if (SCN.has(key)) return SCN.get(key);
     const S = id === 'street_sunset' ? street('sunset') : id === 'street_night' ? street('night') : id === 'rain_night' ? street('rain') : id === 'gym' ? gym(ctx) : id === 'locker' ? locker(ctx)
-      : id === 'arena' ? arena(ctx) : id === 'highway' ? highway(ctx) : id === 'sky' ? skyScene(ctx) : id === 'city' ? cityScene(ctx) : id === 'arena_ext' ? arenaExt(ctx) : id === 'tunnel' ? tunnel(ctx) : id === 'hospital' ? hospital() : id === 'list' || id === 'notebook' ? paper(id, ctx) : id === 'title' ? titleScene() : id === 'vs' ? vsScene() : id === 'ranks' ? rankScene(ctx)
+      : id === 'arena' ? arena(ctx) : id === 'highway' ? highway(ctx) : id === 'sky' ? skyScene(ctx) : id === 'city' ? cityScene(ctx) : id === 'arena_ext' ? arenaExt(ctx) : id === 'tunnel' ? tunnel(ctx) : id === 'hospital' ? hospital() : id === 'list' || id === 'notebook' || id === 'cutlist' ? paper(id, ctx) : id === 'title' ? titleScene() : id === 'vs' ? vsScene() : id === 'ranks' ? rankScene(ctx)
       : id === 'poster' ? posterScene(ctx) : id === 'credits' ? creditsScene(ctx) : id === 'white' ? voidScene('#f8fafc') : voidScene();
-    if (!/list|notebook|ranks|credits/.test(id)) SCN.set(key, S);     // the paper scenes use the player's name: always fresh
+    if (!/list|notebook|ranks|credits/.test(id)) SCN.set(key, S);   // (cutlist too: it matches /list/)     // the paper scenes use the player's name: always fresh
     return S;
   }
   /* court shots: the real 16-bit venue (cached) */
@@ -700,7 +700,8 @@ const Cutscene = (() => {
     if (A.hidden) return; const look = lookFor(A.id || 'you', S.ctx), sk = look.skin && look.skin !== 'family' ? look.skin : (lookFor('you', S.ctx).skin || '#a86b43'), skD = shade(sk, -.25), skL = shade(sk, .12);
     let curl = A.curl || 0; if (A.curlTo) { let a = [0, curl], b = null; A.curlTo.forEach(e => { if (e[0] <= S.T) a = e; else if (!b) b = e; }); curl = b ? lerp(a[1], b[1], EASE.io(clamp((S.T - a[0]) / Math.max(1, b[0] - a[0]), 0, 1))) : a[1]; }
     const s = A.s || 4, sh = A.shake ? A.shake * (Math.random() - .5) : 0;
-    at(S, A.d || 1); c.save(); c.globalAlpha = winAlpha(S, A); c.translate(Math.round(viewX(S, A) * S.W / 2 + sh), Math.round((A.y || 90) + sh)); c.scale((A.flip ? -1 : 1) * s, s);
+    let hy = A.y || 90; if (A.yMove) { const [[t0, y0], [t1, y1]] = A.yMove; hy = lerp(y0, y1, EASE.io(clamp((S.T - t0) / Math.max(1, t1 - t0), 0, 1))); }   // a hand sliding down (a finger running down a list)
+    at(S, A.d || 1); c.save(); c.globalAlpha = winAlpha(S, A); c.translate(Math.round(viewX(S, A) * S.W / 2 + sh), Math.round(hy + sh)); c.scale((A.flip ? -1 : 1) * s, s);
     const R = (x, y, w, h, col) => { c.fillStyle = OUT; c.fillRect(x - .5, y - .5, w + 1, h + 1); c.fillStyle = col; c.fillRect(x, y, w, h); };
     if (A.ball) { c.fillStyle = OUT; c.beginPath(); c.arc(0, -30, 15.5, 0, 7); c.fill(); c.fillStyle = '#e8651b'; c.beginPath(); c.arc(0, -30, 15, 0, 7); c.fill(); c.strokeStyle = '#7c2d12'; c.lineWidth = .8; c.beginPath(); c.moveTo(-15, -30); c.lineTo(15, -30); c.moveTo(0, -45); c.lineTo(0, -15); c.stroke(); c.beginPath(); c.arc(-14, -30, 9, -1, 1); c.stroke(); c.beginPath(); c.arc(14, -30, 9, Math.PI - 1, Math.PI + 1); c.stroke(); c.fillStyle = '#fdba74'; c.fillRect(-8, -40, 3, 2); }
     if (A.sleeve) R(-7, -6, 14, 10, A.sleeve); else R(-6, -8, 12, 10, skD);
@@ -742,6 +743,17 @@ const Cutscene = (() => {
       P(c, x - 50, y - 8, 100, 14, OUT); P(c, x - 49, y - 7, 98, 12, '#f8fafc'); P(c, x + 40, y - 6, 12, 9, '#e2e8f0'); P(c, x - 49, y + 1, 98, 4, '#cbd5e1');
       P(c, x - 50, y - 24, 14, 17, p0); P(c, x - 12, y + 2, 34, 6, '#94a3b8'); P(c, x - 8, y - 12, 26, 5, '#cbd5e1'); for (let wx = -34; wx < 36; wx += 7) P(c, x + wx, y - 4, 3, 3, '#1e3a8a'); P(c, x - 49, y - 2, 98, 2, p0); }
     if (A.kind === 'ball') { S.R.ball(x, y - 3, false, viewX(S, A) * 30, 0); P(c, x - 3, y + 1, 7, 1, 'rgba(0,0,0,.4)'); }
+    if (A.kind === 'jersey') { const k = A.s || 3, col = A.col || teamCols(S.ctx)[0], tr = A.trim || '#f8fafc', sw = Math.round(Math.sin(S.t * 1.4) * k * .4);   // a jersey on a hook
+      P(c, x - k, y - 30 * k, 2 * k, 4 * k, '#94a3b8'); c.save(); c.translate(x + sw, y - 26 * k);
+      P(c, -9 * k - 1, -1, 18 * k + 2, 24 * k + 2, OUT); P(c, -9 * k, 0, 18 * k, 24 * k, col); P(c, -12 * k, 0, 3 * k, 8 * k, col); P(c, 9 * k, 0, 3 * k, 8 * k, col); P(c, -4 * k, 0, 8 * k, 3 * k, '#0a0a12');
+      P(c, -9 * k, 0, 18 * k, k * .8, tr); Pixel.text(c, String(A.num != null ? A.num : '00'), 0, 6 * k, tr, Math.max(1, Math.round(k * 1.6)), 'center', '#0a0a12'); c.restore(); }
+    if (A.kind === 'trophy') { const k = A.s || 2.5, au = '#facc15', dk = '#ca8a04', hi = '#fef08a';   // a gold trophy (y = the bottom of its base)
+      P(c, x - 7 * k - 1, y - 4 * k - 1, 14 * k + 2, 4 * k + 2, OUT); P(c, x - 7 * k, y - 4 * k, 14 * k, 4 * k, '#78350f'); P(c, x - 7 * k, y - 4 * k, 14 * k, k, '#a16207');
+      P(c, x - 2 * k - 1, y - 9 * k - 1, 4 * k + 2, 5 * k + 2, OUT); P(c, x - 2 * k, y - 9 * k, 4 * k, 5 * k, dk);
+      for (const sd of [-1, 1]) { const hx = x + sd * 7 * k - 1.5 * k; P(c, hx - 1, y - 18 * k - 1, 3 * k + 2, 7 * k + 2, OUT); P(c, hx, y - 18 * k, 3 * k, 7 * k, au); P(c, hx + (sd < 0 ? k : 0), y - 16 * k, 2 * k, 3 * k, OUT); }
+      P(c, x - 6 * k - 1, y - 19 * k - 1, 12 * k + 2, 10 * k + 2, OUT); P(c, x - 6 * k, y - 19 * k, 12 * k, 10 * k, au); P(c, x - 6 * k, y - 19 * k, 12 * k, k, hi); P(c, x - 4 * k, y - 17 * k, k, 6 * k, hi); P(c, x + 3 * k, y - 18 * k, 3 * k, 9 * k, dk);
+      P(c, x - 3 * k - 1, y - 25 * k - 1, 6 * k + 2, 6 * k + 2, OUT); P(c, x - 3 * k, y - 25 * k, 6 * k, 6 * k, '#ea580c'); P(c, x - 3 * k, y - 22.5 * k, 6 * k, Math.max(1, k * .5), OUT); P(c, x - 2 * k, y - 24 * k, k, k, '#fdba74');
+      if (Math.sin(S.t * 3) > .75) { P(c, x - 4 * k, y - 21 * k, k, 3 * k, '#ffffff'); P(c, x - 5 * k, y - 20 * k, 3 * k, k, '#ffffff'); } }
     if (A.kind === 'bench') { const k = A.s || 2.6, w = (A.w || 30) * k, top = y - 7 * k;   // a courtside bench (story actors sit on it: act 'bench')
       P(c, x - w / 2 - 1, top - 1, w + 2, 2 * k + 2, OUT); P(c, x - w / 2, top, w, 2 * k, '#92400e'); P(c, x - w / 2, top, w, k * .6, '#b45309');
       for (const lx of [-w / 2 + 2 * k, w / 2 - 4 * k]) { P(c, x + lx - 1, top + 2 * k, 2 * k + 2, 5 * k + 1, OUT); P(c, x + lx, top + 2 * k, 2 * k, 5 * k, '#57534e'); } P(c, x - w / 2, y, w, 1, 'rgba(0,0,0,.35)'); }

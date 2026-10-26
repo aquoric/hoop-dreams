@@ -2623,9 +2623,9 @@ const Match = (() => {
       if (r.ptsUs) addPts('us', r.ptsUs, fromArc(r.play)); if (r.ptsThem) addPts('them', r.ptsThem, fromArc(r.play));
       if (r.end === 'stop' && offense === 1) st.lastStop = Object.assign(fromArc(r.stop) || { kind: 'stop', by: who(U), def: who(STAR), px: 192, py: 110 }, { side: 'us', kind: (r.stop && r.stop.kind) || 'stop', clock: Math.round((r.clock || 0) * 10) / 10 });
       const last = n => n ? properName(String(n).split(' ').slice(-1)[0]) : '';
-      const who = r.scorer === 'me' ? myName : last(r.scorerName);
+      const scorer = r.scorer === 'me' ? myName : last(r.scorerName);   // (not "who": that name is the player-info helper used just above)
       const how = r.end === 'score' || (r.end === 'foul' && (r.ptsUs || r.ptsThem))
-        ? (r.ptsUs ? (r.buzzer ? `${who} beats the buzzer!` : r.dunk ? `${who} throws it down!` : `${who} scores.`) + (r.foul ? ' And one!' : '') : `${who} scores for ${cfg.them.name}.`)
+        ? (r.ptsUs ? (r.buzzer ? `${scorer} beats the buzzer!` : r.dunk ? `${scorer} throws it down!` : `${scorer} scores.`) + (r.foul ? ' And one!' : '') : `${scorer} scores for ${cfg.them.name}.`)
         : ({ foul: r.foul && r.foul.team === 1 ? `Foul on ${cfg.us.name} — they go to the line.` : `${r.fouled === 'me' ? myName : 'Your teammate'} is fouled.`, to: 'Turnover.', stop: 'Stop!', set: 'The defense recovers — reset.', oreb: 'Offensive board — reset.', miss: 'No good.', buzzer: 'Time runs out.' }[r.end] || '');
       const extra = (r.log || []).filter(t => /ankles|bulldoze|posterize|pocket|passing lane|blocks|loose ball/.test(t)).slice(-1)[0];
       pbp(`🕹 <b>${K.label}${r.ptsUs ? ` +${r.ptsUs}` : r.ptsThem ? ` (−${r.ptsThem})` : ''}!</b> ${escH(how)}${extra ? ` <i>${escH(extra)}.</i>` : ''}${b.ast ? ' (assist)' : ''}`, r.ptsUs || r.end === 'stop' ? 'good hot' : r.ptsThem || r.end === 'to' ? 'bad' : '');
@@ -2845,7 +2845,8 @@ const Match = (() => {
       if (clk.per !== prevPer) { SFX.play('buzzer'); await banner(`END OF ${L.label === 'H' ? '1ST HALF' : 'Q' + prevPer}`, '', 1000); prevPer = clk.per; pbp(`— ${L.label}${clk.per} —`, 'sys');
         // HALFTIME: a locker-room speech when you're losing or it's a big game (it replaces the game's conversation)
         if (clk.per === Math.floor(L.periods / 2) + 1 && !st.half && !PICK && coachId && TK && talkOK && !st.talkN && !st.talkQ && (st.us - st.them <= -(CN.halftimeDown || 4) || imp0 >= 2) && cineKind('coach', 'half')) {
-          st.half = true; st.talkEv = st.us < st.them ? 'me_cold' : null; formation('us'); await guardMoment(() => talk('coach', 'half'), 'halftime'); updBug(); } }
+          st.half = true; st.talkEv = st.us < st.them ? 'me_cold' : null; formation('us'); await guardMoment(() => talk('coach', 'half'), 'halftime'); updBug(); }
+        if (clk.per === Math.floor(L.periods / 2) + 1 && cfg.onHalftime && !st.halfFx) { st.halfFx = true; try { await cfg.onHalftime(); } catch (e) { console.warn('halftime', e); } } }   // the story at halftime (e.g. Lou's voice in the state final)
       if (st.talkQ && st.talkAt < i) {   // dead ball: a quick conversation (huddle or face-off first)
         const q = st.talkQ; st.talkQ = null; formation('us');
         await guardMoment(async () => {
@@ -2854,6 +2855,8 @@ const Match = (() => {
         if (st.done) break;
       }
       if (st.bench > 0) { st.bench--; pbp(`🪑 You watch from the bench as ${escH(cfg.us.name)} play on.`, 'bad'); simSegment(1 / (n + 1)); updBug(); st.lastType = 'bench'; await sleep(600); continue; }
+      if (cfg.script && !st.scripted && !FULL && i >= n - (cfg.script.moments || 2)) {   // a scripted ending (js/data-story-ch2-scenes.js): its cinematic, then the final score
+        st.scripted = true; const r = await runScript({ score: [st.us, st.them], next: 0 }); if (r && r.final) { st.us = r.final[0]; st.them = r.final[1]; clk.rem = 0; updBug(); pbp(`🎬 <b>${st.us}–${st.them}.</b> ${st.us > st.them ? 'What a finish.' : 'It slips away.'}`, st.us > st.them ? 'good hot' : 'bad'); break; } }
       const diff = st.us - st.them;
       st.clutch = clk.per === L.periods && (i >= n - 2) && Math.abs(diff) <= 6; st.last = last;
       $('vig').classList.toggle('on', st.clutch); court.clutch = st.clutch;

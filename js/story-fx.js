@@ -185,6 +185,7 @@ const Story = (() => {
   async function prematch(s, cfg, node) {
     if (!csOk()) return; const star = cfg.them && cfg.them.star && cfg.them.star.name, roster = (cfg.them && cfg.them.roster) || [];
     let m = node && node.revenge;
+    if (m && s.marks) Object.keys(s.marks).forEach(k => { if (s.marks[k].star === m.star) delete s.marks[k]; });   // the story's revenge game settles the mark
     if (!m && s.marks) { const k = Object.keys(s.marks).find(k2 => { const M = s.marks[k2]; return M.star && (M.star === star || roster.includes(M.star)); }); if (k) { m = s.marks[k]; delete s.marks[k]; } }
     if (!m) return; cfg.revenge = m.title; Game.save();
     await poster(s, m, cfg);
@@ -215,7 +216,22 @@ const Story = (() => {
     const info = { id: x.id, from, to, name: Weapons.name(x.id, to), base: WEAPONS[x.id].name, suffix: Weapons.suffix(x.id, to), bonus: (E.bonus[to - 1] || 0) - (E.bonus[from - 1] || 0), line: o.line, scene: o.scene, intro: o.intro };
     s.pendingAwaken = info; return info;
   }
-  function afterFx(s) { const A = s.pendingAwaken; if (!A || !csOk()) return null; return awaken(s, A).then(() => { delete s.pendingAwaken; Game.save(); }); }
+  function afterFx(s) {
+    if (s.pendingWeapon && csOk()) { const id = s.pendingWeapon; return newWeapon(s, id).then(() => { delete s.pendingWeapon; Game.save(); }); }
+    const A = s.pendingAwaken; if (!A || !csOk()) return null; return awaken(s, A).then(() => { delete s.pendingAwaken; Game.save(); }); }
+  /* a weapon the story gives you (Chapter 2's call-up): the best fit you don't have yet, past the level slots */
+  function giftWeapon(s) { const id = (Engine.weaponOffers(s) || [])[0]; if (!id) return null; Engine.weapons(s); s.player.weapons.push({ id, rank: 1 }); s.pendingWeapon = id; return id; }
+  function newWeapon(s, id) {
+    const w = WEAPONS[id]; let p = 50; try { p = Engine.weaponPct(s, id).pct; } catch (e) { }
+    CUTSCENES._newweapon = { name: 'New Weapon', shots: [
+      { d: 1800, scene: 'void', grade: 'red', bars: 58, music: null, cam: [[0, 0, 24, 2.2], [1, 0, 22, 2.45]], cast: [{ id: 'you', kind: 'face', x: 0, expr: 'determined', rim: '#facc15' }], ev: [[0, 'sfx', 'heartbeat'], [700, 'glint', 'you']] },
+      { d: 3400, scene: 'title', music: 'clutch', cam: [[0, 0, 10, 1.3], [1, 0, 0, 1.1, 'out']], cast: [{ id: 'you', kind: 'bust', x: 0, expr: 'fierce', rim: '#facc15' }],
+        ev: [[300, 'shatter'], [350, 'aura', 'you'], [350, 'flash', '#fde68a', .7], [350, 'sfx', 'sig'], [400, 'speed', 'radial'], [500, 'title', w.name, 'New weapon', 'slam'], [500, 'impact', 140]] },
+      { d: 2800, scene: 'title', cam: [[0, 0, 0, 1.1], [1, 0, -4, 1.16]], cast: [{ id: 'you', kind: 'bust', x: -.42, expr: 'determined', rim: '#facc15' }],
+        ev: [[0, 'aura', 'you'], [200, 'stats', [['SUCCESS %', Math.max(5, p - 12), p, p + '%']], `⚔ ${w.name}`]], title: { text: 'AWAKENING', sub: w.desc, style: 'rise', at: 100 } },
+    ] };
+    return cut('_newweapon', ctxNow(), { seenId: 'newweapon' }).then(() => { if (typeof UI !== 'undefined') UI.toast(`⚔ New weapon: <b>${esc(w.name)}</b>`, 'ach', 4500); });
+  }
   function awaken(s, A) {
     let after = 50; try { after = Engine.weaponPct(s, A.id).pct; } catch (e) { }
     const before = Math.max(5, after - A.bonus), sc = A.scene || 'rain_night', lie = { id: 'you', kind: 'actor', x: 0, y: 64, s: 3, acts: [[0, 'down', 99]] };
@@ -242,9 +258,9 @@ const Story = (() => {
   function mono(kind, s) { const L = STORY.monologue && STORY.monologue[kind]; if (!L || !L.length) return null; const m = L[Math.floor(Math.random() * L.length)]; return { lines: m.lines.map(l => txt(l, s)), metaphor: m.metaphor }; }
 
   /* ---------- the hub: redemption goals of the current arc ---------- */
-  function goals(s) { const a = current(s); if (!a || !a.goals) return []; return val(a.goals, s).map(g => ({ t: txt(g.t, s), done: !!(g.done && Engine.check(s, g.done)) })); }
+  function goals(s) { const a = current(s); if (!a || !a.goals) return []; return val(a.goals, s).map(g => ({ t: txt(g.t, s), done: !!(g.test ? g.test(s) : g.done && Engine.check(s, g.done)) })); }
   function goalsHtml(s) { const G = goals(s); if (!G.length) return ''; const a = current(s);
     return `<div class="arc-goals"><b>${esc(val(a.name, s))} · Goals</b>${G.map(g => `<span class="${g.done ? 'done' : ''}">${g.done ? '✔' : '◻'} ${esc(g.t)}</span>`).join('')}</div>`; }
 
-  return { seen, markSeen, cut, ensure, beforeNode, afterFx, chapterEnd, previously, label, current, arcFor, goals, goalsHtml, note, noteCut, noteGame, mark, prematch, evolve, awaken, mono, card, opening, credits, nextTime, poster };
+  return { giftWeapon, seen, markSeen, cut, ensure, beforeNode, afterFx, chapterEnd, previously, label, current, arcFor, goals, goalsHtml, note, noteCut, noteGame, mark, prematch, evolve, awaken, mono, card, opening, credits, nextTime, poster };
 })();

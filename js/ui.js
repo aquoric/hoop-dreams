@@ -396,6 +396,7 @@ const UI = (() => {
     for (let k = 0; k < lines.length; k++) { const [who, raw, expr] = lines[k], pk = node.peaks && node.peaks[k]; if (pk) C.peak(pk.kind, pk.who); await C.say(who, Engine.text(raw, s), expr); }
     const list = choices.length ? choices : [{ t: 'Continue ›', next: node.next, cont: true }];
     let k = list.length > 1 || !list[0].cont ? await C.ask(list.map(c => Engine.text(c.t, s) + (c.check ? ` (${Engine.checkPct(s, c.check)}%)` : '') + (c.hint ? ` · ${c.hint}` : ''))) : 0;
+    if (k < 0 && !list[0].cont) { await C.close(); return story(node, chapter, onChoice, true); }   // scene skipped: the choice still waits, on the plain screen
     if (k < 0) k = 0;
     await C.close(); SFX.play('click'); onChoice(list[k]);
   }
@@ -403,6 +404,7 @@ const UI = (() => {
     const s = S();
     if (node.cine && !plain && typeof Cutscene !== 'undefined' && Cutscene.cine && !Cutscene.playing) {
       setBg(node.scene || 'playground', (node.scene || '') + (s.career.hs || ''));
+      if (document.body.dataset.screen === 'title') showScreen('', 'story');   // a save loaded on a cinematic scene: the title menu goes
       return storyCine(node, chapter, onChoice).catch(e => { console.warn('story cine', e); story(node, chapter, onChoice, true); });
     }
     setBg(node.scene || 'playground', (node.scene || '') + (s.career.hs || ''), node.board || (chapter.board && chapter.board(s)));   // arena jumbotron text

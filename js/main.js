@@ -164,6 +164,8 @@ const Game = {
     /* story systems (js/story-fx.js): weapon evolution after a low · a rival marked for a revenge game */
     if (fx.evolve && typeof Story !== 'undefined') { const e = Story.evolve(s, fx.evolve); if (e) changes.push({ label: `⚔ ${e.name}`, v: e.bonus, special: 'grow' }); }
     if (fx.mark && typeof Story !== 'undefined') Story.mark(s, fx.mark);
+    if (fx.rankBump && Rankings.on(s)) { const res = Rankings.bump(s, fx.rankBump, fx.rankWhy || 'Story'); if (res && res.to !== res.from) UI.toast(`${res.to < res.from ? '📈' : '📉'} Prospect rank <b>#${res.from} → #${res.to}</b>`, res.to < res.from ? 'ach' : 'bad', 4000); }
+    if (fx.giftWeapon && typeof Story !== 'undefined') { const w = Story.giftWeapon(s); if (w) changes.push({ label: `⚔ New weapon: ${WEAPONS[w].name}`, v: 1, special: 'grow' }); }
     if (fx.rankAt && Rankings.on(s)) {   // the story moves you on the list: { to, better } or by flag { good_final: 280, else: 295 }
       const R = fx.rankAt, k = R.to == null && Object.keys(R).find(f => f !== 'else' && f !== 'why' && s.flags[f]), n = R.to != null ? R.to : k ? R[k] : R.else;
       const res = n && Rankings.setRank(s, n, R.why || 'Story', { better: !!R.better });
@@ -269,6 +271,7 @@ const Game = {
 
   /* ---------- one-off story matches ---------- */
   team(id) { const s = this.state; if (id === '@club') id = s.career.club; else if (id === '@college') id = s.career.college; else if (id === '@gl') id = 'gl_ignition';   // Chapter 3: your team on each route
+    if (id === '@jv') id = (s.career.hs || 'lincoln') + '_jv';   // Chapter 2: your school's JV team
     const t = LOCAL_TEAMS[id]; return Object.assign({ id }, t); },
   async playMatch(node, ch) {
     const s = this.state;
@@ -386,7 +389,18 @@ const Game = {
       else ['autoSim', 'simXp', 'hubAP'].forEach(k => { if (def[k] != null) s.season.def[k] = def[k]; });
       this.save();
     }
+    if (typeof node.season !== 'function' && s.season.def !== def && this.mergeBeats(s.season, def)) this.save();
     this.seasonStep();
+  },
+  mergeBeats(se, def) {   // older save, mid-season: story beats added since land in the weeks and playoff rounds still to come
+    const od = se.def; let n = 0;
+    Object.entries(def.interrupts || {}).forEach(([w, id]) => { if ((+w > se.week || (+w === se.week && !se.shown['i' + w])) && (od.interrupts || {})[w] !== id) { (od.interrupts = od.interrupts || {})[w] = id; n++; } });
+    if (def.playoff && od.playoff && se.phase !== 'done') {
+      const r0 = se.phase === 'playoffs' ? se.playoffs.round : 0;
+      Object.entries(def.playoff.pre || {}).forEach(([r, id]) => { if (+r >= r0 && !se.shown['pp' + r] && (od.playoff.pre || {})[r] !== id) { (od.playoff.pre = od.playoff.pre || {})[r] = id; n++; } });
+      if (def.playoff.halftime && od.playoff.halftime !== def.playoff.halftime) { od.playoff.halftime = def.playoff.halftime; n++; }
+    }
+    return n;
   },
   seasonStep() {
     const s = this.state, se = s.season, def = se.def, home = se.home.chapter;
@@ -450,7 +464,7 @@ const Game = {
       out.push({ r, g: sg, sum });
     }
     s.hub = null; this.updateRecruit(); this.save();
-    UI.simStretch(out, se, () => this.afterRanks(() => this.seasonStep()));
+    UI.simStretch(out, se, () => this.state === s && this.afterRanks(() => this.seasonStep()));   // (ignore a highlights screen left over from another save)
   },
   async playSeasonGame(sim) {
     const s = this.state, se = s.season; if (!se) return this.runNode();   // a stale click after the season ended: back to the story
@@ -472,6 +486,8 @@ const Game = {
       cfg.venue = g.away ? 'away' : g.home ? 'home' : (se.week + (g.opp || '').length) % 2 ? 'away' : 'home';
       cfg.venueId = finalGame ? (se.def.finalVenue || (se.level === 'hs' ? 'college_arena' : 'tournament')) : g.venue && VENUES[g.venue] ? g.venue : Venues.forMatch(cfg);
       if (typeof Story !== 'undefined') await Story.prematch(s, cfg, g);   // a marked rival: the revenge-game poster
+      if (finalGame && se.def.playoff.halftime && typeof Story !== 'undefined') { const hid = se.def.playoff.halftime; cfg.onHalftime = () => Story.cut(hid, Object.assign(this.csCtx(s.story.node), { team: { colors: cfg.us.colors } })); }   // the story at halftime of the final
+      if (g.script && typeof JAM_SCRIPTS !== 'undefined' && JAM_SCRIPTS[g.script]) cfg.script = JAM_SCRIPTS[g.script];
       this.activity = { kind: 'season', g, cfg, title: se.name };
       r = await Match.play(cfg); this.activity = null;
       this.unlockVenue(r.venueId);
