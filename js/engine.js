@@ -125,7 +125,7 @@ const Engine = (() => {
     if (o >= 60) return { id: 'silver', name: 'Silver' };
     return { id: 'bronze', name: 'Bronze' };
   }
-  function radar(s) { return RADAR.map(g => ({ n: g.n, v: g.keys.reduce((t, k) => t + s.player.attrs[k], 0) / g.keys.length })); }
+  function radar(s) { return RADAR.map(g => ({ n: g.n, v: g.w ? g.keys.reduce((t, k) => t + s.player.attrs[k] * g.w[k], 0) : g.keys.reduce((t, k) => t + s.player.attrs[k], 0) / g.keys.length })); }   // g.w: weighted group
 
   /* ---------- BADGES ---------- */
   function badgeTier(s, b) {

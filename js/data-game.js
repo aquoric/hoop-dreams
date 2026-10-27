@@ -26,7 +26,7 @@ const ATTR_BY_KEY = Object.fromEntries(ATTRS.map(a => [a.k, a]));
 
 /* Radar chart groups (6 axes) */
 const RADAR = [
-  { n: 'Shooting',    keys: ['three', 'mid', 'ft'] },
+  { n: 'Shooting',    keys: ['three', 'mid', 'ft'], w: { three: .45, mid: .4, ft: .15 } },   // free throws count for less
   { n: 'Inside',      keys: ['finish', 'dunk'] },
   { n: 'Playmaking',  keys: ['handle', 'pass', 'iq'] },
   { n: 'Defense',     keys: ['perD', 'intD'] },
@@ -40,19 +40,19 @@ const RADAR = [
    adj: starting attribute adjustments. */
 const POSITIONS = {
   PG: { name: 'Point Guard', h: [70, 77, 74],
-    w: { three: 1.2, mid: .8, ft: .4, finish: .8, dunk: .2, handle: 1.5, pass: 1.5, speed: 1.1, vert: .3, str: .2, stam: .5, perD: .8, intD: .1, reb: .2, iq: 1.2, clutch: .7 },
+    w: { three: 1.2, mid: .8, ft: .2, finish: .8, dunk: .2, handle: 1.5, pass: 1.5, speed: 1.1, vert: .3, str: .2, stam: .5, perD: .8, intD: .1, reb: .2, iq: 1.2, clutch: .7 },
     adj: { handle: 8, pass: 8, speed: 7, three: 3, iq: 4, reb: -6, intD: -8, str: -6, dunk: -4 } },
   SG: { name: 'Shooting Guard', h: [73, 79, 77],
-    w: { three: 1.5, mid: 1.1, ft: .5, finish: .9, dunk: .4, handle: 1.0, pass: .7, speed: 1.0, vert: .4, str: .3, stam: .5, perD: .9, intD: .15, reb: .3, iq: .8, clutch: .8 },
+    w: { three: 1.5, mid: 1.1, ft: .25, finish: .9, dunk: .4, handle: 1.0, pass: .7, speed: 1.0, vert: .4, str: .3, stam: .5, perD: .9, intD: .15, reb: .3, iq: .8, clutch: .8 },
     adj: { three: 7, mid: 6, handle: 4, speed: 5, ft: 4, intD: -6, reb: -5, str: -3 } },
   SF: { name: 'Small Forward', h: [77, 82, 80],
-    w: { three: 1.0, mid: 1.0, ft: .4, finish: 1.0, dunk: .6, handle: .7, pass: .6, speed: .8, vert: .6, str: .6, stam: .5, perD: 1.0, intD: .5, reb: .6, iq: .8, clutch: .7 },
+    w: { three: 1.0, mid: 1.0, ft: .2, finish: 1.0, dunk: .6, handle: .7, pass: .6, speed: .8, vert: .6, str: .6, stam: .5, perD: 1.0, intD: .5, reb: .6, iq: .8, clutch: .7 },
     adj: { finish: 3, perD: 3, three: 2, vert: 2 } },
   PF: { name: 'Power Forward', h: [79, 84, 81],
-    w: { three: .6, mid: .8, ft: .3, finish: 1.1, dunk: .8, handle: .3, pass: .4, speed: .5, vert: .7, str: 1.0, stam: .5, perD: .6, intD: 1.0, reb: 1.1, iq: .7, clutch: .5 },
+    w: { three: .6, mid: .8, ft: .15, finish: 1.1, dunk: .8, handle: .3, pass: .4, speed: .5, vert: .7, str: 1.0, stam: .5, perD: .6, intD: 1.0, reb: 1.1, iq: .7, clutch: .5 },
     adj: { reb: 8, str: 7, intD: 7, finish: 4, dunk: 3, speed: -4, handle: -6, three: -4 } },
   C:  { name: 'Center', h: [81, 87, 84],
-    w: { three: .3, mid: .5, ft: .3, finish: 1.3, dunk: 1.0, handle: .15, pass: .4, speed: .3, vert: .7, str: 1.3, stam: .5, perD: .3, intD: 1.5, reb: 1.5, iq: .7, clutch: .4 },
+    w: { three: .3, mid: .5, ft: .15, finish: 1.3, dunk: 1.0, handle: .15, pass: .4, speed: .3, vert: .7, str: 1.3, stam: .5, perD: .3, intD: 1.5, reb: 1.5, iq: .7, clutch: .4 },
     adj: { reb: 10, intD: 10, str: 10, finish: 5, dunk: 5, speed: -8, handle: -10, three: -8, pass: -4 } },
 };
 
