@@ -15,10 +15,10 @@
      • Typewriter dialogue with name tags and a voice blip per character; music cues + silences.
 
    SHOT FORMAT
-   { d: ms (shot clock),  scene: 'street_sunset'|'street_night'|'rain_night'|'gym'|'locker'|'arena'|'hospital'|'list'|'notebook'|'title'|'void'|'vs'
+   { d: ms (shot clock),  scene: 'airport'|'street_sunset'|'street_night'|'rain_night'|'gym'|'locker'|'arena'|'hospital'|'list'|'notebook'|'title'|'void'|'vs'
      court: venue id, '@venue' (the game's venue) or a def object { base, sky, … } (instead of scene) for gameplay shots,
      cam: [[0, x, y, zoom], [1, x, y, zoom, ease]]  (world px from scene center; ease: lin io out in back snap),
-     cast: [{ id, kind:'face'|'bust'|'full'|'sprite'|'car'|'ball'|'trophy', x (view units −1..1, or venue px for sprites), y, expr, flip,
+     cast: [{ id, kind:'face'|'bust'|'full'|'sprite'|'car'|'ball'|'trophy'|'phone'|'towel'|'medal', x (view units −1..1, or venue px for sprites), y, expr, flip,
               d (parallax depth), from:{dx,dy,t,ease} (entrance), move:[[ms,x],[ms,x]], sil (silhouette), rim (rim-light color), team (sprites) }],
      say: [who, text], title: { text, sub, style:'slam'|'rise'|'loc', at }, grade: 'sunset'|'night'|'gold'|'red'|'blue'|'spot'|'dark'|'mono',
      speed: 'radial'|'h', focus:[fx,fy], slow: k or [[t0,t1,k]], tr: 'cut'|'fade'|'flash'|'wipe', music: mood | null (silence),
@@ -442,11 +442,24 @@ const Cutscene = (() => {
         if (Math.floor(S.t * 1.1) !== S._beat) { S._beat = Math.floor(S.t * 1.1); if (S.t > .2) SFX.play('beep'); }
       } };
   }
+  function airport() {
+    const R = Art.seeded('cs-airport'), HZ = 150;
+    const win = layer((g, px) => { gradRows(px, 0, HZ, [[8, 12, 30], [24, 34, 70], [52, 40, 70]]); for (let i = 0; i < 60; i++) px(R() * WW, R() * 70, 1, 1, '#cbd5e1');
+      px(0, 118, WW, 4, '#1e293b'); for (let x = 6; x < WW; x += 22) px(x, 120, 2, 1, x % 44 ? '#fbbf24' : '#38bdf8');
+      px(150, 92, 180, 16, '#0f172a'); px(310, 70, 20, 30, '#0f172a'); px(200, 104, 70, 6, '#0b1220'); for (let x = 166; x < 300; x += 8) px(x, 97, 3, 2, '#fde68a');
+      for (let x = 0; x < WW; x += 80) px(x, 0, 6, HZ, '#111827'); px(0, 0, WW, 8, '#111827'); });
+    const hall = layer((g, px) => { px(420, 18, 150, 70, '#0b0b10'); px(424, 22, 142, 62, '#111827'); Pixel.text(g, 'DEPARTURES', 432, 26, '#fbbf24', 1);
+      ['RIGA     NEW YORK', 'RIGA     ATLANTA', 'RIGA     LOS ANGELES', 'RIGA     PARIS'].forEach((l, i) => Pixel.text(g, l + (i ? '  BOARDING' : '  DELAYED'), 432, 38 + i * 11, i ? '#fde68a' : '#f87171', 1)); });
+    const floor = layer((g, px) => { px(0, HZ, WW, H - HZ, '#334155'); for (let x = 0; x < WW; x += 32) px(x, HZ, 1, H - HZ, '#3b4a61'); px(0, HZ, WW, 2, '#475569');
+      for (let r = 0; r < 2; r++) for (let x = 40 + r * 18; x < WW - 40; x += 26) { const y = 168 + r * 20; px(x, y - 12, 20, 12, '#1e3a8a'); px(x, y, 20, 5, '#1d4ed8'); px(x + 2, y + 5, 2, 7, '#0f172a'); px(x + 16, y + 5, 2, 7, '#0f172a'); } });
+    return { layers: [[win, .4], [hall, .7], [floor, 1]], HZ,
+      back(c, S, at) { at(.4); if (Math.floor(S.t * 1.6) % 2) { P(c, 150 - 320 - 2, 96 - 108, 3, 3, '#ef4444'); P(c, 330 - 320, 70 - 108, 3, 3, '#f8fafc'); } } };
+  }
   function paper(kind, ctx) {
     const s = Game.state, last = s ? s.player.last.toUpperCase() : 'YOU', first = s ? s.player.first.toUpperCase() : '', [c0] = teamCols(ctx), cut = kind === 'cutlist'; if (cut) kind = 'list';   // cutlist: the varsity list without your name (Chapter 2)
     const bg = layer((g, px) => { if (kind === 'list') { for (let x = 0; x < WW; x += 40) { px(x, 0, 38, H, shade(c0, -.2)); px(x + 2, 0, 34, H, c0); for (let k = 0; k < 5; k++) px(x + 10, 20 + k * 4, 18, 1, shade(c0, -.45)); } }
       else { px(0, 0, WW, H, '#5b3a1f'); for (let y = 0; y < H; y += 4) px(0, y, WW, 1, '#53351c'); } });
-    const lines = cut ? ['VARSITY ROSTER', ''].concat(ctx.listNames || ['HOLLIS', 'COLE', 'PIKE', 'MILES', 'PLATT']) : kind === 'list' ? ['VARSITY ROSTER', '', 'HOLLIS', 'COLE', 'PIKE', 'MILES', last + (s ? ' #' + s.player.num : '')] : ['EHN SCOUT NOTES', '', `${first} ${last}`, 'RAW. COMPETITIVE.', 'LEFT HAND: A RUMOR', 'GETS BETTER WHEN', 'IT GETS HARDER'];
+    const lines = cut ? [ctx.listTitle || 'VARSITY ROSTER', ''].concat(ctx.listNames || ['HOLLIS', 'COLE', 'PIKE', 'MILES', 'PLATT']) : kind === 'list' ? ['VARSITY ROSTER', '', 'HOLLIS', 'COLE', 'PIKE', 'MILES', last + (s ? ' #' + s.player.num : '')] : ['EHN SCOUT NOTES', '', `${first} ${last}`, 'RAW. COMPETITIVE.', 'LEFT HAND: A RUMOR', 'GETS BETTER WHEN', 'IT GETS HARDER'];
     return { layers: [[bg, .6]], HZ: 200,
       back(c, S, at) {
         at(1); const pw = 230, ph = 200, x0 = -pw / 2, y0 = -ph / 2; let pen = null;
@@ -454,7 +467,7 @@ const Cutscene = (() => {
         if (kind !== 'list') { for (let y = y0 + 30; y < y0 + ph; y += 16) P(c, x0, y, pw, 1, '#93c5fd'); P(c, x0 + 22, y0, 1, ph, '#f87171'); P(c, x0, y0, pw, 12, '#b45309'); }
         else P(c, -3, y0 - 4, 6, 6, '#ef4444');
         lines.forEach((ln, i) => { const t0 = i * .42 + .2, n = Math.floor(clamp((S.t - t0) / .03, 0, ln.length)), y = y0 + 18 + i * 16, x = x0 + 30;
-          if (!n) return; const isMe = cut ? false : kind === 'list' ? i === lines.length - 1 : i === 2;
+          if (!n) return; const isMe = cut ? ctx.listMe != null && i === ctx.listMe + 2 : kind === 'list' ? i === lines.length - 1 : i === 2;
           if (isMe && n === ln.length) { const w = Pixel.textWidth(ln, 2); P(c, x - 3, y - 3, w + 6, 15, 'rgba(250,204,21,.7)'); }
           Pixel.text(c, ln.slice(0, n), x, y, i === 0 ? (kind === 'list' ? '#b91c1c' : '#7c2d12') : '#1e293b', 2); if (n < ln.length) pen = [x + Pixel.textWidth(ln.slice(0, n), 2) + 2, y + 6]; });
         if (kind !== 'list' && S.t > 3.1) { c.strokeStyle = '#dc2626'; c.lineWidth = 2; c.beginPath(); c.ellipse(x0 + 30 + 60, y0 + 18 + 5.5 * 16 + 4, 96, 24, -.05, 0, Math.min(1, (S.t - 3.1) * 2.5) * Math.PI * 2); c.stroke(); }
@@ -580,7 +593,7 @@ const Cutscene = (() => {
   function sceneFor(id, ctx) {
     const key = id + '|' + teamCols(ctx).join(',') + '|' + themCols(ctx).join(',') + (ctx.night ? 'n' : 'd') + (ctx.city || '');
     if (SCN.has(key)) return SCN.get(key);
-    const S = id === 'street_sunset' ? street('sunset') : id === 'street_night' ? street('night') : id === 'rain_night' ? street('rain') : id === 'gym' ? gym(ctx) : id === 'locker' ? locker(ctx)
+    const S = id === 'airport' ? airport() : id === 'street_sunset' ? street('sunset') : id === 'street_night' ? street('night') : id === 'rain_night' ? street('rain') : id === 'gym' ? gym(ctx) : id === 'locker' ? locker(ctx)
       : id === 'arena' ? arena(ctx) : id === 'highway' ? highway(ctx) : id === 'sky' ? skyScene(ctx) : id === 'city' ? cityScene(ctx) : id === 'arena_ext' ? arenaExt(ctx) : id === 'tunnel' ? tunnel(ctx) : id === 'hospital' ? hospital() : id === 'list' || id === 'notebook' || id === 'cutlist' ? paper(id, ctx) : id === 'title' ? titleScene() : id === 'vs' ? vsScene() : id === 'ranks' ? rankScene(ctx)
       : id === 'poster' ? posterScene(ctx) : id === 'credits' ? creditsScene(ctx) : id === 'white' ? voidScene('#f8fafc') : voidScene();
     if (!/list|notebook|ranks|credits/.test(id)) SCN.set(key, S);   // (cutlist too: it matches /list/)     // the paper scenes use the player's name: always fresh
@@ -605,7 +618,7 @@ const Cutscene = (() => {
     const S = { sh, ctx, W, c, T: 0, t: 0, cam: { x: 0, y: 0, z: 1 }, shx: 0, shy: 0, shake: 0, flash: 0, flashCol: '#fff', impactUntil: -1, impCols: null, freezeUntil: -1, stopUntil: -1, cheer: 0, tr: 0,
       speed: sh.speed || null, grade: sh.grade || null, parts: [], evi: 0, actors: [], sp: {}, ball: { x: 192, y: 160, z: 0, holder: null, spin: 0 }, lightning: 0, now: 0, expr: {}, lastBlip: -999 };
     if (sh.court) { S.V = courtVenue(sh.court, ctx); S.R = Pixel.renderer(c, S.V); S.R.E.hype = .5; }
-    else { S.scn = sceneFor(sh.scene || 'void', ctx); S.R = Pixel.renderer(c, { def: {}, crowd: [], lights: [], flags: [], W: 384, H: 216, street: true }); }
+    else { S.scn = sceneFor(sh.scene || 'void', sh.listNames ? Object.assign({}, ctx, { listNames: sh.listNames, listTitle: sh.listTitle, listMe: sh.listMe }) : ctx); S.R = Pixel.renderer(c, { def: {}, crowd: [], lights: [], flags: [], W: 384, H: 216, street: true }); }
     S.fx = { impact: (ms = 160, cols) => { S.impactUntil = S.now + ms; S.impCols = cols || null; }, shake: n => { S.shake = Math.max(S.shake, n); }, flash: (col, a) => { S.flashCol = col; S.flash = a; } };
     // story toolkit state: weather, wind, light changes, the drained / flashback looks, letterbox, Dutch angle
     const W0 = sh.weather ? 1 : 0; Object.assign(S, { wind: sh.wind || 0, rainK: W0, rainTo: W0, storm: sh.weather === 'storm', dim: sh.dim || 0, dimTo: sh.dim || 0, drain: sh.drain || 0, drainTo: sh.drain || 0, sepia: !!sh.sepia,
@@ -747,6 +760,20 @@ const Cutscene = (() => {
       P(c, x - k, y - 30 * k, 2 * k, 4 * k, '#94a3b8'); c.save(); c.translate(x + sw, y - 26 * k);
       P(c, -9 * k - 1, -1, 18 * k + 2, 24 * k + 2, OUT); P(c, -9 * k, 0, 18 * k, 24 * k, col); P(c, -12 * k, 0, 3 * k, 8 * k, col); P(c, 9 * k, 0, 3 * k, 8 * k, col); P(c, -4 * k, 0, 8 * k, 3 * k, '#0a0a12');
       P(c, -9 * k, 0, 18 * k, k * .8, tr); Pixel.text(c, String(A.num != null ? A.num : '00'), 0, 6 * k, tr, Math.max(1, Math.round(k * 1.6)), 'center', '#0a0a12'); c.restore(); }
+    if (A.kind === 'phone') { const k = A.s || 3, w = 14 * k, h = 24 * k, x0 = x - w / 2, y0 = y - h;   // a phone, screen lit (a highlight playing on it); y = its bottom
+      P(c, x0 - 1, y0 - 1, w + 2, h + 2, OUT); P(c, x0, y0, w, h, '#111827'); const sx = x0 + k, sy = y0 + 2 * k, sw = w - 2 * k, sh = h - 5 * k;
+      P(c, sx, sy, sw, sh, '#b45309'); P(c, sx, sy + sh * .62, sw, sh * .38, '#92400e'); P(c, sx + sw * .7, sy + sh * .25, k, sh * .35, '#f8fafc'); P(c, sx + sw * .62, sy + sh * .25, sw * .2, k * .6, '#ef4444');
+      const u = (S.t * .7) % 1, px = sx + sw * (.2 + .45 * u), pz = Math.sin(Math.min(1, u * 1.3) * Math.PI) * sh * .3;
+      P(c, px, sy + sh * .55 - pz, k * 1.2, k * 2.4, '#1e3a8a'); P(c, px + k * .3, sy + sh * .5 - pz - k, k * .7, k * .7, '#a86b43');
+      if (u > .45 && u < .8) P(c, sx + sw * (.4 + (u - .45) * .9), sy + sh * (.4 - (u - .45) * .4), k * .7, k * .7, '#f97316');
+      P(c, sx, sy + sh - 2 * k, sw * Math.min(1, u * 1.1), k * .5, '#ef4444'); P(c, x - 2 * k, y0 + h - 2 * k, 4 * k, k * .6, '#334155');
+      c.save(); c.globalCompositeOperation = 'lighter'; c.fillStyle = 'rgba(147,197,253,.10)'; c.fillRect(x0 - 18 * k, y0 - 10 * k, w + 36 * k, h + 14 * k); c.restore(); }
+    if (A.kind === 'towel') { const k = A.s || 2.6, sw = Math.sin(S.t * 9 + (A.ph || 0)) * 5 * k;   // a towel waved over somebody's head on the bench (y = the hand)
+      c.save(); c.translate(x, y); c.rotate(sw / (40 * k)); P(c, -k * .6, -10 * k, k * 1.2, 10 * k, '#e5e7eb'); P(c, -1, -18 * k - 1, 9 * k + 2, 8 * k + 2, OUT); P(c, 0, -18 * k, 9 * k, 8 * k, '#f8fafc'); P(c, 0, -12 * k, 9 * k, k, A.col || '#dc2626'); c.restore(); }
+    if (A.kind === 'medal') { const k = A.s || 2.5, col = A.col || '#facc15';   // a medal on its ribbon (y = the bottom of the disc)
+      P(c, x - 5 * k, y - 22 * k, 3 * k, 12 * k, '#1e3a8a'); P(c, x + 2 * k, y - 22 * k, 3 * k, 12 * k, '#dc2626'); P(c, x - 4 * k - 1, y - 9 * k - 1, 8 * k + 2, 9 * k + 2, OUT);
+      P(c, x - 4 * k, y - 9 * k, 8 * k, 9 * k, col); P(c, x - 3 * k, y - 8 * k, 6 * k, k, '#fef9c3'); P(c, x - 2 * k, y - 6 * k, 4 * k, 4 * k, shade(col, -.2));
+      if (Math.sin(S.t * 3) > .7) P(c, x - 3 * k, y - 8 * k, k, 3 * k, '#ffffff'); }
     if (A.kind === 'trophy') { const k = A.s || 2.5, au = '#facc15', dk = '#ca8a04', hi = '#fef08a';   // a gold trophy (y = the bottom of its base)
       P(c, x - 7 * k - 1, y - 4 * k - 1, 14 * k + 2, 4 * k + 2, OUT); P(c, x - 7 * k, y - 4 * k, 14 * k, 4 * k, '#78350f'); P(c, x - 7 * k, y - 4 * k, 14 * k, k, '#a16207');
       P(c, x - 2 * k - 1, y - 9 * k - 1, 4 * k + 2, 5 * k + 2, OUT); P(c, x - 2 * k, y - 9 * k, 4 * k, 5 * k, dk);

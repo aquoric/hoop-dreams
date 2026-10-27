@@ -54,14 +54,18 @@
   if (C.highschool) { C.highschool.cast = ['you', 'lou', 'tariq', 'kai', 'mom', 'nia', 'brennan', 'graves', 'brick', 'vale', 'silk', 'vince', 'marcus']; C.highschool.postCredits = 'pc_reyes'; }
 
   /* ---------------- INTERLUDE: Red, White & Hoops ---------------- */
+  /* return_home / usa_end belong to no arc: the pro-am road ends without the World Youth card */
   A('usa', [
-    { id: 'camp', name: 'The Selection Camp Arc', goal: 'Make the national team.',
-      nodes: 'second_chance invite_check invite invite_home no_invite tryout_pre tryout_game tryout_last not_this_year late_invite arrive meet_staff meet_campers kai_camp board_intro day1_drills day1_dorm day1_film day1_board day2_scrim_pre day2_scrim day2_scrim_win day2_scrim_loss cut1_pre cut1 cut1_safe day3_drills day3_dorm day3_dorm_bad day3_3v3_pre day3_3v3 day3_3v3_win day3_3v3_loss eval final_cut_pre final_cut made_team kai_teammates jersey cut_home cut_lou cut_watch chem_dre jelly_stuffed jelly_meet jelly_meet2 jelly_lesson_pre jelly_lesson jelly_learned jelly_scrim_pre jelly_scrim jelly_check jelly_drop jelly_notyet jelly_cut_check jelly_cut_lesson_pre jelly_cut_lesson jelly_cut_learned jelly_cut_bye',
-      next: { who: 'narrator', line: 'Twelve countries. Twelve flags. One gold medal.', scene: 'arena', grade: 'gold', cast: [{ id: 'kai', kind: 'bust', x: .3, expr: 'determined', rim: '#93c5fd' }] } },
-    { id: 'world', name: 'The World Youth Arc', goal: 'Bring home the gold.', climax: true,
-      nodes: 'travel hotel anthem g1 g1_win g1_loss g2 g2_post g3 group_check out_group qf_pre qf out_qf sf_pre sf bronze_pre bronze final_pre final medal_gold medal_silver medal_bronze fourth tour_end return_home usa_end' },
+    { id: 'camp', name: 'The Selection Camp Arc', goal: 'Make the twelve.',
+      nodes: 'invite_check invite invite_home no_invite tryout_pre tryout_game tryout_last late_invite not_this_year proam_pre proam_game proam_win proam_loss kai_tv second_chance arrive meet_staff meet_campers kai_camp board_intro day1_drills day1_dorm day1_film day1_board day2_scrim_pre day2_scrim day2_scrim_win day2_scrim_loss chem_dre jelly_stuffed jelly_meet jelly_meet2 cut1_pre cut1 cut1_safe jelly_lesson_pre jelly_lesson jelly_learned jelly_scrim_pre jelly_scrim jelly_check jelly_drop jelly_notyet day3_drills day3_dorm day3_dorm_bad day3_3v3_pre day3_3v3 day3_3v3_win day3_3v3_loss eval final_cut_pre final_cut made_team kai_teammates jersey cut_home jelly_cut_check jelly_cut_lesson_pre jelly_cut_lesson jelly_cut_learned jelly_cut_bye cut_lou cut_watch',
+      goals: [{ t: 'Get the invite', done: { flag: 'usa_camp' } }, { t: 'Learn the jelly', done: { flag: 'jelly' } }, { t: 'Make the twelve', done: { flag: 'usa_made' } }],
+      next: { who: 'narrator', line: 'Riga. Flags in the rafters. And you, in a warmup jacket, sitting.', scene: 'arena', grade: 'night',
+        cast: [{ id: 'bench', kind: 'bench', x: 0, y: 72, s: 2.8, w: 30, d: 1 }, { id: 'you', kind: 'actor', x: 0, y: 72, s: 2.8, acts: [[0, 'bench', 99]] }] } },
+    { id: 'world', name: 'The World Youth Arc', goal: 'Get on the floor.', climax: true,
+      nodes: 'travel hotel anthem wy_group wy_group_post wy_qf wy_sf wy_kai_pov final_pre wy_final_open wy_final wy_gold out_group out_qf bronze_pre bronze medal_gold medal_silver medal_bronze fourth tour_end',
+      goals: [{ t: 'Get on the floor', done: { flag: 'usa_final_in' } }, { t: 'Win gold', done: { flag: 'usa_gold' } }] },
   ]);
-  if (C.usa) C.usa.cast = ['you', 'kai', 'lou', 'dee', 'mom', 'tariq'];
+  if (C.usa) { C.usa.cast = ['you', 'reyes', 'sal', 'kai', 'dre', 'ike', 'milo', 'jet', 'okafor', 'mbaye', 'bakari', 'lou', 'mom']; C.usa.postCredits = 'pc_kai_airport'; }
 
   /* ---------------- CHAPTER 3: The Next Level (three roads) ---------------- */
   const END3 = ' c3_declare c3_end';
@@ -95,7 +99,7 @@
     street: { scene: 'street_sunset', grade: 'sunset', place: '{hometown}', sub: 'Halsey Street Courts', cast: ['mom', 'nia', 'tariq', 'lou'], rivals: [], you: 1, rim: '#fdba74',
       court: { base: 'street_night', sky: 'sunset', lights: null, crowd: 0 } },
     highschool: { scene: 'gym', grade: 'blue', place: '{hs}', sub: 'Sophomore year', cast: ['mom', 'nia', 'tariq', 'lou', 'dee'], rivals: ['vale', 'holt', 'silk'], you: .62, rim: '#93c5fd', night: true, court: '@venue' },
-    usa: { scene: 'arena', grade: 'gold', place: 'USA Basketball', sub: 'Selection camp', cast: ['mom', 'lou', 'dee', 'tariq'], rivals: ['dre', 'jet', 'ike'], you: .32, rim: '#fde68a', night: true, court: 'college_arena' },
+    usa: { scene: 'arena', grade: 'gold', place: 'USA Basketball', sub: 'Selection camp', cast: ['mom', 'lou', 'dee', 'tariq'], rivals: ['mbaye', 'ike', 'jet'], you: .32, rim: '#fde68a', night: true, court: 'college_arena' },
     college: { scene: 'arena', grade: 'red', place: 'The Next Level', sub: 'One year to prove it', cast: ['mom', 'nia', 'lou', 'tariq', 'dee'], rivals: ['dez', 'vance'], you: .1, rim: '#fca5a5', night: true, court: 'college_arena' },
   };
 
@@ -110,6 +114,8 @@
     usa_cutday: 'Cut day. Not everyone got to stay.',
     usa_anthem: 'You wore the red, white and blue.',
     usa_gold: 'Gold. The whole world watched.',
+    _usa_roster: 'Twelve names on one sheet. Yours was one of them.', _wy_group: 'Three games in Riga. Your warmup never came off.', wy_kai_call: 'Silk called Kai at 1 a.m.',
+    _wy_final_open: 'Then Reyes turned around. "You. Now."', _wy_gold: 'The jelly over Bakari. Gold.', _usa_kai_tv: 'Kai won gold. You watched it on TV.', pc_kai_airport: 'Kai, alone at the gate, watching your highlight.',
     usa_silver: 'Silver. So close it still hurts.',
     usa_bronze: 'Bronze. You fought for every inch of it.',
     c3_signing: 'You signed your name and picked your road.',
@@ -140,6 +146,14 @@
     jelly: [
       { lines: ['The big man\'s waiting at the rim.', 'Around him. Not through him.', 'Soft hands.'], metaphor: 'puzzle' },
       { lines: ['He\'s already jumping.', 'Too early.'], metaphor: 'eyes' },
+    ],
+    jelly_void: [
+      { lines: ['The noise drops out.', 'Just you and the seven-footer.', 'He\'s already in the air.'], metaphor: 'void' },
+      { lines: ['Three quarters on the bench.', 'None of that matters now.', 'Only him, only the rim.'], metaphor: 'void' },
+    ],
+    jelly_puzzle: [
+      { lines: ['His arm comes up on the left.', 'Scoop\'s voice: around him.', 'Right side, soft.'], metaphor: 'puzzle' },
+      { lines: ['Hide the ball.', 'Wait for the jump.', 'Kiss it off the glass.'], metaphor: 'puzzle' },
     ],
     jam: [
       { lines: ['Halsey Street is watching.', 'Every one of them.', 'Make it count.'], metaphor: 'eyes' },

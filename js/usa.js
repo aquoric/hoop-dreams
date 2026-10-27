@@ -35,9 +35,12 @@ const USA = (() => {
   }
   function snapshot(s, list) { const u = camp(s); u.prev = {}; list.forEach((x, i) => u.prev[x.name] = i + 1); }
   async function board(G, node) {
-    const s = G.state, u = camp(s), list = field(s), keep = node.keep || 12, me = list.findIndex(x => x.me) + 1;
+    const s = G.state, u = camp(s), list = field(s), keep = node.keep || 12, roster = node.mode === 'roster';
+    if (node.safe || roster) { const i = list.findIndex(x => x.me); if (i >= keep) {   // at camp you always make it: on the bubble, you squeak in (just ahead of the first one out)
+      const me0 = list.splice(i, 1)[0], next = list[keep - 1], above = list[keep - 2]; if (next) me0.score = u.pts = Math.min(above ? above.score : 99, Math.round((next.score + .1) * 10) / 10); list.splice(keep - 1, 0, me0); } }
+    const me = list.findIndex(x => x.me) + 1, rot = node.rotation || 8;
     UI.setBg('locker');
-    const cutting = node.mode === 'cut', cutNames = cutting ? list.slice(keep).map(x => x.name) : [];
+    const cutting = node.mode === 'cut' || roster, cutNames = cutting ? list.slice(keep).map(x => x.name) : [];
     UI.showScreen(`<div class="usa-board glass">
       <div class="ub-head"><b>${esc(node.title || 'THE BOARD')}</b><small>${esc(node.note || (cutting ? 'Coach Reyes reads the list.' : `Top ${keep} make the roster. You're #${me} of ${list.length}.`))}</small></div>
       <div class="ub-list" id="ubList">${boardRows(s, list, keep)}</div>
@@ -55,7 +58,9 @@ const USA = (() => {
         if (row) { row.classList.add('cut'); row.scrollIntoView({ block: 'nearest' }); } SFX.play(n === youName(s) ? 'bad' : 'whistle'); await sleep(n === youName(s) ? 1200 : 750);
       }
       document.querySelectorAll('.ub-row:not(.cut)').forEach(r => r.classList.add('safe'));
-      read.innerHTML = made ? `<b class="ok">YOU'RE STILL HERE.</b> ${keep === 12 ? 'Twelve jerseys — one has your name on it.' : `${keep} stay.`}` : `<b class="no">CUT.</b> Your camp ends here.`;
+      if (roster) { s.flags[me <= rot ? 'usa_rotation' : 'usa_bench'] = true; u.place = me; }   // your place on the board decides your role
+      read.innerHTML = roster ? `<b class="ok">YOU MADE THE TWELVE.</b> #${me} on the board · ${me <= rot ? 'Rotation player' : 'End of the bench'}`
+        : made ? `<b class="ok">YOU'RE STILL HERE.</b> ${keep === 12 ? 'Twelve jerseys — one has your name on it.' : `${keep} stay.`}` : `<b class="no">CUT.</b> Your camp ends here.`;
       SFX.play(made ? 'levelup' : 'groan'); if (made) UI.confetti && UI.confetti();
       u.cut.push(...cutNames.filter(n => n !== youName(s))); u.made = made;
       if (C().campers.some(c => c.name === 'Kai Sterling') && !u.cut.includes('Kai Sterling')) u.kai = 'made';

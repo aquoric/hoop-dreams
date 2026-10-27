@@ -208,13 +208,13 @@ if (STORY.chapters.usa) {
   const N = STORY.chapters.usa.nodes;
   Object.assign(N, {
     /* Chemistry Links: Dre after the Red-White scrimmage */
-    chem_dre: { scene: 'locker', fx: { unlock: 'chemistry', rel: { dre: 3 } },
+    chem_dre: { scene: 'locker', cutscene: (s, ctx) => USA4.giveGo(s, ctx), seenId: 'usa_givego', fx: { unlock: 'chemistry', rel: { dre: 3 } },
       lines: [
-        ['dre', 'Yo. That second half? I didn\'t even have to look. I knew where you were going.', 'smile'],
-        ['dre', 'Let\'s make it a thing. I hit you, you cut, I hit you back. Every time.'],
+        ['dre', 'Yo, that second half? I knew where you were going without looking.', 'smile'],
+        ['dre', 'Let\'s make it a thing: I hit you, you cut, I hit you back. Every time.'],
         ['milo', 'Meanwhile I\'m in the corner like a lamp. Somebody link with ME.', 'smile'],
       ], next: 'jelly_stuffed' },
-    jelly_stuffed: { scene: 'gym',
+    jelly_stuffed: { scene: 'gym', cutscene: (s, ctx) => USA4.ikeBlocks(s, ctx), seenId: 'usa_ike',
       lines: [
         ['narrator', 'Third quarter. You blow past Jet and rise for the layup —'],
         ['ike', 'GET THAT OUTTA HERE!', 'fierce'],
@@ -223,31 +223,31 @@ if (STORY.chapters.usa) {
       ], next: 'jelly_meet' },
     jelly_meet: { cine: true, scene: 'gym', fx: { flag: 'jelly_met' },
       lines: [
-        ['sal', 'Hey. Number {num}. C\'mere.'],
+        ['sal', 'Hey, number {num}. C\'mere.'],
         ['sal', 'You can\'t go through him. Go around him.'],
-        ['sal', 'I was five-nine and played eleven years in Europe. Find me tonight. Court two.', 'smile'],
+        ['sal', 'I was five-nine and played eleven years in Europe. Court two, tonight.', 'smile'],
       ],
       choices: [
         { t: '"I\'ll be there."', fx: { rel: { sal: 4 }, camp: 1 }, next: 'cut1_pre' },
         { t: '"Next time I\'m dunking on him."', fx: { rel: { sal: -1 }, morale: 2 }, next: 'jelly_meet2' },
       ] },
     jelly_meet2: { scene: 'gym',
-      lines: [['sal', 'Sure you are. Court two. Eleven o\'clock.', 'smile']], next: 'cut1_pre' },
+      lines: [['sal', 'Sure you are. Court two, eleven o\'clock.', 'smile']], next: 'cut1_pre' },
     jelly_lesson_pre: { scene: 'gym',
       lines: [
         ['narrator', 'Eleven p.m. Court two. One light on, one ball, one old man.'],
         ['sal', 'A shot blocker jumps at the ball. So you hide the ball.'],
-        ['sal', 'His arm comes up one side. You flick it off the glass on the OTHER side. Soft.'],
+        ['sal', 'His arm comes up one side. You flick it off the glass on the OTHER side, soft.'],
       ], next: 'jelly_lesson' },
     jelly_lesson: { type: 'flick', scene: 'gym', title: 'COURT TWO · THE JELLY', coach: 'sal', reps: 6, need: 2, win: 'jelly_learned' },
     jelly_learned: { scene: 'gym', fx: { flag: 'jelly', unlock: 'jelly', rel: { sal: 5 }, attrs: { finish: 1 }, xp: 120, log: 'Learned the jelly layup from Scoop DeLuca.' },
       lines: [
-        ['sal', 'THERE it is. Feel that? That\'s a jelly.', 'smile'],
+        ['sal', 'THERE it is. That\'s a jelly.', 'smile'],
         ['sal', 'Don\'t show it yet. Wait till the big man commits.'],
       ], next: 'jelly_scrim_pre' },
     jelly_scrim_pre: { scene: 'gym',
-      lines: [['reyes', 'Morning run. Ten minutes, live. Ike, you\'re protecting the rim.'], ['ike', '(to you) Back for more?', 'fierce']], next: 'jelly_scrim' },
-    jelly_scrim: { type: 'match', us: 'usa_red', them: 'usa_white', ratingRel: 3, mateRel: 1, moments: 5, level: 'hs', importance: 1, venue: 'usa_center', camp: true,
+      lines: [['reyes', 'Morning run, ten minutes, live. Ike, you\'re protecting the rim.'], ['ike', '(to you) Back for more?', 'fierce']], next: 'jelly_scrim' },
+    jelly_scrim: { type: 'match', us: 'usa_red', them: 'usa_white', ratingRel: 3, mateRel: 1, moments: 5, level: 'hs', importance: 1, venue: 'usa_center', camp: true, coach: 'reyes',
       jellyMoment: { text: 'You turn the corner. Big Ike is waiting at the rim — arms up, eyes on the ball.', by: 'Isaiah "Big Ike" Grant', first: true },
       title: 'Morning Run', sub: 'Red vs White · 10 minutes', win: 'jelly_check', lose: 'jelly_check' },
     jelly_check: { type: 'branch', branches: [{ if: { flag: 'jelly_dropped' }, next: 'jelly_drop' }], else: 'jelly_notyet' },
@@ -255,17 +255,17 @@ if (STORY.chapters.usa) {
       lines: [
         ['narrator', 'The gym goes silent for a second. Then the whole Red bench is on the floor.'],
         ['ike', '…Where did the ball GO?', 'sad'],
-        ['jet', 'BRO. BRO. Do it again!', 'smile'],
+        ['jet', 'BRO! Do it again!', 'smile'],
         ['sal', '(from the sideline, not looking up) Told you. Around him.', 'smile'],
       ], next: 'day3_drills' },
     jelly_notyet: { scene: 'gym',
-      lines: [['sal', 'You had it and didn\'t pull it. Or you pulled it and missed. Either way — again.'], ['sal', 'Next time the big man comes, you flick it. No thinking.']], next: 'day3_drills' },
+      lines: [['sal', 'You had it and didn\'t pull it, or pulled it and missed. Either way: again.'], ['sal', 'Next time the big man comes, you flick it. No thinking.']], next: 'day3_drills' },
     /* cut path: Scoop catches you in the parking lot */
     jelly_cut_check: { type: 'branch', branches: [{ if: { flag: 'jelly' }, next: 'jelly_cut_bye' }, { if: { flag: 'jelly_met' }, next: 'jelly_cut_lesson_pre' }], else: 'cut_lou' },
     jelly_cut_lesson_pre: { scene: 'street_night',
       lines: [
         ['narrator', 'Parking lot, 6 a.m. Your bag\'s in the trunk. Somebody\'s dribbling on the outdoor hoop.'],
-        ['sal', 'You were gonna leave without your lesson? Ten minutes. Grab a ball.', 'smile'],
+        ['sal', 'Leaving without your lesson? Ten minutes, grab a ball.', 'smile'],
       ], next: 'jelly_cut_lesson' },
     jelly_cut_lesson: { type: 'flick', scene: 'street_night', title: 'PARKING LOT · THE JELLY', coach: 'sal', reps: 6, need: 2, venue: 'street_night', win: 'jelly_cut_learned' },
     jelly_cut_learned: { scene: 'street_night', fx: { flag: ['jelly', 'jelly_payoff'], unlock: 'jelly', rel: { sal: 6 }, attrs: { finish: 1 }, xp: 120, log: 'Scoop DeLuca taught you the jelly before you left camp.' },
@@ -274,12 +274,12 @@ if (STORY.chapters.usa) {
         ['sal', 'Next big game, a big man\'s gonna jump at you. Make him remember your name.'],
       ], next: 'cut_lou' },
     jelly_cut_bye: { scene: 'street_night', fx: { flag: 'jelly_payoff', rel: { sal: 3 } },
-      lines: [['sal', '(a text) Cut\'s not the end. You\'ve got the jelly. Next big game — use it.']], next: 'cut_lou' },
+      lines: [['sal', '(a text) Cut\'s not the end, you\'ve got the jelly. Next big game, use it.']], next: 'cut_lou' },
   });
   // splice: Ike stuffs you in the day-2 scrimmage → the lesson after the first cut → the morning run → day 3; cut → parking-lot lesson
   N.day2_scrim_win.next = 'chem_dre'; N.day2_scrim_loss.next = 'chem_dre';
   N.cut1_safe.next = 'jelly_lesson_pre';
   N.cut_home.next = 'jelly_cut_check';
-  // the tournament payoff: a key jelly over France's 7-footer in the final
+  // the tournament payoff: a key jelly over France's 7-footer in the final (older saves on the old 'final'; the new one is wy_final in js/data-usa.js)
   if (N.final) N.final.jellyMoment = { text: 'Fourth quarter. You turn the corner and Yanis Bakari — seven feet of French wingspan — leaves his man to meet you.', by: 'Yanis Bakari', late: true, payoff: true };
 }

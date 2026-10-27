@@ -1337,7 +1337,8 @@ const Match = (() => {
     const L = cfg.target ? Object.assign({}, LEVELS[cfg.level] || LEVELS.street, { pts: cfg.target * 1.7, bg: 0 }) : (LEVELS[cfg.level] || LEVELS.street);
     const size = Math.max(1, Math.min(5, cfg.size || 5));
     const FULL = !!cfg.fullArcade && typeof Arcade !== 'undefined' && !!Arcade.play;   // pickups: the whole game is played live in arcade mode
-    const n = (cfg.moments || 9) + (!cfg.target && !FULL && size >= 5 ? (BALANCE.arcade.segments.extraMoments || 0) : 0), oppR = cfg.oppRating || 45, diffShift = BALANCE.defense[s.difficulty] || 0;
+    const LATE = !FULL && !cfg.target && cfg.lateEntry ? Math.min(.95, Math.max(0, cfg.lateEntry.at || .75)) : 0;   // story: you check in late (e.g. the World Youth final), the clock starts there
+    const n = (cfg.moments || 9) + (!cfg.target && !FULL && size >= 5 && !LATE ? (BALANCE.arcade.segments.extraMoments || 0) : 0), oppR = cfg.oppRating || 45, diffShift = BALANCE.defense[s.difficulty] || 0;
     const myOvr = Engine.ovr(s), usR = cfg.usRating || (size === 1 ? myOvr : Math.round(myOvr * .45 + (cfg.mateRating || 42) * .55));
     const star = (cfg.them && cfg.them.star) || { name: (cfg.them.roster || ['Their best'])[0], perD: oppR, intD: oppR };
     const C = STORY.commentary, ME = Balance.userStats(s), myName = properName(s.player.last);
@@ -1443,8 +1444,8 @@ const Match = (() => {
       const v = Object.assign({ me: myName, first: properName(s.player.first), def: properName(star.name.split(' ').slice(-1)[0]), mate: pick(mateNames.length ? mateNames : ['a teammate']), them: cfg.them.name, us: cfg.us.name }, extra);
       return sentence(pick(pool).replace(/\{(\w+)\}/g, (m, k) => v[k] != null ? v[k] : m));
     };
-    function clockFor(i) { const f = (i + 1) / (n + 1) + .015, tot = L.periods * L.periodMin * 60, el = f * tot, per = Math.min(L.periods, Math.floor(el / (L.periodMin * 60)) + 1), rem = per * L.periodMin * 60 - el; return { per, rem }; }
-    let clk = { per: 1, rem: L.periodMin * 60 };
+    function clockFor(i) { const f = LATE + (1 - LATE) * (i + 1) / (n + 1) + .015, tot = L.periods * L.periodMin * 60, el = f * tot, per = Math.min(L.periods, Math.floor(el / (L.periodMin * 60)) + 1), rem = per * L.periodMin * 60 - el; return { per, rem }; }
+    let clk = LATE ? clockFor(-1) : { per: 1, rem: L.periodMin * 60 };   // a late entry starts the clock where you check in
     function clockStr() { const m = Math.floor(clk.rem / 60), sec = Math.floor(clk.rem % 60); return `${L.label}${clk.per} ${m}:${String(sec).padStart(2, '0')}`; }
     function updBug() {
       $('sbUs').textContent = st.us; $('sbThem').textContent = st.them;
@@ -2125,7 +2126,7 @@ const Match = (() => {
        TALK — quick conversations with a gauge (coach / ref PATIENCE, rival EGO). Data: js/data-talk.js
        ================================================================= */
     const TK = typeof TALK !== 'undefined' ? TALK : null;
-    const coachId = cfg.level === 'street' ? (PICK ? null : 'lou') : s.career.hs === 'lincoln' ? 'brennan' : s.career.hs === 'westbrook' ? 'graves' : 'coach';
+    const coachId = cfg.coach || (cfg.level === 'street' ? (PICK ? null : 'lou') : s.career.hs === 'lincoln' ? 'brennan' : s.career.hs === 'westbrook' ? 'graves' : 'coach');
     const refId = cfg.level === 'street' ? null : pick(['ref_dawkins', 'ref_vance', 'ref_ortiz']);
     const rivalId = star.name === 'Kai Sterling' ? 'kai' : star.name === 'Bastien Mbaye' ? 'mbaye' : ['hothead', 'iceman', 'showman'][Weapons.hash(star.name) % 3];   // each star keeps the same voice
     const MATE_LOOK = () => Object.assign({}, TMATE().look, { jersey: cfg.us.colors[0], trim: cfg.us.colors[1], outfit: 'jersey' });   // your teammate wears your colors in talks
@@ -2802,7 +2803,7 @@ const Match = (() => {
       try {
         st.us = b.score[0]; st.them = b.score[1]; updBug(); idle();
         const ctx = { score: `${b.score[0]}-${b.score[1]}`, usAbbr: cfg.us.abbr, themAbbr: cfg.them.abbr, team: { colors: cfg.us.colors }, them: { colors: cfg.them.colors }, venue: court.venueId, night: true };
-        const fin = await cfg.script.run({ score: b.score.slice(), lead: b.score[0] - b.score[1], ctx, cfg }); st.script = { at: b.score.slice(), final: fin };
+        const fin = await cfg.script.run({ score: b.score.slice(), lead: b.score[0] - b.score[1], ctx, cfg, counters: Object.assign({}, st.counters), box: Object.assign({}, st.box) }); st.script = { at: b.score.slice(), final: fin };
         return fin ? { final: fin } : {};
       } catch (e) { console.error('[match] script', e); return {}; }
     }
@@ -2831,14 +2832,17 @@ const Match = (() => {
 
     /* ---------- GAME LOOP ---------- */
     updBug(); formation('us');
-    if (!FULL) await banner(`<div class="tip">${logoUs}<span>VS</span>${logoThem}</div><small>${escH(cfg.us.name)} vs ${escH(cfg.them.name)}</small>TIP-OFF`, 'tip', 1800);
-    if (!FULL) { SFX.play('whistle'); pbp(`<b>Tip-off!</b> ${escH(cfg.us.name)} vs ${escH(cfg.them.name)}.`, 'sys'); }
-    let prevPer = 1;
+    if (LATE) { const L0 = cfg.lateEntry, c0 = clockFor(-1); st.us = (L0.score || [0, 0])[0]; st.them = (L0.score || [0, 0])[1]; updBug();
+      await banner(`<div class="tip">${logoUs}<span>${st.us}–${st.them}</span>${logoThem}</div><small>${escH(L0.sub || `Q${c0.per} · ${Math.floor(c0.rem / 60)}:${String(Math.floor(c0.rem % 60)).padStart(2, '0')} left`)}</small>${escH(L0.title || 'CHECKING IN')}`, 'tip', 2000);
+      SFX.play('whistle'); pbp(L0.text || `You check in. ${escH(cfg.us.name)} ${st.us}, ${escH(cfg.them.name)} ${st.them}.`, 'hot'); }
+    else if (!FULL) await banner(`<div class="tip">${logoUs}<span>VS</span>${logoThem}</div><small>${escH(cfg.us.name)} vs ${escH(cfg.them.name)}</small>TIP-OFF`, 'tip', 1800);
+    if (!FULL && !LATE) { SFX.play('whistle'); pbp(`<b>Tip-off!</b> ${escH(cfg.us.name)} vs ${escH(cfg.them.name)}.`, 'sys'); }
+    let prevPer = LATE ? clockFor(-1).per : 1;
     for (let i = 0; i < n && !st.done && !FULL; i++) {
       st.i = i; $('momCount').textContent = `Moment ${i + 1}/${n}`;
       st.oppSig += .5;   // their star's weapon charges as the game goes (and faster with every bucket)
       const last = i === n - 1;
-      simSegment(1 / (n + 1));
+      simSegment((1 - LATE) / (n + 1));
       if (!PICK && last && Math.abs(st.us - st.them) <= 10 && Math.random() < .7) { const target = Math.floor(rnd(-3, 3)); const d = st.us - st.them - target; if (d > 0) st.them += d; else st.us -= d; }
       clk = clockFor(i); if (last) clk.rem = Math.min(clk.rem, rnd(4, 18));
       updBug();
@@ -2854,7 +2858,7 @@ const Match = (() => {
         }, 'talk'); updBug();
         if (st.done) break;
       }
-      if (st.bench > 0) { st.bench--; pbp(`🪑 You watch from the bench as ${escH(cfg.us.name)} play on.`, 'bad'); simSegment(1 / (n + 1)); updBug(); st.lastType = 'bench'; await sleep(600); continue; }
+      if (st.bench > 0 && !(cfg.script && !st.scripted && i >= n - (cfg.script.moments || 2))) { st.bench--; pbp(`🪑 You watch from the bench as ${escH(cfg.us.name)} play on.`, 'bad'); simSegment((1 - LATE) / (n + 1)); updBug(); st.lastType = 'bench'; await sleep(600); continue; }
       if (cfg.script && !st.scripted && !FULL && i >= n - (cfg.script.moments || 2)) {   // a scripted ending (js/data-story-ch2-scenes.js): its cinematic, then the final score
         st.scripted = true; const r = await runScript({ score: [st.us, st.them], next: 0 }); if (r && r.final) { st.us = r.final[0]; st.them = r.final[1]; clk.rem = 0; updBug(); pbp(`🎬 <b>${st.us}–${st.them}.</b> ${st.us > st.them ? 'What a finish.' : 'It slips away.'}`, st.us > st.them ? 'good hot' : 'bad'); break; } }
       const diff = st.us - st.them;
@@ -2866,7 +2870,7 @@ const Match = (() => {
       const periodEnds = !last && clockFor(i + 1).per !== clk.per;
       const type = await guardMoment(async () => { let type;
       if (tutOn() && st.tutI < TUT_STEPS.length) type = await tutMoment();
-      else if (jmDue() && !last) { if (JM.payoff || JM.first) await innerVoice('jelly'); await RUN.off_poss(); type = 'off_poss'; }   // the story's jelly moment comes first
+      else if (jmDue() && !last) { if (JM.payoff || JM.first) for (const k of [].concat(JM.mono || 'jelly')) await innerVoice(k); await RUN.off_poss(); type = 'off_poss'; }   // the story's jelly moment comes first
       else if (last && st.clutch && canSeg()) {   // FINAL POSSESSION — the biggest moment of the game, played live
         const secs = clamp(Math.ceil(clk.rem), 6, 14);
         if (diff <= 0) {

@@ -285,6 +285,8 @@ const Game = {
     if (node.mateRel != null) cfg.mateRating = o0 + node.mateRel;
     if (node.venueSide) cfg.venue = node.venueSide;
     cfg.jellyMoment = node.jellyMoment || this.jellyPayoff(cfg.importance);
+    if (node.coach) cfg.coach = node.coach;   // whose voice in the huddles (the national team: Coach Reyes)
+    if (node.lateEntry) cfg.lateEntry = node.lateEntry;   // you check in late (the World Youth final)
     if (node.tutorial && !s.flags.tutorial_done) Object.assign(cfg, { tutorial: true, size: node.pickup.size || 3, target: node.pickup.target || 15, moments: (node.moments || 8) + 3,   // the first Kai game: choices + minigames + arcade segments, taught step by step
       sub: `${cfg.sub ? cfg.sub + ' · ' : ''}Tutorial · first to ${node.pickup.target || 15}` });
     if (node.jam) {   // the Summer Jam: live arcade with choice moments (js/match.js jamBreak); your crew and game plan
