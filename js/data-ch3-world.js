@@ -179,7 +179,7 @@ window.EXTRA_CUTSCENES = Object.assign(window.EXTRA_CUTSCENES || {}, {
     { d: 2400, scene: 'arena_ext', grade: 'night', music: 'build', tr: 'fade', cam: [[0, 30, -16, 1.08], [1, 0, -10, 1.16]], say: ['narrator', 'A camera crew, a new pair of shoes, and the same smirk.'], ev: [[0, 'cheer']] },
     { d: 2400, scene: 'vs', cam: [[0, 0, 0, 1.25], [1, 0, 0, 1, 'snap']], speed: 'radial', music: 'clutch',
       cast: [{ id: 'kai', kind: 'bust', x: .55, expr: 'smile', from: { dx: 160, t: 300, ease: 'back' }, rim: '#fca5a5' }, { id: 'you', kind: 'bust', x: -.55, expr: 'determined', from: { dx: -160, t: 300, ease: 'back' }, rim: '#93c5fd' }],
-      title: { text: 'ROUND FOUR', sub: 'You vs Kai Sterling', style: 'slam', at: 320 }, ev: [[320, 'impact', 150], [320, 'sfx', 'impact'], [320, 'shake', 8]] },
+      title: { text: 'SHOWDOWN', sub: 'You vs Kai Sterling', style: 'slam', at: 320 }, ev: [[320, 'impact', 150], [320, 'sfx', 'impact'], [320, 'shake', 8]] },
   ] },
   c3_declare: { name: 'Declaring', chapter: 'Chapter 3', shots: [
     { d: 2600, scene: 'locker', grade: 'spot', music: 'build', tr: 'fade', cam: [[0, 0, 0, 1.12], [1, 0, 4, 1.26, 'io']], cast: [{ id: 'you', kind: 'bust', x: 0, expr: 'determined', rim: '#fde68a' }],
