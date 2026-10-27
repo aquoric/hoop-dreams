@@ -159,6 +159,7 @@ const Game = {
     if (fx.jam) s.jam = Object.assign(s.jam || {}, fx.jam);
     /* Chapter 3 */
     if (fx.club) { s.career.club = fx.club; s.career.path = 'overseas'; }
+    if (fx.glTeam) s.career.glTeam = fx.glTeam;   // Chapter 3: the Grind League team you play for after the waiver
     if (fx.marchSeed) { const se = (s.career.seasons || []).slice(-1)[0] || { w: 4, l: 4, result: 'eliminated' }, pct = se.w / Math.max(1, se.w + se.l);
       s.career.marchSeed = Math.max(1, Math.min(14, se.result === 'champion' ? 2 : Math.round(13 - pct * 10 - (s.flags.usa_made ? 1 : 0)))); }
     if (fx.ageUp) s.player.age += fx.ageUp;   // Summer Jam: your third man, game plan, practice boost
@@ -275,8 +276,9 @@ const Game = {
   },
 
   /* ---------- one-off story matches ---------- */
-  team(id) { const s = this.state; if (id === '@club') id = s.career.club; else if (id === '@college') id = s.career.college; else if (id === '@gl') id = 'gl_ignition';   // Chapter 3: your team on each route
+  team(id) { const s = this.state; if (id === '@club') id = s.career.club; else if (id === '@college') id = s.career.college; else if (id === '@gl') id = s.career.glTeam || 'gl_ignition';   // Chapter 3: your team on each route
     if (id === '@jv') id = (s.career.hs || 'lincoln') + '_jv';   // Chapter 2: your school's JV team
+    if (STORY.refs && STORY.refs[id]) id = STORY.refs[id](s);   // a story team picked for this career (e.g. Chapter 3's No. 1 team)
     const t = LOCAL_TEAMS[id]; return Object.assign({ id }, t); },
   async playMatch(node, ch) {
     const s = this.state;

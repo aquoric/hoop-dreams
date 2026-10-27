@@ -219,6 +219,9 @@ const Engine = (() => {
     if (c.usaInvite && !(typeof USA !== 'undefined' && USA.inviteScore(s) >= USA_CAMP.invite)) return false;   // national team list
     if (c.maxRank && !(s.recruit && s.recruit.rank <= c.maxRank)) return false;
     if (c.minCount) for (const k in c.minCount) if ((s.counters[k] || 0) < c.minCount[k]) return false;
+    if (c.test && !(STORY.tests && STORY.tests[c.test] && STORY.tests[c.test](s))) return false;        // a named check (STORY.tests), e.g. how your season went
+    if (c.notTest && STORY.tests && STORY.tests[c.notTest] && STORY.tests[c.notTest](s)) return false;
+    if (c.weakOffers != null && !(s.recruit && (s.recruit.offers || []).some(id => COLLEGES[id] && COLLEGES[id].prestige >= 3)) !== !!c.weakOffers) return false;   // Chapter 3: no offer above a small school
     if (c.minDraft && (s.meta.draftStock || 0) < c.minDraft) return false;          // Chapter 3: draft stock / overseas interest / your club
     if (c.minOverseas && (s.meta.overseas || 0) < c.minOverseas) return false;
     if (c.maxDraft != null && (s.meta.draftStock || 0) > c.maxDraft) return false;

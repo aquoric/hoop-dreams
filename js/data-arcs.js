@@ -67,31 +67,52 @@
   ]);
   if (C.usa) { C.usa.cast = ['you', 'reyes', 'sal', 'kai', 'dre', 'ike', 'milo', 'jet', 'okafor', 'mbaye', 'bakari', 'lou', 'mom']; C.usa.postCredits = 'pc_kai_airport'; }
 
-  /* ---------------- CHAPTER 3: The Next Level (three roads) ---------------- */
+  /* ---------------- CHAPTER 3: The Next Level (three roads; route arcs only show on their road) ---------------- */
   const END3 = ' c3_declare c3_end';
+  const HOME3 = ' c3_home c3_tariq c3_tariq_door c3_home_after';
+  const MEND3 = ' c3_mend_check c3_mend c3_mend_hug c3_mend_no c3_mend_after';
+  const evolved = s => Engine.weapons(s).some(w => w.evo > 1);
+  const sharedClimax = [{ t: 'Beat Kai Sterling', done: { flag: 'beat_kai_c3' } }, { t: 'Crack the top 10', done: { rank: 10 } }, { t: 'Make it right with Tariq', done: { flag: 'tariq_mended' } }];
   A('college', [
-    { id: 'decision', name: 'The Decision Arc', goal: 'Pick your road: college, overseas or the Grind League.',
-      nodes: 'start c3_crossroads cc_start cc_offers_talk cc_choose cc_signing oo_start oo_offers oo_goodbye gg_start',
-      next: s => ({ college: { who: 'narrator', line: 'A campus, a dorm room and twenty thousand strangers in the stands.', scene: 'arena', grade: 'gold' },
-        overseas: { who: 'narrator', line: 'A new city. A language you don\'t speak. A club that pays you to win.', scene: 'city', grade: 'night' },
-        grind: { who: 'narrator', line: 'Bus rides, motel rooms and a call-up that might never come.', scene: 'highway', grade: 'night' } })[s.career.path] || null },
-    { id: 'freshman', route: 'college', order: 2, name: 'The Freshman Arc', goal: 'Earn minutes. Earn the coach.',
-      nodes: 'cc_kai_news cc_movein cc_roommate cc_usa_mate cc_coach cc_first_practice cc_class cc_media_day cc_hub1 cc_season cc_opener_pre cc_nil cc_road_pre cc_road_win cc_road_loss cc_kai_pre cc_kai_win cc_kai_loss cc_wt cc_jelly_check cc_jelly_pre cc_jelly_lesson cc_jelly_done cc_midterms cc_midterms_fail cc_rival_pre cc_lou_visit cc_homesick cc_top5_pre cc_conf_final_pre cc_conf_champ cc_conf_out',
-      next: { who: 'narrator', line: 'Sixty-eight teams. Six wins. One shining moment.', scene: 'arena', grade: 'gold' } },
-    { id: 'import', route: 'overseas', order: 2, name: 'The Import Arc', goal: 'Win the locker room. Win the city.',
-      nodes: 'oo_arrival oo_lena oo_apartment oo_coach oo_marko oo_practice oo_scrim oo_scrim_win oo_scrim_loss oo_language oo_kai_news oo_hub1 oo_season oo_debut_pre oo_bench oo_bench_ok oo_road_pre oo_tough_pre oo_tough_win oo_tough_loss oo_wt oo_jelly_check oo_jelly_pre oo_jelly_lesson oo_jelly_done oo_homesick oo_star_pre oo_trust oo_derby_pre oo_final_pre oo_league_champ oo_league_out',
-      next: { who: 'narrator', line: 'The Cup. Every club on the continent wants it.', scene: 'arena', grade: 'gold' } },
-    { id: 'grind', route: 'grind', order: 2, name: 'The Grind Arc', goal: 'Survive the Grind League. Get seen.',
-      nodes: 'gg_bus gg_contract gg_coach gg_dez gg_ike gg_kai_news gg_motel gg_scrim gg_scrim_win gg_scrim_loss gg_hub1 gg_season gg_opener_pre gg_paycheck gg_vets_pre gg_vets_win gg_vets_loss gg_wt gg_jelly_check gg_jelly_pre gg_jelly_lesson gg_jelly_done gg_breakdown gg_kai_pre gg_kai_win gg_kai_loss gg_scouts gg_road_pre gg_showcase_pre gg_final_pre gg_champ gg_out',
-      next: { who: 'narrator', line: 'One phone call. That\'s all it takes.', scene: 'highway', grade: 'night' } },
-    { id: 'march', route: 'college', order: 3, name: 'The March Arc', goal: 'Win six straight in March.', climax: true,
-      nodes: 'cc_selection cc_selection_show cc_first_weekend cc_hub2 cc_march cc_final_four_pre cc_title_pre cc_title_win cc_march_out cc_decide cc_soph cc_soph_end' + END3 },
-    { id: 'cup', route: 'overseas', order: 3, name: 'The Cup Arc', goal: 'Lift the Cup.', climax: true,
-      nodes: 'oo_cup_intro oo_cup oo_cup_final_pre oo_cup_champ oo_cup_out oo_showcase_pre oo_showcase oo_show_win oo_show_loss oo_decide oo_stay oo_stay_end' + END3 },
-    { id: 'callup', route: 'grind', order: 3, name: 'The Call-Up Arc', goal: 'Get the call. Make it count.', climax: true,
-      nodes: 'gg_callup_check gg_callup gg_callup_pre gg_callup_game gg_callup_win gg_callup_loss gg_back gg_no_callup gg_decide' + END3 },
+    { id: 'decision', name: 'The Decision Arc', goal: 'Pick your road. Make it to opening night.',
+      nodes: 'start c3_crossroads cc_start cc_offers_talk cc_choose cc_juco cc_signing cc_kai_news cc_movein cc_roommate cc_usa_mate cc_coach cc_first_practice cc_class cc_media_day cc_hub1 ' +
+        'oo_start oo_offers oo_goodbye oo_arrival oo_lena oo_apartment oo_coach oo_marko oo_practice oo_scrim oo_scrim_win oo_scrim_loss oo_language oo_kai_news oo_hub1 ' +
+        'gg_start gg_bus gg_contract gg_coach gg_dez gg_ike gg_kai_news gg_motel gg_scrim gg_scrim_win gg_scrim_loss gg_hub1',
+      goals: s => [{ t: 'Pick your road', done: { flag: s.career.path === 'overseas' ? 'signed_pro' : s.career.path === 'grind' ? 'gl_v2' : 'signed_nli' } }],
+      next: s => ({ college: { who: 'narrator', line: 'A door that stays closed. A booster on the evening news.', scene: 'locker', grade: 'dark', cast: [{ id: 'ccoach', kind: 'bust', x: .3, sil: true, rim: '#94a3b8' }] },
+        overseas: { who: 'narrator', line: 'A paycheck that doesn\'t come. Teammates whispering in a language you don\'t speak.', scene: 'city', grade: 'night', cast: [{ id: 'marko', kind: 'bust', x: .3, sil: true, rim: '#a78bfa' }] },
+        grind: { who: 'narrator', line: 'Dez goes quiet. A scout walks right past you to shake his hand.', scene: 'highway', grade: 'night', cast: [{ id: 'dez', kind: 'bust', x: .3, sil: true, rim: '#fbbf24' }] } })[s.career.path] || null },
+    /* the setback arcs */
+    { id: 'newcoach', route: 'college', order: 2, name: 'The New Coach Arc', goal: 'Win your spot back.',
+      nodes: 'cc_season cc_opener_pre cc_nil cc_road_pre cc_road_win cc_road_loss cc_phone cc_news cc_fired cc_fired_how cc_benched_well cc_benched_bad cc_wt cc_jelly_check cc_jelly_pre cc_jelly_lesson cc_jelly_done cc_climb ' +
+        'cc_squad_pre cc_squad cc_squad_win cc_squad_loss cc_awaken cc_rival_pre cc_oldcoach_pre cc_oldcoach_win cc_oldcoach_loss c3_kai_pov cc_kai_pre cc_kai_win cc_kai_loss cc_midterms cc_midterms_fail cc_lou_visit cc_homesick cc_top5_pre',
+      goals: [{ t: 'Beat the starters in practice', done: { flag: 'squad_won' } }, { t: 'Evolve your weapon', test: evolved }, { t: 'Win back the coach\'s trust', done: { minTrust: 60 } }, { t: 'Beat your old coach\'s new school', done: { flag: 'beat_oldcoach' } }],
+      next: { who: 'narrator', line: 'March. A bus home, a broken streetlight, and an old friend waiting under it.', scene: 'rain_night', grade: 'night', cast: [{ id: 'tariq', kind: 'bust', x: .35, sil: true, rim: '#93c5fd' }] } },
+    { id: 'unpaid', route: 'overseas', order: 2, name: 'The Unpaid Arc', goal: 'Keep playing when nobody pays you.',
+      nodes: 'oo_season oo_debut_pre oo_bench oo_bench_ok oo_road_pre oo_late_pay oo_whispers oo_unpaid oo_unpaid_how oo_unpaid_well oo_unpaid_bad oo_choice oo_stay_unpaid oo_loan_pre oo_loan oo_loan_back ' +
+        'oo_wt oo_jelly_check oo_jelly_pre oo_jelly_lesson oo_jelly_done oo_climb oo_tough_pre oo_tough_win oo_tough_loss oo_tough_after oo_awaken oo_rich_pre oo_rich_win oo_rich_loss c3_kai_pov oo_homesick oo_star_pre oo_trust oo_derby_pre',
+      goals: [{ t: 'Stay on the floor', test: s => !!(s.flags.unpaid_stayed || s.flags.loan_move) }, { t: 'Evolve your weapon', test: evolved }, { t: 'Beat the club that lowballed you', done: { flag: 'beat_rich' } }],
+      next: { who: 'narrator', line: 'Fifteen thousand people. Flares in the upper deck. A city split in two.', scene: 'arena', grade: 'red' } },
+    { id: 'stolen', route: 'grind', order: 2, name: 'The Stolen Call-Up Arc', goal: 'Get a jersey back.',
+      nodes: 'gg_season gg_opener_pre gg_paycheck gg_vets_pre gg_vets_win gg_vets_loss gg_vets_after gg_quiet gg_quiet_ask gg_scout_dez gg_stolen gg_stolen_how gg_waived_well gg_waived_bad gg_couch gg_wt2 gg_jelly_check2 gg_jelly_pre gg_jelly_lesson gg_jelly_done gg_jelly_after gg_climb gg_hub_w ' +
+        'gg_warehouse_pre gg_warehouse gg_warehouse_win gg_warehouse_loss gg_dez_notes gg_tryout_pre gg_tryout gg_signed_late gg_signed gg_awaken gg_kai_pov gg_season2 gg_hustle_pre gg_wt gg_jelly_check gg_breakdown gg_kai_pre gg_kai_win gg_kai_loss gg_scouts gg_road_pre gg_showcase_pre',
+      goals: [{ t: 'Win at the Warehouse', done: { flag: 'dez_notes' } }, { t: 'Sign a new contract', done: { flag: 'gl_resigned' } }, { t: 'Evolve your weapon', test: evolved }],
+      next: { who: 'narrator', line: 'The playoff bracket goes up. First round: the team that cut you.', scene: 'gym', grade: 'red', cast: [{ id: 'gcoach', kind: 'bust', x: .35, sil: true, rim: '#ef4444' }] } },
+    /* the climax arcs */
+    { id: 'march', route: 'college', order: 3, name: 'The March Arc', goal: 'Knock off No. 1. Survive March.', climax: true,
+      nodes: 'cc_march_open' + HOME3 + ' cc_kai_show_pre cc_kai_show cc_kai_show_win cc_kai_show_loss cc_conf_final_pre cc_conf_champ cc_conf_out cc_selection cc_selection_show cc_first_weekend cc_upset_pre cc_upset cc_upset_win' + MEND3 +
+        ' cc_hub2 cc_march cc_final_four_pre cc_title_pre cc_title_win cc_march_out cc_decide cc_soph cc_soph_end' + END3,
+      goals: [{ t: 'Knock off the No. 1 team', done: { flag: 'beat_no1' } }].concat(sharedClimax, [{ t: 'Win it all', done: { flag: 'national_champ' } }]) },
+    { id: 'cup', route: 'overseas', order: 3, name: 'The Cup Arc', goal: 'Win the derby. Lift the Cup.', climax: true,
+      nodes: 'oo_arc3' + HOME3 + ' oo_derby2_pre oo_derby oo_derby_win' + MEND3 + ' oo_post_derby oo_final_pre oo_league_champ oo_league_out oo_cup_intro oo_cup oo_cup_final_pre oo_cup_champ oo_cup_out oo_showcase_pre oo_showcase oo_show_win oo_show_loss oo_decide oo_stay oo_stay_end' + END3,
+      goals: [{ t: 'Win the derby', done: { flag: 'derby_win' } }].concat(sharedClimax, [{ t: 'Lift the Continental Cup', done: { flag: 'cup_champ' } }]) },
+    { id: 'callup', route: 'grind', order: 3, name: 'The Call-Up Arc', goal: 'Earn the call-up back. Win in the NBL.', climax: true,
+      nodes: 'gg_arc3' + HOME3 + ' gg_kai2_pre gg_kai2 gg_kai2_win gg_kai2_loss gg_final_pre gg_champ gg_out gg_callup_check gg_callup gg_callup_pre gg_callup_game gg_callup_win gg_callup_loss' + MEND3 + ' gg_back gg_no_callup gg_decide' + END3,
+      goals: [{ t: 'Earn the call-up back', done: { flag: 'called_up' } }, { t: 'Win an NBL game', done: { flag: 'nbl_win' } }].concat(sharedClimax) },
   ]);
-  if (C.college) C.college.cast = ['you', 'lou', 'tariq', 'kai', 'mom', 'nia', 'dee'];
+  if (C.college) { Object.defineProperty(C.college, 'cast', { configurable: true, get() { const s = typeof Game !== 'undefined' && Game.state, p = s && s.career.path;
+      return ['you', 'sal', 'kai', 'tariq', 'mom', 'nia', 'lou'].concat(p === 'overseas' ? ['marko', 'lena', 'ocoach', 'priya'] : p === 'grind' ? ['dez', 'ike', 'gcoach', 'priya'] : ['ccoach', 'vance', 'rook', 'advisor']); } });
+    C.college.postCredits = 'pc_lottery'; }
 
   /* ---------------- CHAPTER OPENINGS (20–30s: theme, the cast as silhouettes, Kai turning, your number, your silhouette) ----------------
      you: how much of your silhouette is still shadow (1 = all shadow; it sharpens chapter by chapter) */
@@ -129,6 +150,9 @@
     _cut: 'Your name wasn\'t on the varsity list.', _callup: 'Then the coach came to the JV gym. "Varsity. Friday."', _hp2: 'Halsey Park II. You beat Kai in front of Silk.',
     mom_money: 'Mom got hurt at work. Rent was due.', lou_hospital: 'Lou went into the hospital.', ankle: 'Then your ankle went. The week before the tournament.', trophy_lou: 'You carried the trophy to Lou\'s room.', pc_reyes: 'Coach Reyes signed a letter.',
     pc_kai_gym: 'Kai Sterling, alone in a gym at 2 a.m.',
+    c3_fired: 'Your coach got fired on live TV. The new one benched you.', c3_unpaid: 'The club stopped paying. The heat went off.', c3_waived: 'The call-up went to Dez. Then they waived you.',
+    c3_scoop: 'Scoop found you at midnight and handed you homework.', _c3_kai_benched: 'Kai Sterling sat a whole half for the first time.', c3_tariq_rain: 'Tariq walked away in the rain.',
+    c3_tariq_hug: 'You made it right with Tariq.', _upset: 'You knocked off No. 1.', _derby: 'You won the derby in front of 15,000.', _nbl: 'Your first NBL win.', pc_lottery: 'A GM at the lottery said your name. Then Kai\'s.',
   };
 
   /* ---------------- IN-MATCH INNER MONOLOGUE (big plays: the final possession, the jelly moment, the Jam's clutch) ---------------- */
