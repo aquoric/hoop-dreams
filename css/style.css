@@ -1483,3 +1483,23 @@ body.paused *:not(#pz):not(#pz *) { animation-play-state: paused !important; }
 .pz-count.pop { animation: pzPop .6s cubic-bezier(.2, 1.4, .4, 1); }
 @keyframes pzPop { 0% { transform: scale(2.2); opacity: 0; } 35% { transform: scale(.92); opacity: 1; } 100% { transform: scale(1); opacity: .9; } }
 @media (max-height: 520px) { .pz { flex-direction: row; } .pz-sit { max-width: 40vw; } }
+
+/* ---------- attribute tooltips (js/attr-tips.js): docked in the upgrade side panel, inline on phones, floating elsewhere ---------- */
+.atip { background: var(--pxpanel); border: 3px solid var(--pxedge); box-shadow: 0 0 0 2px #000, 4px 4px 0 #000; padding: 8px 10px; text-align: left; font-size: .72rem; line-height: 1.35; color: #cbd5e1; }
+.atip-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; border-bottom: 2px solid var(--pxedge); padding-bottom: 4px; margin-bottom: 5px; }
+.atip-h b { font: 700 .74rem var(--px); letter-spacing: .04em; color: var(--accent2); text-transform: uppercase; }
+.atip-h i { font: 400 1.25rem/1 var(--pxb); font-style: normal; color: #fff; }
+.atip-d { margin: 0 0 6px; color: #e2e8f0; }
+.atip dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; margin: 0; }
+.atip dt { font: 400 .58rem/1.6 var(--px); color: var(--blue); text-transform: uppercase; }
+.atip dd { margin: 0; }
+.atip-next { margin-top: 7px; padding-top: 5px; border-top: 2px dashed var(--pxedge); color: #e2e8f0; }
+.atip-next b { font: 400 .58rem var(--px); color: var(--good); text-transform: uppercase; margin-right: 2px; }
+.atip-next small { display: block; color: var(--muted); font-size: .64rem; margin-top: 2px; }
+.atip-dock { width: 100%; margin: 4px 0 10px; animation: atipIn .14s steps(3); }
+.up-side.tipping > svg.radar, .up-side.tipping > p.muted { display: none; }
+.atip-inline { margin: 2px 0 8px; animation: atipIn .14s steps(3); }
+.atip-float { position: fixed; z-index: 9000; width: min(290px, calc(100vw - 16px)); pointer-events: none; animation: atipIn .12s steps(3); }
+@keyframes atipIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.up-n, .up-ovr, .ht-ovr, .pc-ovr, .pc-stats > div { cursor: help; }
+@media (hover: none) { .up-row, .up-ovr { -webkit-touch-callout: none; user-select: none; } .up-n { text-decoration: underline dotted #475569; text-underline-offset: 3px; } }
