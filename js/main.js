@@ -16,6 +16,9 @@ const Game = {
     mute.onclick = () => { SFX.init(); SFX.toggleMute(); syncMute(); };
     syncMute();
     document.getElementById('setBtn').onclick = () => UI.settingsModal();
+    // playtime per career: real time while a career is open and the game is on screen (a pause stops the clock)
+    let tick = Date.now(); setInterval(() => { const now = Date.now(), dt = Math.min(30000, now - tick); tick = now;
+      if (this.state && document.visibilityState === 'visible' && !(typeof Pause !== 'undefined' && Pause.paused) && document.body.dataset.screen !== 'title') Engine.addPlaytime(this.state.id, dt); }, 15000);
     // back from "Quit" in the pause menu (js/pause.js): the page reloads into the saved career, at the hub (or the story beat after a forfeit)
     let q = null; try { q = JSON.parse(sessionStorage.getItem('hd_quit') || 'null'); sessionStorage.removeItem('hd_quit'); } catch (e) { }
     if (q && q.to === 'hub' && Engine.load('auto')) { this.loadState(Engine.load('auto'), { quiet: true }); return UI.toast(q.msg, 'bad', 3800); }
@@ -25,16 +28,18 @@ const Game = {
 
   /* ---------- career lifecycle ---------- */
   newCareer(o) {
+    if (o.replace) Engine.removeCareer(o.replace);   // every slot was full: you picked this one to replace
     const s = this.state = Engine.createState(o);
     s.arcs = { v: 1, cur: null, openings: {}, ended: {} };   // story arcs (js/story-fx.js): the chapter opening + the first arc card play at the start
     Engine.post(s, { by: 'nia', text: 'my big brother {first} is gonna be in the NBL one day. screenshot this. 💜' });
     s.log.push(Engine.text('Age 16. A nobody from {hometown} with a dream.', s));
     this.goto('street', STORY.chapters.street.start);
   },
-  loadSlot(slot) {
-    const s = Engine.load(slot);
+  loadSlot(slot) { return this.loadCareer(Engine.careers().last, slot); },
+  loadCareer(id, slot = 'auto') {   // a career from the Load Career screen (its autosave, or one of its manual saves)
+    const s = id && Engine.load(slot, id);
     if (!s) return UI.toast('That save could not be loaded.', 'bad');
-    this.loadState(s);
+    Engine.useCareer(id); this.loadState(s);
   },
   loadState(s, o = {}) { this.state = s; if (typeof Story !== 'undefined' && s.story) Story.ensure(s); this.save(); const prev = typeof Story !== 'undefined' && !s.ended && !o.quiet ? Story.previously(s) : null; (prev || Promise.resolve()).then(() => this.resume()); },   // "Previously…" first
   resume() { const s = this.state; if (s.ended) return UI.ending(s.ended); this.runNode(); },

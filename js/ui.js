@@ -142,9 +142,9 @@ const UI = (() => {
           <p class="tl-sub">START YOUR BALL CAREER · FROM NOBODY TO GOAT</p>
         </div>
         <div class="title-menu">
-          ${last ? `<button class="btn big glow" data-a="continue">▶ Continue <small>${esc(last.summary.name)} · ${last.summary.ovr} OVR · ${esc(last.summary.stage)}</small></button>` : ''}
+          ${last ? `<button class="btn big glow" data-a="continue">▶ Continue <small>${esc(last.summary.title || last.summary.name)} · ${last.summary.ovr} OVR · ${esc(last.summary.arc || last.summary.stage)}</small></button>` : ''}
           <button class="btn big ${last ? 'alt' : 'glow'}" data-a="new">＋ New Career</button>
-          <button class="btn ghost" data-a="load">Load Game</button>
+          ${Engine.careerList().length ? '<button class="btn ghost" data-a="load">Load Career</button>' : ''}
           <button class="btn ghost" data-a="how">How to Play</button>
           <button class="btn ghost" data-a="settings">Settings</button>
         </div>
@@ -155,8 +155,8 @@ const UI = (() => {
     $$('[data-a]', sc).forEach(b => b.onclick = () => {
       SFX.init(); SFX.play('click');
       const a = b.dataset.a;
-      if (a === 'new') create();
-      if (a === 'continue') Game.loadSlot(last.slot);
+      if (a === 'new') newCareerFlow();
+      if (a === 'continue') Game.loadCareer(last.id);
       if (a === 'load') loadMenu();
       if (a === 'how') howTo();
       if (a === 'settings') settingsModal();
@@ -172,18 +172,58 @@ const UI = (() => {
         <p><b>🕹 Arcade segments:</b> every game switches to real-time arcade play for single possessions at least 3 times — <b>FAST BREAK!</b> after a steal, block or defensive rebound, <b>LOOSE BALL!</b> scrambles, <b>SCRAMBLE!</b> put-back battles, <b>BROKEN PLAY!</b> with the shot clock running out, <b>BEAT THE BUZZER!</b> at the end of a quarter, and the <b>FINAL POSSESSION!</b> of a close game. Controls: move WASD/joystick · shoot <kbd>J</kbd>/<kbd>Space</kbd> (hold &amp; release at the top) · pass/steal <kbd>K</kbd> · dribble move <kbd>L</kbd>/<kbd>Shift</kbd>.</p>
         <p><b>Hot streaks:</b> 3 successes in a row = <b>ON FIRE</b>. Successes charge your <b>Signature Move</b>. Close games end in <b>Clutch Time</b>.</p>
         <p><b>Hub:</b> train (minigames raise attributes), rest, spend Skill Points, earn Badges, shop for gear, read your social feed.</p>
-        <p><b>Saves:</b> autosave after every step. 3 manual slots + export/import as a file in Settings.</p>
+        <p><b>Saves:</b> up to ${Engine.MAX_CAREERS} careers, each with its own autosave after every step and 3 manual slots (Settings). Rename, export, import or delete careers on the Load Career screen.</p>
       </div>`);
   }
-  function loadMenu() {
-    const rows = Engine.list();
-    const m = modal(`<h2>Load Game</h2><div class="slots">${rows.map(r => r.s ? `
-      <div class="slot"><div class="slot-av">${Art.avatar(r.summary.look, { mode: 'portrait' })}</div><div class="slot-info"><b>${esc(r.summary.name)}</b><span>${r.summary.ovr} OVR · ${esc(r.summary.stage)}</span>${r.summary.arc ? `<em class="slot-arc">${esc(r.summary.arc)}</em>` : ''}<small>${r.slot === 'auto' ? 'Autosave' : 'Slot ' + r.slot} · ${r.summary.date}</small></div>
-      <button class="btn sm" data-load="${r.slot}">Load</button><button class="btn sm ghost" data-del="${r.slot}">✕</button></div>` : `<div class="slot empty">${r.slot === 'auto' ? 'Autosave' : 'Slot ' + r.slot} — empty</div>`).join('')}</div>
-      <div class="row"><label class="btn ghost sm">Import save file<input type="file" accept=".json,application/json" hidden id="impFile"></label></div>`);
-    $$('[data-load]', m.el).forEach(b => b.onclick = () => { m.close(); Game.loadSlot(b.dataset.load); });
-    $$('[data-del]', m.el).forEach(b => b.onclick = async () => { if (await confirmBox('Delete save?', 'This cannot be undone.', 'Delete')) { Engine.remove(b.dataset.del); m.close(); loadMenu(); } });
-    $('#impFile', m.el).onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const s = await Engine.importSave(f); m.close(); Game.loadState(s); toast('Save imported!'); } catch (err) { toast('Could not import: ' + esc(err.message), 'bad'); } };
+  /* ---------- CAREERS: up to Engine.MAX_CAREERS, each with its own saves (js/engine.js) ---------- */
+  let replaceId = null;   // a full house: the career the next new one replaces (deleted only when the new one starts)
+  function newCareerFlow() { if (Engine.careersFull()) return loadMenu({ replace: 'new' }); replaceId = null; create(); }
+  const fmtPlay = ms => { const m = Math.floor(ms / 60000); return m < 1 ? 'under 1m' : m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`; };
+  const fmtDate = t => { const d = new Date(t); return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined }) + ' · ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }); };
+  function careerCard(r, mode) {
+    const x = r.summary, open = S() && S().id === r.id;
+    return `<div class="cc-card${open ? ' open' : ''}" data-id="${esc(r.id)}">
+      <div class="cc-top"><div class="cc-av">${Art.avatar(x.look, { mode: 'portrait' })}</div>
+        <div class="cc-who"><b class="cc-name">${esc(x.title || x.name)}</b>${x.title ? `<small>${esc(x.name)}</small>` : ''}<span>${esc(x.pos)} · ${esc(x.arc || x.stage)}${x.ended ? ' · ended' : ''}</span></div>
+        <div class="cc-ovr"><b>${x.ovr}</b><small>OVR</small></div></div>
+      <div class="cc-stats"><span><i>RANK</i>${x.rank ? '#' + x.rank : '—'}</span><span><i>LEVEL</i>${esc(x.difficulty)}</span><span><i>PLAYED</i>${fmtPlay(x.play)}</span><span><i>LAST</i>${esc(fmtDate(x.last))}</span></div>
+      ${mode ? `<div class="cc-acts"><button class="btn sm danger" data-cc="replace">Replace this career</button></div>` : `<div class="cc-acts">
+        <button class="btn sm glow" data-cc="play">▶ ${open ? 'Resume' : 'Play'}</button>${r.slots.map(sl => `<button class="btn sm ghost" data-cc="slot" data-sl="${sl}" title="Load manual save ${sl}">Save ${sl}</button>`).join('')}
+        <span class="cc-tools"><button class="mini" data-cc="rename" title="Rename">✎</button><button class="mini" data-cc="export" title="Export as a file">⇩</button><button class="mini" data-cc="delete" title="Delete">✕</button></span></div>`}
+    </div>`;
+  }
+  /* the Load Career screen. o.replace: 'new' (start a new career) or a save to import, when every slot is full */
+  function loadMenu(o = {}) {
+    const rows = Engine.careerList(), N = Engine.MAX_CAREERS, mode = o.replace || null;
+    const m = modal(`<div class="cc-head"><h2>${mode ? 'Replace a Career' : 'Load Career'}</h2><span>${rows.length} / ${N} careers</span></div>
+      ${mode ? `<p class="cc-note">All ${N} career slots are full. Pick the one to replace — it's deleted when the ${mode === 'new' ? 'new career starts' : 'import finishes'}.</p>` : ''}
+      <div class="cc-grid">${rows.map(r => careerCard(r, mode)).join('') || '<p class="muted">No careers yet.</p>'}</div>
+      ${mode ? '' : `<div class="row cc-foot"><button class="btn sm" data-cc="new">＋ New Career</button><label class="btn ghost sm">Import career file<input type="file" accept=".json,application/json" hidden id="impFile"></label></div>`}`, { cls: 'careers' });
+    const again = () => { m.close(); setTimeout(() => loadMenu(o), 260); };
+    $$('.cc-card', m.el).forEach(card => { const id = card.dataset.id, r = rows.find(x => x.id === id), nm = esc(r.summary.title || r.summary.name);
+      $$('[data-cc]', card).forEach(b => b.onclick = async () => {
+        SFX.play('click'); const a = b.dataset.cc;
+        if (a === 'play') { m.close(); Game.loadCareer(id); }
+        if (a === 'slot') { m.close(); Game.loadCareer(id, b.dataset.sl); }
+        if (a === 'export') Engine.exportSave(r.s);
+        if (a === 'rename') { const who = $('.cc-who', card), b0 = $('.cc-name', card); if ($('input', who)) return;
+          b0.outerHTML = `<input class="cc-in" maxlength="32" value="${esc(r.summary.title || r.summary.name)}" aria-label="Career name">`; const inp = $('.cc-in', who); inp.focus(); inp.select();
+          const done = ok => { if (ok) Engine.renameCareer(id, inp.value === r.summary.name ? '' : inp.value); again(); };
+          inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') done(true); if (e.key === 'Escape') done(false); }; inp.onblur = () => done(true); }
+        if (a === 'delete' && await confirmBox('Delete career?', `${nm} and all of its saves will be deleted. This can't be undone.`, 'Delete')) {
+          Engine.removeCareer(id); if (S() && S().id === id) { Game.state = null; m.close(); title(); toast('Career deleted.'); } else again(); }
+        if (a === 'replace' && await confirmBox('Replace this career?', `${nm} will be deleted for good${mode === 'new' ? ' when your new career starts' : ''}.`, 'Replace')) {
+          m.close();
+          if (mode === 'new') { replaceId = id; create(); }
+          else { Engine.removeCareer(id); const s = Engine.addImported(mode); s ? (Game.loadState(s), toast('Career imported!')) : toast('Could not save the imported career.', 'bad'); }
+        }
+      }); });
+    const nb = $('[data-cc="new"]', m.el); if (nb) nb.onclick = () => { m.close(); newCareerFlow(); };
+    const imp = $('#impFile', m.el); if (imp) imp.onchange = async e => { const f = e.target.files[0]; if (!f) return;
+      try { const s = await Engine.importSave(f); m.close();
+        if (Engine.careersFull()) return setTimeout(() => loadMenu({ replace: s }), 260);
+        const ok = Engine.addImported(s); ok ? (Game.loadState(ok), toast('Career imported!')) : toast('Could not save the imported career.', 'bad');
+      } catch (err) { toast('Could not import: ' + esc(err.message), 'bad'); } };
   }
   function settingsModal() {
     const inGame = !!S() && document.body.dataset.screen !== 'title';
@@ -195,8 +235,8 @@ const UI = (() => {
         <label>Sound effects<input type="range" min="0" max="1" step=".05" value="${v.sfx}" data-v="sfx"></label>
         <label>Text speed<select id="tspd"><option value="1">Slow</option><option value="2">Normal</option><option value="4">Fast</option><option value="99">Instant</option></select></label>
       </div>
-      ${inGame ? `<h3>Save</h3><div class="row wrap">${['1', '2', '3'].map(n => `<button class="btn sm" data-save="${n}">Save to Slot ${n}</button>`).join('')}<button class="btn sm ghost" data-a="export">Export save file</button><button class="btn sm ghost" data-a="load">Load…</button></div>
-      <h3>Career</h3><div class="row wrap"><span class="muted">Difficulty: <b>${DIFFICULTY[S().difficulty].name}</b></span><button class="btn sm ghost" data-a="menu">Main Menu</button><button class="btn sm danger" data-a="restart">Restart Career</button></div>
+      ${inGame ? `<h3>Save</h3><div class="row wrap">${['1', '2', '3'].map(n => `<button class="btn sm" data-save="${n}">Save to Slot ${n}</button>`).join('')}<button class="btn sm ghost" data-a="export">Export save file</button><button class="btn sm ghost" data-a="load">Careers…</button></div>
+      <h3>Career</h3><div class="row wrap"><span class="muted">Difficulty: <b>${DIFFICULTY[S().difficulty].name}</b></span><button class="btn sm ghost" data-a="menu">Main Menu</button><button class="btn sm" data-a="restart">＋ New Career</button></div>
       ${document.body.dataset.screen !== 'match' ? '<h3>Tutorial</h3><div class="row wrap"><span class="muted">Replay the first game against Kai as practice. Nothing counts.</span><button class="btn sm ghost" data-a="tutorial">Replay tutorial</button></div>' : ''}` : ''}
       <h3>Music</h3><div class="row wrap"><span class="muted">Now playing: <b id="npName">${esc((SFX.song && SFX.song.name) || '—')}</b></span><button class="btn sm ghost" id="npSkip">Next track ⏭</button></div>
       <div class="set-ver">Hoop Dreams ${esc(version())}</div>`);
@@ -211,7 +251,7 @@ const UI = (() => {
       if (a === 'load') { m.close(); loadMenu(); }
       if (a === 'menu') { m.close(); Game.save(); title(); }
       if (a === 'tutorial') { m.close(); Tutorial.replay(); }
-      if (a === 'restart') { if (await confirmBox('Restart career?', 'Your current autosave will be overwritten when you start a new career. Manual slots are kept.', 'Restart')) { m.close(); create(); } }
+      if (a === 'restart') { if (await confirmBox('Start a new career?', 'This career is saved and stays on your Load Career screen.', 'New Career')) { m.close(); Game.save(); newCareerFlow(); } }
     });
   }
 
@@ -376,8 +416,10 @@ const UI = (() => {
       SFX.init(); SFX.play('click');
       if (c.rolling || !validate(c.step + 1)) return;
       if (c.step < STEPS.length - 1) { c.step++; render(); return; }
+      if (c.started) return; c.started = true;   // once: a double-click must not start two careers
       c.look.expr = 'neutral';
-      Game.newCareer({ first: c.first, last: c.last, hometown: c.hometown, num: c.num, difficulty: c.difficulty, pos: c.pos, height: c.height, wingspan: c.height + c.ape, arch: c.arch, weapon: c.weapon, look: c.look });
+      Game.newCareer({ first: c.first, last: c.last, hometown: c.hometown, num: c.num, difficulty: c.difficulty, pos: c.pos, height: c.height, wingspan: c.height + c.ape, arch: c.arch, weapon: c.weapon, look: c.look, replace: replaceId });
+      replaceId = null;
     };
     render();
   }
@@ -839,7 +881,7 @@ const UI = (() => {
       <p class="muted center">Screenshot your career card, then try again — different choices, different career.</p>
       <div class="row center"><button class="btn big glow" id="endNew">Start a New Career</button><button class="btn big ghost" id="endMenu">Main Menu</button></div>
     </div>`, 'ending');
-    $('#endNew').onclick = () => create(); $('#endMenu').onclick = () => title();
+    $('#endNew').onclick = () => newCareerFlow(); $('#endMenu').onclick = () => title();
   }
 
   /* "Now playing" label when a new track starts */

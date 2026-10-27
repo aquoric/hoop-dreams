@@ -3,8 +3,12 @@
    Pure logic: no DOM except export/import helpers.
    ===================================================================== */
 const Engine = (() => {
-  const SAVE_PREFIX = 'hoopdreams_slot_';
-  const SLOTS = ['1', '2', '3', 'auto'];
+  /* saves: up to MAX_CAREERS careers, each with its own autosave + manual slots 1–3 (keys hoopdreams_c_<career id>_<slot>).
+     The index (CAREERS_KEY) keeps the order, custom names, playtime and the last-played career.
+     Older builds had one career in hoopdreams_slot_<slot>: it moves into career slot 1 on first load (the old keys stay as a backup). */
+  const SAVE_PREFIX = 'hoopdreams_slot_', CAREERS_KEY = 'hoopdreams_careers', MAX_CAREERS = 10;
+  const SLOTS = ['1', '2', '3'];
+  const ckey = (id, slot) => `hoopdreams_c_${id}_${slot}`;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const rand = (a, b) => a + Math.random() * (b - a);
   const randi = (a, b) => Math.floor(rand(a, b + 1));
@@ -318,22 +322,68 @@ const Engine = (() => {
   function starsFor(score) { let n = 1; RECRUITING.starAt.forEach((t, i) => { if (score >= t) n = i + 1; }); return n; }
   function rankFor(score) { return Math.max(2, Math.round(3000 * Math.exp(-score / 13))); }
 
-  /* ---------- SAVE / LOAD ---------- */
+  /* ---------- SAVE / LOAD (careers) ---------- */
+  const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } };
+  const lsDel = k => { try { localStorage.removeItem(k); } catch (e) { } };
+  let IX = null;
+  function careers() {   // the index: { v, list: [{ id, title, created, last, play }], last }
+    if (IX) return IX;
+    try { IX = JSON.parse(lsGet(CAREERS_KEY) || 'null'); } catch (e) { IX = null; }
+    if (!IX || !Array.isArray(IX.list)) IX = migrateLegacy();
+    return IX;
+  }
+  const saveIndex = () => lsSet(CAREERS_KEY, JSON.stringify(IX));
+  /* the one-career saves of older builds → careers (grouped by player, so nothing is lost) */
+  function migrateLegacy() {
+    const ix = { v: 1, list: [], last: null }, groups = {};
+    ['auto', '1', '2', '3'].forEach(slot => { const raw = lsGet(SAVE_PREFIX + slot); if (!raw) return; let s; try { s = JSON.parse(raw); } catch (e) { return; } if (!s || !s.player) return;
+      const id = String(s.id || 'legacy' + slot).replace(/[^\w-]/g, ''); (groups[id] = groups[id] || []).push({ slot, raw, at: s.updatedAt || 0, created: s.createdAt || s.updatedAt || 0 }); });
+    const ids = Object.keys(groups).sort((a, b) => (groups[b].some(x => x.slot === 'auto') - groups[a].some(x => x.slot === 'auto')) || Math.max(...groups[b].map(x => x.at)) - Math.max(...groups[a].map(x => x.at)));
+    for (const id of ids.slice(0, MAX_CAREERS)) {
+      const G = groups[id], newest = G.slice().sort((a, b) => b.at - a.at)[0];
+      if (!G.some(x => x.slot === 'auto') && !lsSet(ckey(id, 'auto'), newest.raw)) continue;   // a career needs an autosave to continue from
+      if (!G.every(x => lsSet(ckey(id, x.slot), x.raw))) continue;
+      ix.list.push({ id, title: '', created: Math.min(...G.map(x => x.created)), last: Math.max(...G.map(x => x.at)), play: 0 });
+    }
+    ix.last = ix.list[0] ? ix.list[0].id : null;
+    IX = ix; saveIndex(); return ix;
+  }
+  const entry = id => careers().list.find(c => c.id === id);
+  const current = () => careers().last;
   function save(s, slot = 'auto') {
-    s.updatedAt = Date.now();
-    try { localStorage.setItem(SAVE_PREFIX + slot, JSON.stringify(s)); return true; } catch (e) { return false; }
+    s.updatedAt = Date.now(); if (!s.id) s.id = 'c' + Date.now().toString(36);
+    if (!lsSet(ckey(s.id, slot), JSON.stringify(s))) return false;
+    const ix = careers(); let e = entry(s.id);
+    if (!e) { e = { id: s.id, title: '', created: s.createdAt || Date.now(), last: 0, play: 0 }; ix.list.push(e); }
+    e.last = s.updatedAt; if (slot === 'auto') ix.last = s.id;
+    saveIndex(); return true;
   }
-  function load(slot) {
-    try { const raw = localStorage.getItem(SAVE_PREFIX + slot); return raw ? migrate(JSON.parse(raw)) : null; } catch (e) { return null; }
+  function load(slot = 'auto', id = current()) {
+    if (!id) return null; const raw = lsGet(ckey(id, slot));
+    try { return raw ? migrate(JSON.parse(raw)) : null; } catch (e) { return null; }
   }
-  function remove(slot) { try { localStorage.removeItem(SAVE_PREFIX + slot); } catch (e) { } }
-  function list() {
-    return SLOTS.map(slot => {
-      const s = load(slot);
-      return { slot, s, summary: s ? { name: s.player.first + ' ' + s.player.last, ovr: ovr(s), stage: s.career.stage, arc: typeof Story !== 'undefined' ? Story.label(s) : '', date: new Date(s.updatedAt).toLocaleString(), look: s.player.look } : null };
-    });
+  function remove(slot, id = current()) { if (id) lsDel(ckey(id, slot)); }
+  /* a career's card: who, where in the story, how good, how long */
+  function summary(s, e) {
+    return { name: s.player.first + ' ' + s.player.last, title: (e && e.title) || '', ovr: ovr(s), pos: s.player.pos, stage: s.career.stage, look: s.player.look,
+      chapter: (STORY.chapters[s.story && s.story.chapter] || {}).title || '', arc: typeof Story !== 'undefined' ? Story.label(s) : '',
+      rank: typeof Rankings !== 'undefined' && Rankings.on(s) ? Rankings.rankOf(s) : null, difficulty: (DIFFICULTY[s.difficulty] || {}).name || s.difficulty,
+      play: (e && e.play) || 0, last: (e && e.last) || s.updatedAt, ended: !!s.ended };
   }
-  function latest() { return list().filter(x => x.s).sort((a, b) => b.s.updatedAt - a.s.updatedAt)[0] || null; }
+  function careerList() {
+    return careers().list.map(e => { const s = load('auto', e.id); return s ? { id: e.id, s, summary: summary(s, e), slots: SLOTS.filter(sl => lsGet(ckey(e.id, sl))) } : null; })
+      .filter(Boolean).sort((a, b) => b.summary.last - a.summary.last);
+  }
+  function list(id = current()) { return SLOTS.map(slot => { const s = load(slot, id); return { slot, s, summary: s ? summary(s, entry(id)) : null }; }); }   // a career's manual slots
+  function latest() { const id = current(), s = id && load('auto', id); return s ? { id, slot: 'auto', s, summary: summary(s, entry(id)) } : (careerList()[0] || null); }
+  function useCareer(id) { if (!entry(id)) return false; careers().last = id; saveIndex(); return true; }
+  function removeCareer(id) { const ix = careers(); ['auto'].concat(SLOTS).forEach(sl => lsDel(ckey(id, sl))); ix.list = ix.list.filter(c => c.id !== id); if (ix.last === id) ix.last = ix.list.length ? ix.list.slice().sort((a, b) => b.last - a.last)[0].id : null; saveIndex(); }
+  function renameCareer(id, title) { const e = entry(id); if (!e) return; e.title = String(title || '').trim().slice(0, 32); saveIndex(); }
+  function addPlaytime(id, ms) { const e = entry(id); if (!e || !(ms > 0)) return; e.play = (e.play || 0) + ms; saveIndex(); }
+  const careersFull = () => careers().list.length >= MAX_CAREERS;
+  /* an imported file becomes its own career (a fresh id if that career is already here, so nothing is overwritten) */
+  function addImported(s) { if (!s.id || entry(s.id)) s.id = 'c' + Date.now().toString(36); s.createdAt = s.createdAt || Date.now(); return save(s, 'auto') ? s : null; }
   function migrate(s) { // fill missing fields from newer versions
     if (!s || !s.player) return null;
     const fresh = { counters: {}, achievements: {}, flags: {}, rel: {}, feed: [], log: [], ovrHistory: [], inventory: { owned: [], equipped: {} } };
@@ -376,5 +426,6 @@ const Engine = (() => {
     badges, badgeTier, badgeBonus, badgeSnapshot, badgeDiff, addXP, upgradeCost, canUpgrade, upgrade, bump,
     applyFx, check, checkPct, playPct, checkAchievements, text, heightStr, starStr, snapshotStage, stagePerf, develop, recruitScore, starsFor, rankFor, fmtFans, fmtMoney, post,
     save, load, remove, list, latest, exportSave, importSave,
+    careers, careerList, useCareer, removeCareer, renameCareer, addPlaytime, careersFull, addImported, MAX_CAREERS,
   };
 })();
