@@ -1608,7 +1608,8 @@ const Match = (() => {
     }
     async function boardAfterMiss(offensive) { // quick rebound roll (no minigame) — or a live put-back scramble
       if (st.done) return false;
-      if (offensive && natOk() && Math.random() < SGC.chance.putback / (1 + (st.segKinds.putback || 0)) * (st.seg >= segTarget ? .3 : 1)) { await arcadeSegment('putback', { sub: 'BATTLE FOR THE BOARD' }); return false; }
+      if (offensive && MATES().length && natOk() && Math.random() < SGC.chance.playmaker / (1 + (st.segKinds.playmaker || 0)) * (st.seg >= segTarget ? .3 : 1)) {   // you grab it, they scramble: kick it out
+        st.box.reb++; cnt('rebounds'); court.ball.holder = U; pbp(`${myName} rips down the offensive board — the defense is scrambling.`, 'good'); await arcadeSegment('playmaker', { sub: 'KICK-OUT · FIND THE OPEN MAN' }); return false; }
       const p = calc('rebound', { def: Balance.profile(oppR) }).pct * (offensive ? .45 : 1.15);
       if (roll(p)) { st.box.reb++; cnt('rebounds'); court.ball.holder = U; pbp(say(offensive ? 'oreb' : 'dreb')); updBug(); if (!offensive) await maybeFastBreak('dreb', 'me'); return true; }
       if (!offensive && MATES().length) await maybeFastBreak('dreb', 'mate', SGC.chance.mateDreb);   // a teammate grabbed it and pushes
@@ -2571,8 +2572,9 @@ const Match = (() => {
 
     /* ---------- ARCADE SEGMENTS ----------
        Every game switches into arcade play for single possessions — at least BALANCE.arcade.segments.min times,
-       spread across the game. Triggers: fast breaks (steal / block / defensive rebound), loose balls, put-back
-       scrambles, broken plays, the last possession of a quarter/half, and the final possession of a close game.
+       spread across the game. Triggers: fast breaks (steal / block / defensive rebound), loose balls, PLAYMAKER
+       (you have it and the defense is scrambling: a kick-out, help on a drive, a trap), broken plays, the last
+       possession of a quarter/half, and the final possession of a close game.
        If a stretch of the game has none yet, the game creates one (a deflection, a loose ball…). */
     const SGC = BALANCE.arcade.segments;
     const PACE_T = clamp(.9 + (ME.speed - 55) / 120 + (['sky', 'lightning', 'formless', 'thief', 'phantom'].includes(s.player.arch) ? .15 : 0) + (cfg.us.pace || 0), .7, 1.4);
@@ -2582,7 +2584,7 @@ const Match = (() => {
     const segDue = i => Math.min(segTarget, Math.floor((i + 1) * segTarget / n + 1e-9));
     const clockOf = k => { const v = SGC.clocks[k]; return Array.isArray(v) ? rnd(v[0], v[1]) : v; };
     const SEGK = {
-      fastbreak: { title: 'FAST BREAK!', label: 'Fast break' }, loose: { title: 'LOOSE BALL!', label: 'Loose ball' }, putback: { title: 'SCRAMBLE!', label: 'Scramble' },
+      fastbreak: { title: 'FAST BREAK!', label: 'Fast break' }, loose: { title: 'LOOSE BALL!', label: 'Loose ball' }, playmaker: { title: 'PLAYMAKER!', label: 'Playmaker' },
       broken: { title: 'BROKEN PLAY!', label: 'Broken play' }, buzzer: { title: 'BEAT THE BUZZER!', label: 'Buzzer' }, final: { title: 'FINAL POSSESSION!', label: 'Final possession' },
     };
     const canSeg = () => typeof Arcade !== 'undefined' && st.seg < SGC.max && !st.inSeg && !st.done;
@@ -2592,7 +2594,7 @@ const Match = (() => {
       if (!canSeg()) return null;
       st.seg++; st.inSeg = true; st.segAt = st.i; (st.segMoments = st.segMoments || []).push(st.i + 1); st.segKinds[kind] = (st.segKinds[kind] || 0) + 1; cnt('arcadeSegments'); if (kind === 'fastbreak') cnt('fastbreaks');
       const K = SEGK[kind], offense = o.offense != null ? o.offense : 0;
-      let no = Math.min(3, size), nd = Math.min(3, size), backD = 1, setup = { loose: 'loose', putback: 'putback', fastbreak: 'break' }[kind] || 'half';
+      let no = Math.min(3, size), nd = Math.min(3, size), backD = 1, setup = { loose: 'loose', playmaker: 'playmaker', fastbreak: 'break' }[kind] || 'half';
       if (kind === 'fastbreak') {   // you alone vs a trailing defender, 2-on-1, or 3-on-2
         const opts = o.trigger === 'steal' ? [[1, 1, 0, 3], [2, 1, 1, 3], [3, 2, 1, 2]] : [[2, 1, 1, 3], [3, 2, 1, 3], [1, 1, 0, 1]];
         const ok = opts.filter(x => x[0] <= size && x[1] <= size), tot = ok.reduce((t, x) => t + x[3], 0);
@@ -2606,7 +2608,7 @@ const Match = (() => {
       await banner(`<small>${escH(o.sub || '')}</small>${K.title}`, 'fb seg-' + kind, kind === 'final' ? 1200 : 800);
       const hd = no > 1 ? (o.handler || 'me') : 'me';
       let r = null; try { r = await Arcade.segment({ kind, setup, offense, clock, clockLabel, untilClock, title: kind === 'fastbreak' && no > nd ? `FAST BREAK! ${no} ON ${nd}` : K.title,
-        us: cfg.us, them: cfg.them, star, oppRating: oppR - (tutOn() ? 8 : 0), forceHelp: !!o.forceHelp, mateRating: cfg.mateRating || 45, numbers: [no, nd], backD, handler: hd,
+        us: cfg.us, them: cfg.them, star, oppRating: oppR - (tutOn() ? 8 : 0), forceHelp: !!o.forceHelp, mateRating: cfg.mateRating || 45, numbers: [no, nd], backD, handler: hd, lastTeam: o.lastTeam,
         score: [st.us, st.them], venue: court.venueId, bonus: a => bonuses(a), stats: Object.assign({}, ME), stamina: 100 - st.fatigue, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank })), level: s.player.level }); } catch (e) { console.error('arcade segment', e); }
       document.querySelectorAll('.arc').forEach(el => el.remove()); document.body.classList.remove('arc-open');   // nothing left on top of the match
       if (!r || typeof r !== 'object') r = { ptsUs: 0, ptsThem: 0, end: 'set', me: {}, all: [], log: [], weapons: [] };
@@ -2616,6 +2618,7 @@ const Match = (() => {
       (r.all || []).forEach(x => { if (x.isUser) return; const p = (x.team === 0 ? US : TH).find(q => q.name === x.name); if (!p || !p.box) return; ['pts', 'reb', 'ast', 'stl', 'blk', 'fgm', 'fga', 'tpm', 'tpa', 'to'].forEach(k => p.box[k] += x.box[k] || 0); });
       (r.weapons || []).forEach(w => pbp(`🕹 ⚔ <b>${escH(shortOf(w.name))}</b> used <b>${escH(w.weapon)}</b>.`, w.team === 0 ? 'hot' : 'bad'));
       ['fga', 'fgm', 'tpa', 'tpm', 'reb', 'ast', 'stl', 'blk', 'to', 'pts'].forEach(k => st.box[k] += b[k] || 0);
+      if (b.hast) cnt('hockeyAssists', b.hast);
       if (b.dunks) cnt('dunks', b.dunks); if (b.tpm) cnt('threes', b.tpm); if (b.ast) cnt('assists', b.ast); if (b.stl) cnt('steals', b.stl); if (b.blk) cnt('blocks', b.blk); if (b.reb) cnt('rebounds', b.reb); if (r.ankles) cnt('crosses', r.ankles);
       if (b.fgm && b.dunks < b.fgm && !b.tpm) cnt('layups', b.fgm - (b.dunks || 0));
       st.fatigue = Math.min(100, st.fatigue + 2 + (r.stamina || 0) * .12);
@@ -2629,7 +2632,7 @@ const Match = (() => {
         ? (r.ptsUs ? (r.buzzer ? `${scorer} beats the buzzer!` : r.dunk ? `${scorer} throws it down!` : `${scorer} scores.`) + (r.foul ? ' And one!' : '') : `${scorer} scores for ${cfg.them.name}.`)
         : ({ foul: r.foul && r.foul.team === 1 ? `Foul on ${cfg.us.name} — they go to the line.` : `${r.fouled === 'me' ? myName : 'Your teammate'} is fouled.`, to: 'Turnover.', stop: 'Stop!', set: 'The defense recovers — reset.', oreb: 'Offensive board — reset.', miss: 'No good.', buzzer: 'Time runs out.' }[r.end] || '');
       const extra = (r.log || []).filter(t => /ankles|bulldoze|posterize|pocket|passing lane|blocks|loose ball/.test(t)).slice(-1)[0];
-      pbp(`🕹 <b>${K.label}${r.ptsUs ? ` +${r.ptsUs}` : r.ptsThem ? ` (−${r.ptsThem})` : ''}!</b> ${escH(how)}${extra ? ` <i>${escH(extra)}.</i>` : ''}${b.ast ? ' (assist)' : ''}`, r.ptsUs || r.end === 'stop' ? 'good hot' : r.ptsThem || r.end === 'to' ? 'bad' : '');
+      pbp(`🕹 <b>${K.label}${r.ptsUs ? ` +${r.ptsUs}` : r.ptsThem ? ` (−${r.ptsThem})` : ''}!</b> ${escH(how)}${extra ? ` <i>${escH(extra)}.</i>` : ''}${b.ast ? ' (assist)' : ''}${b.hast ? ' (hockey assist)' : ''}${kind === 'loose' && b.reb ? ' (rebound)' : ''}`, r.ptsUs || r.end === 'stop' ? 'good hot' : r.ptsThem || r.end === 'to' ? 'bad' : '');
       if (r.dunk && r.scorer === 'me') st.highlights.push(`${K.label} slam`);
       if (r.buzzer && r.scorer === 'me') st.highlights.push('Beat the buzzer');
       if (r.ankles) st.highlights.push('Broke some ankles in the open floor');
@@ -2655,12 +2658,13 @@ const Match = (() => {
     async function createdSegment() {
       const w = Object.assign({}, SGC.mix); for (const k in w) w[k] /= 1 + (st.segKinds[k] || 0) * 1.5;
       if (size === 1) w.fastbreak *= .5;
+      if (!MATES().length) w.playmaker = 0;   // nobody to pass to
       const tot = Object.values(w).reduce((a, x) => a + x, 0); let r = Math.random() * tot, kind = 'loose';
       for (const k in w) { r -= w[k]; if (r <= 0) { kind = k; break; } }
       const sc = Math.floor(rnd(4, 8));
       if (kind === 'fastbreak') { formation('them'); const mine = MATES().length === 0 || Math.random() < .55; pbp(mine ? `${myName} jumps the passing lane — and you're off!` : 'Your teammate tips the pass ahead — you\'re off and running!', 'good'); if (mine) { st.box.stl++; cnt('steals'); } return arcadeSegment('fastbreak', { handler: mine ? 'me' : 'mate', trigger: mine ? 'steal' : 'dreb', sub: mine ? 'YOU PICKED IT OFF' : 'TIPPED PASS' }); }
-      if (kind === 'loose') { formation('them'); pbp('A deflection! The ball squirts loose — everybody dives for it.'); return arcadeSegment('loose', { sub: '50/50 BALL — GO GET IT' }); }
-      if (kind === 'putback') { formation('us'); pbp(MATES().length ? 'Your teammate\'s jumper rims out — crash the glass!' : 'Your shot rims out — get the board!'); return arcadeSegment('putback', { sub: 'BATTLE FOR THE BOARD' }); }
+      if (kind === 'loose') { formation('them'); pbp('A deflection! The ball squirts loose — everybody dives for it.'); return arcadeSegment('loose', { sub: '50/50 BALL — GO GET IT', lastTeam: 1 }); }
+      if (kind === 'playmaker') { formation('us'); court.ball.holder = U; const why = pick([['Your drive draws two defenders — the floor opens up.', 'YOUR DRIVE DREW HELP'], ['They trap you at half court. Two on the ball.', 'BEAT THE TRAP'], ['The set breaks down, and so does their defense.', 'THE DEFENSE IS SCRAMBLING']]); pbp(why[0]); return arcadeSegment('playmaker', { sub: why[1] }); }
       formation('us'); $('sbShot').textContent = sc; pbp(`The set falls apart — ${sc} on the shot clock. Make something happen!`);
       return arcadeSegment('broken', { clock: sc + rnd(0, .9), sub: `${sc} ON THE SHOT CLOCK` });
     }
