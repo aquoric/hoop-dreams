@@ -264,9 +264,9 @@ const BALANCE = {
        time a kind is used, so they don't repeat); end-of-quarter possessions and the clutch final possession come on top. */
     segments: {
       min: 5, match: [6, 8], pickup: [3, 4], max: 9, extraMoments: 2,
-      chance: { steal: .85, block: .6, dreb: .45, mateDreb: .7, putback: .35, buzzer: .45 },
-      mix: { fastbreak: 3, loose: 2.5, broken: 2.2, putback: 2.2 },
-      clocks: { fastbreak: 8, loose: 8, broken: [5, 7], putback: 5, buzzer: [4, 8], final: [6, 12] },
+      chance: { steal: .85, block: .6, dreb: .45, mateDreb: .7, playmaker: .45, buzzer: .45 },
+      mix: { fastbreak: 3, loose: 2.5, broken: 2.2, playmaker: 2.6 },
+      clocks: { fastbreak: 8, loose: 8, broken: [5, 7], playmaker: 14, buzzer: [4, 8], final: [6, 12] },
     },
     foul: 12,                                // % a contested layup / dunk draws a foul
     /* CONTESTS — on defense, JUMP (the shoot/block button) near a shooter to contest. contest = closeness × timing × stat × (AI skill):
@@ -283,6 +283,25 @@ const BALANCE = {
        and dive when within `aiDive` px. Your dive (J / SPACE / GRAB): `dive` s burst at × `diveSpeed`, grab reach `reach` (normal `grab`).
        Who comes up with it: BALANCE.actions.scramble (Speed + Vertical + Strength), × diveBonus while diving, closer = better. */
     scramble: { react: [.38, .62], aim: 14, aiDive: 24, dive: .32, diveSpeed: 2.3, reach: 20, grab: 13, diveBonus: 1.25, cooldown: .9 },
+    /* PLAYMAKER (an arcade segment): you have the ball and the defense is scrambling. Time slows, the passing lanes light up and
+       defenders slide in and out of them. Pick an open teammate, then the pass that beats what's in the way; chain up to maxPasses,
+       then he shoots (his stats + weapon). skill = your Passing (.6) + IQ (.4) after diminishing returns, 0..1.
+       slow: time scale while reading · read: seconds per read [low skill, high skill] · period: a defender's slide in/out cycle (s)
+       [low, high skill] · open: share of the cycle the lane is open [low, high] · defK: Perimeter D above 50 shortens both (better
+       defenders close lanes faster) · beats: which pass beats which threat (hands → bounce, big → lob, far → skip, reader → no-look)
+       base: % on the right pass through an open lane at equal ratings · k: % per point of the passer's Passing/IQ vs the defender's
+       Perimeter D/IQ · wrong / closed: % off for the wrong pass type / an occupied lane (× (1 − forgive × skill) for the wrong type)
+       nolook: freeze (s) when it works · read: chance a defender with 99 IQ reads it (scaled from 50 IQ) · risk: % off any no-look
+       perfect: right pass + open lane + a roll this far under the % = PERFECT PASS · steal: share of lost passes that are steals
+       (the rest are tipped loose) · movement: look = shot % for the open look a scrambling defense gives up, shot = % per pass after
+       the first (BALL MOVEMENT!), open = how far (px) the shooter's man is left behind per pass
+       duo: % on a Chemistry Link duo pass (the golden lane) · farX: px apart for a far-side lane · bigAt / readerAt: defender stats
+       that make a big man / a reader in the lane · maxPasses: passes in one chain · shootAt: the % the final shooter needs to
+       let it fly from where he caught it (below it he attacks the rim instead) */
+    playmaker: { maxPasses: 3, slow: .16, read: [3.4, 6.5], period: [1.6, 2.6], open: [.46, .7], defK: .35,
+      beats: { hands: 'bounce', big: 'lob', far: 'skip', reader: 'nolook' },
+      base: 90, k: .45, wrong: 34, closed: 42, forgive: .5, nolook: { freeze: .9, read: .5, risk: 4 }, perfect: 25, steal: .5,
+      movement: { look: 8, shot: 8, open: 14 }, duo: 12, farX: 150, bigAt: 62, readerAt: 126, shootAt: 40 },
   },
 };
 /* Difficulty values feed the rest of the game */

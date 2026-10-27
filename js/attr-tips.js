@@ -22,7 +22,7 @@ const AttrTips = (() => {
     finish: { pv: 'layup', d: 'Layups and touch around the rim.', mg: 'a bigger window on the layup step and the jelly flick', ar: 'a wider release window on arcade layups' },
     dunk:   { d: 'Power finishes at the rim.', mg: 'bigger dunk windows', ar: 'a wider dunk window; big dunks from 70' },
     handle: { pv: 'layup', d: 'Dribbling, moves and keeping the ball.', mg: 'more time on the dribble combo and blow-by reads' },
-    pass:   { d: 'Vision and accuracy on passes.', mg: 'a bigger passing-lane window and better looks for teammates', ar: 'no direct effect: arcade passes always arrive' },
+    pass:   { d: 'Vision and accuracy on passes.', mg: 'a bigger passing-lane window and better looks for teammates', ar: 'PLAYMAKER reads: longer slow motion, clearer lanes, more forgiving passes' },
     speed:  { d: 'Quickness with and without the ball.', mg: 'more time to read the defender on drives' },
     vert:   { d: 'How high you get off the floor.', mg: 'dunk options' },
     str:    { d: 'Physicality: posting up, boxing out, finishing through contact.', ar: 'winning position in the post, box-outs and loose balls' },
@@ -30,7 +30,7 @@ const AttrTips = (() => {
     perD:   { d: 'Guarding the ball: staying in front, contesting, stealing.', mg: 'a longer window in shell-defense reads', ar: 'contests on jump shots, steals, and not getting your ankles broken' },
     intD:   { d: 'Protecting the rim: blocks and contests inside.', ar: 'contests and blocks at the rim (with Vertical)' },
     reb:    { d: 'Grabbing misses on both ends.', ar: 'winning rebound battles off the rim' },
-    iq:     { pv: 'pass', d: 'Reading the game: passes, charges, smart decisions.', mg: 'a bigger passing-lane window', ar: 'no direct effect' },
+    iq:     { pv: 'pass', d: 'Reading the game: passes, charges, smart decisions.', mg: 'a bigger passing-lane window', ar: 'PLAYMAKER reads: longer slow motion and clearer lanes' },
     clutch: { d: 'Playing your best when it\'s close and late.', ar: 'Your clutch bonus applies on the final possession' },
   };
 

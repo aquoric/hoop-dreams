@@ -122,7 +122,7 @@ const Pause = (() => {
   }
   const CONTROLS = {
     match: [['Pick a play', 'Click it, or press 1–4'], ['Minigames', 'SPACE / tap at the right moment'], ['Arcade segments', 'Move WASD · shoot J / SPACE · pass K · move L · touch: stick + buttons'], ['Pause', 'ESC or P · the ⏸ button']],
-    arcade: [['Move', 'WASD / arrow keys · touch: left stick'], ['Shoot / block', 'J or SPACE, hold & release · touch: SHOOT'], ['Pass / steal', 'K · touch: PASS'], ['Dribble move', 'L or SHIFT · touch: MOVE'], ['Weapon', 'E · touch: ⚔'], ['Pause', 'ESC or P · the ⏸ button']],
+    arcade: [['Move', 'WASD / arrow keys · touch: left stick'], ['Shoot / block', 'J or SPACE, hold & release · touch: SHOOT'], ['Pass / steal', 'K · touch: PASS'], ['Dribble move', 'L or SHIFT · touch: MOVE'], ['Weapon', 'E · touch: ⚔'], ['Playmaker', 'click / tap a teammate or 1–3, then B / L / S / N · SPACE: let him shoot'], ['Pause', 'ESC or P · the ⏸ button']],
     minigame: [['Timing', 'SPACE / tap when the meter hits the zone'], ['Reads & moves', 'Arrow keys / swipe when the prompt asks'], ['Pause', 'ESC or P · the ⏸ button']],
     qte: [['GET UP', 'Tap fast / mash SPACE'], ['PUSH', 'Tap / SPACE when the marker is in the zone'], ['BREATHE', 'Hold SPACE / hold your finger down'], ['Pause', 'ESC or P · the ⏸ button']],
     cutscene: [['Dialogue', 'Tap / SPACE to speed up a line'], ['Choices', 'Click them or press 1–4'], ['Skip', 'Tap / any key (scenes you\'ve seen) · SKIP in conversations'], ['Pause', 'ESC or P · the ⏸ button']],
