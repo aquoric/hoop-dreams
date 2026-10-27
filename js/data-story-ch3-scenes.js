@@ -20,7 +20,7 @@ C3.playedWell = s => { const from = (s.arcs && s.arcs.gamesAt && s.arcs.gamesAt.
   if (G.length < 2) return (s.meta.trust || 0) >= 55; const ppg = G.reduce((t, g) => t + (g.pts || 0), 0) / G.length, w = G.filter(g => g.win).length; return ppg >= 18 || (ppg >= 14 && w * 2 >= G.length); };
 
 STORY.tests = Object.assign(STORY.tests || {}, { c3_well: s => C3.playedWell(s) });
-STORY.refs = Object.assign(STORY.refs || {}, { '@no1': s => C3.number1(s), '@rich': s => C3.richFor(s), '@derby': s => C3.euroLeague(s)[1], '@oldcoach': s => C3.oldCoachTo(s) });
+STORY.refs = Object.assign(STORY.refs || {}, { '@no1': s => C3.number1(s), '@rich': s => C3.richFor(s), '@derby': s => { const L = C3.euroLeague(s), not = [L[0], C3.richFor(s), C3.toughFor(s)]; return L.find(id => !not.includes(id)) || L[1]; }, '@oldcoach': s => C3.oldCoachTo(s) });
 /* practice teams: the college scout team vs the new coach's starters, the loan club, the Warehouse run */
 Object.assign(LOCAL_TEAMS, {
   c3_scout:    { name: 'Scout Team', abbr: 'SCT', colors: ['#64748b', '#f8fafc', '#111827'], logo: { shape: 'circle', icon: 'ball' }, rating: 58, roster: ['Danny Okoye', 'Walk-On Wes', 'Grad Transfer Gus', 'Redshirt Rory'] },

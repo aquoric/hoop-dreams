@@ -361,8 +361,8 @@ STORY.chapters.college = {
         ['nia', 'He watched the whole game at the shop. He told everybody "that\'s my brother." Then he left.', 'sad'],
       ],
       choices: [
-        { t: 'Go home for one night. Knock on his door.', hint: 'Costs a practice', fx: { trust: -4, fatigue: 10, flag: 'tariq_mended', rel: { tariq: 30 }, log: 'Made it right with Tariq.' }, next: 'c3_mend_hug' },
-        { t: 'Send him two tickets and a note: "You carried my bags. Now carry my banner."', check: { a: 'iq', dc: 50 }, fx: { flag: 'tariq_mended', rel: { tariq: 20 }, log: 'Made it right with Tariq.' }, failFx: { rel: { tariq: -4 } }, next: 'c3_mend_hug', fail: 'c3_mend_no' },
+        { t: 'Go home one night. Knock on his door.', hint: 'Costs a practice', fx: { trust: -4, fatigue: 10, flag: 'tariq_mended', rel: { tariq: 30 }, log: 'Made it right with Tariq.' }, next: 'c3_mend_hug' },
+        { t: 'Send two tickets and a note: "Now carry my banner."', check: { a: 'iq', dc: 50 }, fx: { flag: 'tariq_mended', rel: { tariq: 20 }, log: 'Made it right with Tariq.' }, failFx: { rel: { tariq: -4 } }, next: 'c3_mend_hug', fail: 'c3_mend_no' },
         { t: 'Post about him: "Day one."', fx: { fans: 2000, rel: { tariq: -6 } }, next: 'c3_mend_no' },
         { t: 'Leave it. Some things end.', fx: { flag: 'tariq_lost', morale: -2 }, next: 'c3_mend_after' },
       ] },
