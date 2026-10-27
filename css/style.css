@@ -1014,7 +1014,9 @@ body.fs[data-screen=match] .corner .icon-btn { width: 30px; height: 30px; font-s
   body.fs[data-screen=match] .match { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto minmax(0, 1fr); grid-template-areas: "sb" "title" "court" "panel" "pbp"; }
   body.fs[data-screen=match] .court-wrap { height: auto; aspect-ratio: 4 / 3; max-height: 44dvh; }
   body.fs[data-screen=match] .moment-panel { max-height: 38dvh; }
-  body.fs[data-screen=match] .corner { top: auto; bottom: 8px; left: auto; right: 8px; }
+  body.fs[data-screen=match] .corner { top: auto; bottom: calc(6px + env(safe-area-inset-bottom, 0px)); left: auto; right: 8px; }
+  body.fs[data-screen=match] .match { padding-bottom: calc(42px + env(safe-area-inset-bottom, 0px)); }   /* the ⏸ 🔊 ⚙ row gets its own strip under the feed */
+  body.fs[data-screen=match] .pbp .statline { display: none; }   /* (the BOX SCORE tab has it) so the feed tabs + list fit */
 }
 /* arcade instant replay: hide the live name tags / pop text over the replayed frames */
 .arc.rp .arc-tags, .arc.rp .arc-pop { visibility: hidden; }
@@ -1451,10 +1453,23 @@ body.fs[data-screen=match] .corner .icon-btn { width: 30px; height: 30px; font-s
 /* =====================================================================
    PAUSE (js/pause.js): the ⏸ button, the menu, the dimmed + blurred game behind it, the 3-2-1
    ===================================================================== */
-.pz-btn { position: fixed; z-index: 190; top: calc(8px + env(safe-area-inset-top, 0px)); left: calc(8px + env(safe-area-inset-left, 0px)); width: 40px; height: 40px; display: none; align-items: center; justify-content: center;
-  font: 700 1rem/1 var(--px); color: #fde68a; background: #0b0f1ccc; border: 2px solid #facc15; box-shadow: 0 0 0 2px #000, 3px 3px 0 #000; border-radius: 0; padding: 0; cursor: pointer; opacity: .85; }
-.pz-btn.on { display: flex; } .pz-btn:hover, .pz-btn:focus-visible { opacity: 1; background: #1e293b; }
+/* ⏸ is the first button of the corner row (⏸ 🔊 ⚙), same size as the others, gold so it stands out */
+.pz-btn { display: none; font: 700 .9rem/1 var(--px); color: #fde68a; border: 2px solid #facc15; padding: 0; cursor: pointer; }
+.pz-btn.on { display: grid; } .pz-btn:hover, .pz-btn:focus-visible { background: #1e293b; }
 body.paused .pz-btn { display: none; }
+/* while something pausable is up the row floats above it (the arcade, cutscenes, cine scenes, minigames), always top-right;
+   it stays under the pause menu (200), tutorials and feature cards */
+body[data-pzm] > #corner { z-index: 185; top: calc(8px + env(safe-area-inset-top, 0px)); right: calc(8px + env(safe-area-inset-right, 0px)); bottom: auto; left: auto; }
+body[data-pzm] > #corner #setBtn { display: grid; }
+body[data-pzm] > #corner .icon-btn { width: 34px; height: 34px; font-size: .85rem; }
+/* ...and the overlays keep their own top-right controls clear of it: 3 × 34px + 2 gaps + margin */
+body[data-pzm] .cs-cine .cine-top { right: max(calc(var(--cl, 0px) + 12px), 134px); }
+body[data-pzm] .arc-hud { width: min(var(--sw), 100vw - 2 * 134px); }
+body[data-pzm] .tkc-bar.top { padding-right: max(clamp(10px, 3vw, 44px), 134px); }
+@media (orientation: portrait), (max-width: 640px) {
+  body[data-pzm] .arc-hud { width: var(--sw); }
+  body[data-pzm] .arc { padding-top: calc(48px + env(safe-area-inset-top, 0px)); }
+}
 body.paused *:not(#pz):not(#pz *) { animation-play-state: paused !important; }
 .pz { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px; opacity: 0; transition: opacity .15s;
   background: rgba(3, 6, 14, .72); -webkit-backdrop-filter: blur(7px) saturate(.6); backdrop-filter: blur(7px) saturate(.6); font-family: var(--px); color: #e2e8f0; user-select: none; -webkit-user-select: none; }

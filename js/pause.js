@@ -172,14 +172,22 @@ const Pause = (() => {
   function closeMenu() { if (!el) return; const e2 = el; el = null; e2.classList.remove('in'); N.setTimeout(() => e2.remove(), 160); }
 
   /* ---------- the ⏸ button ---------- */
-  const btn = document.createElement('button'); btn.id = 'pauseBtn'; btn.className = 'pz-btn'; btn.setAttribute('aria-label', 'Pause'); btn.textContent = '⏸';
+  const btn = document.createElement('button'); btn.id = 'pauseBtn'; btn.className = 'icon-btn pz-btn'; btn.title = 'Pause'; btn.setAttribute('aria-label', 'Pause'); btn.textContent = '⏸';
   btn.addEventListener('click', e => { e.stopPropagation(); pause(); });
   btn.addEventListener('pointerdown', e => e.stopPropagation());
-  const sync = () => { const show = !paused && !!mode() && !blocked(); btn.classList.toggle('on', show); if (show && !btn.isConnected) document.body.appendChild(btn); };
+  // ⏸ sits first in the corner row (⏸ 🔊 ⚙); body[data-pzm] lifts that row above an arcade / cutscene / minigame layer while one is up
+  const sync = () => { const m = mode(), show = !paused && !!m && !blocked(); btn.classList.toggle('on', show);
+    const c = $('.corner'), app = $('#app'); if (!c || !app) return; if (c.firstElementChild !== btn) c.prepend(btn);
+    const lift = m === 'match' ? !!$('.tkc') : m && (m !== 'minigame' || !!$('.modal .mg')), v = lift && !blocked() ? m : '';   // a match / court minigame keeps the match's row, a talk card lifts it
+    if ((document.body.dataset.pzm || '') !== v) { if (v) document.body.dataset.pzm = v; else delete document.body.dataset.pzm; }
+    // #app is its own stacking layer, so over a body-level overlay the row has to sit on <body> itself; it goes home afterwards
+    const host = v ? document.body : app; if (c.parentElement !== host) { if (v) host.appendChild(c); else app.insertBefore(c, $('#modals')); } };
   const tick = () => { try { sync(); } catch (e) { } N.setTimeout(tick, 300); };
   if (document.readyState === 'loading') addEventListener('DOMContentLoaded', tick); else tick();
 
   /* test hook: a test page can drive frames / timers itself (hidden browser panes) — the pause still controls them */
   function useNative(o) { Object.assign(N, o); }
-  return { pause, resume, get paused() { return paused; }, mode, pausable, now: vnow, useNative, set auto(v) { autoOn = !!v; } };
+  // ⚙ while an arcade / cutscene layer is up: pause and open the menu's own settings (a settings dialog would open under the layer)
+  function settings() { if (!document.body.dataset.pzm || !pausable()) return false; pause(); if (el) panel('settings'); return true; }
+  return { pause, resume, settings, get paused() { return paused; }, mode, pausable, now: vnow, useNative, set auto(v) { autoOn = !!v; } };
 })();

@@ -15,7 +15,7 @@ const Game = {
     const syncMute = () => { mute.textContent = SFX.vol.muted ? '🔇' : '🔊'; };
     mute.onclick = () => { SFX.init(); SFX.toggleMute(); syncMute(); };
     syncMute();
-    document.getElementById('setBtn').onclick = () => UI.settingsModal();
+    document.getElementById('setBtn').onclick = () => { if (!(typeof Pause !== 'undefined' && Pause.settings())) UI.settingsModal(); };
     // playtime per career: real time while a career is open and the game is on screen (a pause stops the clock)
     let tick = Date.now(); setInterval(() => { const now = Date.now(), dt = Math.min(30000, now - tick); tick = now;
       if (this.state && document.visibilityState === 'visible' && !(typeof Pause !== 'undefined' && Pause.paused) && document.body.dataset.screen !== 'title') Engine.addPlaytime(this.state.id, dt); }, 15000);
