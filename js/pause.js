@@ -147,7 +147,7 @@ const Pause = (() => {
           <label>Volume<input type="range" min="0" max="1" step=".05" value="${V.master}" data-v="master"></label>
           <label>Music<input type="range" min="0" max="1" step=".05" value="${V.music}" data-v="music"></label>
           <label>Sound effects<input type="range" min="0" max="1" step=".05" value="${V.sfx}" data-v="sfx"></label>
-          <button data-a="full">⛶ Fullscreen: <b>${full ? 'On' : 'Off'}</b></button><button data-a="back">‹ Back</button></div>
+          <button data-a="full">⛶ Fullscreen: <b>${full ? 'On' : 'Off'}</b></button><button data-a="back">‹ Back</button><span class="pz-ver">${esc(typeof UI !== 'undefined' ? UI.version() : '')}</span></div>
         <div class="pz-p" data-p="controls"><dl>${ctl.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl><button data-a="back">‹ Back</button></div>
         <div class="pz-p" data-p="quit"><p>${esc(Q.warn)}</p><button class="danger" data-a="quitYes">✕ ${esc(Q.label)}</button><button data-a="back">‹ Cancel</button></div>
       </div><div class="pz-count"></div>`;

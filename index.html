@@ -26,7 +26,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+  <!-- Release version: GitHub Pages stamps the commit into version.js, which is fetched fresh on every visit.
+       Every file below then loads as file?v=<commit>, so after a release browsers never mix old and new files.
+       A local copy skips version.js and runs as a "dev build" (fresh files on every load). -->
+  <script>if (!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) document.write('<script src="version.js?t=' + Date.now() + '"><\/script>');</script>
+  <script>
+    window.HD_V = /^[0-9a-f]{7,40}$/.test(window.HD_VERSION || '') ? HD_VERSION.slice(0, 7) : 'dev' + Date.now();
+    window.hdLoad = files => files.forEach(f => document.write(/\.css$/.test(f) ? '<link rel="stylesheet" href="' + f + '?v=' + HD_V + '">' : '<script src="' + f + '?v=' + HD_V + '"><\/script>'));
+    hdLoad(['css/style.css']);
+  </script>
 </head>
 <body>
   <div id="app">
@@ -42,43 +50,47 @@
   </div>
   <noscript><p style="color:#fff;padding:2rem">Hoop Dreams needs JavaScript enabled.</p></noscript>
 
-  <!-- The pause owns the game clock: it loads before everything else -->
-  <script src="js/pause.js"></script>
-  <!-- Game content (edit these to add teams, players and story) -->
-  <script src="js/data-game.js"></script>
-  <script src="js/data-leagues.js"></script>
-  <script src="js/data-story.js"></script>
-  <script src="js/data-story-ch1.js"></script>
-  <script src="js/data-story-ch2.js"></script>
-  <script src="js/data-story-ch2-scenes.js"></script>
-  <script src="js/data-venues.js"></script>
-  <script src="js/data-talk.js"></script>
-  <script src="js/data-talk-lines.js"></script>
-  <script src="js/data-usa.js"></script>
-  <script src="js/data-features.js"></script>
-  <script src="js/data-ch3-world.js"></script>
-  <script src="js/data-story-ch3.js"></script>
-  <script src="js/data-story-ch3-overseas.js"></script>
-  <script src="js/data-story-ch3-dev.js"></script>
-  <script src="js/data-prospects.js"></script>
-  <script src="js/data-arcs.js"></script>
-  <!-- Engine -->
-  <script src="js/art.js"></script>
-  <script src="js/pixel.js"></script>
-  <script src="js/audio.js"></script>
-  <script src="js/engine.js"></script>
-  <script src="js/balance.js"></script>
-  <script src="js/match.js"></script>
-  <script src="js/season.js"></script>
-  <script src="js/arcade.js"></script>
-  <script src="js/cutscene.js"></script>
-  <script src="js/cs-plays.js"></script>
-  <script src="js/story-fx.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/usa.js"></script>
-  <script src="js/features.js"></script>
-  <script src="js/rankings.js"></script>
-  <script src="js/tutorial.js"></script>
-  <script src="js/main.js"></script>
+  <script>
+    hdLoad([
+      // The pause owns the game clock: it loads before everything else
+      'js/pause.js',
+      // Game content (edit these to add teams, players and story)
+      'js/data-game.js',
+      'js/data-leagues.js',
+      'js/data-story.js',
+      'js/data-story-ch1.js',
+      'js/data-story-ch2.js',
+      'js/data-story-ch2-scenes.js',
+      'js/data-venues.js',
+      'js/data-talk.js',
+      'js/data-talk-lines.js',
+      'js/data-usa.js',
+      'js/data-features.js',
+      'js/data-ch3-world.js',
+      'js/data-story-ch3.js',
+      'js/data-story-ch3-overseas.js',
+      'js/data-story-ch3-dev.js',
+      'js/data-prospects.js',
+      'js/data-arcs.js',
+      // Engine
+      'js/art.js',
+      'js/pixel.js',
+      'js/audio.js',
+      'js/engine.js',
+      'js/balance.js',
+      'js/match.js',
+      'js/season.js',
+      'js/arcade.js',
+      'js/cutscene.js',
+      'js/cs-plays.js',
+      'js/story-fx.js',
+      'js/ui.js',
+      'js/usa.js',
+      'js/features.js',
+      'js/rankings.js',
+      'js/tutorial.js',
+      'js/main.js'
+    ]);
+  </script>
 </body>
 </html>

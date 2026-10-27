@@ -6,6 +6,8 @@ const UI = (() => {
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  /* the release version (from version.js, stamped by GitHub Pages; a local copy says dev) */
+  const version = () => { const v = window.HD_V, d = window.HD_DATE; return !v || v.startsWith('dev') ? 'dev build' : `v${v}` + (d && !d.includes('{') ? ` · ${d}` : ''); };
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const S = () => Game.state;
   const settings = Object.assign({ textSpeed: 2 }, (() => { try { return JSON.parse(localStorage.getItem('hoopdreams_ui') || '{}'); } catch (e) { return {}; } })());
@@ -147,7 +149,7 @@ const UI = (() => {
           <button class="btn ghost" data-a="settings">Settings</button>
         </div>
         ${last ? `<div class="title-card">${Art.avatar(last.summary.look, { mode: 'full' })}</div>` : ''}
-        <div class="title-foot">A fan-made parody basketball RPG · All names, teams & art are original or parody.</div>
+        <div class="title-foot">A fan-made parody basketball RPG · All names, teams & art are original or parody.<span class="ver">${esc(version())}</span></div>
       </div>`, 'title');
     const sc = $('#screen');
     $$('[data-a]', sc).forEach(b => b.onclick = () => {
@@ -196,7 +198,8 @@ const UI = (() => {
       ${inGame ? `<h3>Save</h3><div class="row wrap">${['1', '2', '3'].map(n => `<button class="btn sm" data-save="${n}">Save to Slot ${n}</button>`).join('')}<button class="btn sm ghost" data-a="export">Export save file</button><button class="btn sm ghost" data-a="load">Load…</button></div>
       <h3>Career</h3><div class="row wrap"><span class="muted">Difficulty: <b>${DIFFICULTY[S().difficulty].name}</b></span><button class="btn sm ghost" data-a="menu">Main Menu</button><button class="btn sm danger" data-a="restart">Restart Career</button></div>
       ${document.body.dataset.screen !== 'match' ? '<h3>Tutorial</h3><div class="row wrap"><span class="muted">Replay the first game against Kai as practice. Nothing counts.</span><button class="btn sm ghost" data-a="tutorial">Replay tutorial</button></div>' : ''}` : ''}
-      <h3>Music</h3><div class="row wrap"><span class="muted">Now playing: <b id="npName">${esc((SFX.song && SFX.song.name) || '—')}</b></span><button class="btn sm ghost" id="npSkip">Next track ⏭</button></div>`);
+      <h3>Music</h3><div class="row wrap"><span class="muted">Now playing: <b id="npName">${esc((SFX.song && SFX.song.name) || '—')}</b></span><button class="btn sm ghost" id="npSkip">Next track ⏭</button></div>
+      <div class="set-ver">Hoop Dreams ${esc(version())}</div>`);
     $('#tspd', m.el).value = String(settings.textSpeed);
     $('#tspd', m.el).onchange = e => { settings.textSpeed = +e.target.value; saveSettings(); };
     $$('[data-v]', m.el).forEach(r => r.oninput = () => { SFX.init(); SFX.setVol(r.dataset.v, +r.value); });
@@ -846,5 +849,5 @@ const UI = (() => {
     const n = $('#npName'); if (n) n.textContent = e.detail.name;
   });
 
-  return { setFullscreen, isFull, fsPref, $, $$, esc, showScreen, setBg, toast, fxToasts, levelBurst, confetti, modal, confirmBox, card, cardFromState, radar, bar, charLook, title, create, story, hub, refreshHub, renderTop, trainingModal, postGame, chapterEnd, ending, settingsModal, loadMenu, settings, fmtChange, seasonScreen, simResult, simStretch, standingsHTML, bracketHTML, scheduleHTML };
+  return { version, setFullscreen, isFull, fsPref, $, $$, esc, showScreen, setBg, toast, fxToasts, levelBurst, confetti, modal, confirmBox, card, cardFromState, radar, bar, charLook, title, create, story, hub, refreshHub, renderTop, trainingModal, postGame, chapterEnd, ending, settingsModal, loadMenu, settings, fmtChange, seasonScreen, simResult, simStretch, standingsHTML, bracketHTML, scheduleHTML };
 })();
