@@ -108,7 +108,7 @@ const Arcade = (() => {
           <div class="ah-team r" style="--tc:${T1.colors[0]}"><span class="ah-s" id="ahS1">${sc1}</span><b>${esc(T1.abbr)}</b><i></i></div>
           <div class="ah-btns"><button class="arc-btn-sm" data-a="help" aria-label="Controls">?</button>${SEGM ? '' : '<button class="arc-btn-sm" data-a="quit">Quit</button>'}</div>
         </div>
-        <div class="arc-stage" style="aspect-ratio:${VW} / ${A.H}"><canvas width="${VW}" height="${A.H}"></canvas><div class="arc-scan"></div><div class="arc-tags"></div><div class="arc-pop"></div><div class="arc-intro"></div><div class="arc-trans"><div class="at-stripes"></div><b></b></div></div>
+        <div class="arc-stage" style="aspect-ratio:${VW} / ${A.H}"><canvas width="${VW}" height="${A.H}"></canvas><div class="arc-scan"></div><div class="arc-badges"></div><div class="arc-tags"></div><div class="arc-pop"></div><div class="arc-intro"></div><div class="arc-trans"><div class="at-stripes"></div><b></b></div></div>
         <div class="arc-bar"><div class="ab-stam"><span>STAMINA</span><div class="ab-meter"><i id="abStam"></i></div></div><div class="ab-move" id="abMove"><span>DRIBBLE MOVE</span><b>READY</b></div><div class="ab-move ab-wpn" id="abWpn"><span>⚔ WEAPON${touch ? '' : ' [E]'}</span><b>READY</b></div>
           <div class="arc-keys"> ${touch ? '' : 'MOVE <kbd>WASD</kbd> · SHOOT/BLOCK <kbd>J</kbd>/<kbd>SPACE</kbd> hold &amp; release · PASS/STEAL <kbd>K</kbd> · DRIBBLE MOVE <kbd>L</kbd>/<kbd>SHIFT</kbd>'}</div></div>
         <div class="arc-touch ${touch ? 'on' : ''}"><div class="arc-joy"><div class="arc-knob"></div></div><div class="arc-pad"><button data-b="wpn" id="tbWpn" class="wpn">⚔<small>WEAPON</small></button><button data-b="move" id="tbMove">MOVE<small>DRIBBLE</small></button><button data-b="pass">PASS<small>STEAL</small></button><button data-b="shoot" class="big">SHOOT<small>BLOCK</small></button></div></div>
@@ -118,7 +118,8 @@ const Arcade = (() => {
           <p><b>Pass</b> K — toward the joystick direction, or to the open man. Without the ball, K calls for it.</p>
           <p><b>Dribble move</b> L / SHIFT (MOVE). Stick away from where you face = crossover-type move, no stick = hesitation, stick forward with a defender in front = spin. Each move gives a burst of speed and a chance to beat or freeze your man. There's a short cooldown — spamming it can cost you the ball.</p>
           <p><b>Loose balls</b> run to the yellow ◎ (where it comes down) and press J / SPACE (GRAB) to dive for it. Speed, Vertical and Strength decide close calls. Whoever comes up with it gets the rebound.</p>
-          <p><b>Playmaker</b> time slows and the passing lanes light up. Tap a teammate (or 1–3) while his lane is <b>green</b>, then the pass that beats what's in the way: BOUNCE (B) under HANDS, LOB (L) over a BIG MAN, SKIP (S) to the FAR SIDE, NO-LOOK (N) past a defender READING you. Keep it moving (up to 3 passes) or SPACE to let him shoot.</p>
+          <p><b>Playmaker</b> time slows and every teammate gets a numbered badge. Press his number (or tap the badge) while it glows <b>green</b> and the pass goes. After the first pass: one more number, or SPACE to let him shoot. A <b style="color:#facc15">gold OOP</b> badge lobs it to a leaper at the rim: press SPACE (or tap) as he takes off.</p>
+          <p><b>Alley-oops</b> cut hard to the rim with good Vertical + Dunking and a teammate may lob it up: press J / SPACE (JUMP) as you reach the gold mark.</p>
           <p><b>Defense — JUMP to contest</b> J / SPACE (JUMP button) near a shooter. Be close and jump as he lets it go: CONTESTED! / SMOTHERED! cut his chances (Perimeter D on jumpers, Interior D + Vertical at the rim), and a great jump at the rim is a block. Jump before he starts his shot and you get FAKED OUT; crash into him and it's a FOUL. · K = steal · L = slide (slide then K = shove)</p>
           <p><b>🍯 Jelly</b> (once you've learned it) drive at the rim with a defender close, <b>hold L / SHIFT (MOVE)</b> and shoot. It flicks off the glass around shot blockers.</p>
           <p><b>⚔ Weapon</b> E (or ⚔) — fires the weapon that fits the moment (shot, drive, steal, block…). A short aura boosts that play. Teammates with an <b>OPEN</b> tag are calling for the ball.</p>
@@ -127,11 +128,11 @@ const Arcade = (() => {
         <div class="arc-pm"><div class="pm-head"><b>PLAYMAKER</b><span id="pmStep"></span></div><div class="pm-msg" id="pmMsg"></div><div class="pm-btns" id="pmBtns"></div></div>
         <div class="arc-help pmh"><div class="arc-help-card"><h3>PLAYMAKER!</h3>
           <p class="pm-lead">The defense is scrambling. Time slows down. Find the open man.</p>
-          <ol class="pm-steps"><li><b>Read the lanes.</b> Green = open, red = a defender is in it. They slide in and out.</li>
-            <li><b>Pick the man.</b> ${touch ? 'Tap him' : 'Click him or press <kbd>1</kbd>–<kbd>3</kbd>'} while his lane is green.</li>
-            <li><b>Pick the pass</b> for what's in the way: <span class="pmk">✋ HANDS → BOUNCE${touch ? '' : ' <kbd>B</kbd>'}</span> <span class="pmk">⛰ BIG MAN → LOB${touch ? '' : ' <kbd>L</kbd>'}</span> <span class="pmk">⇆ FAR SIDE → SKIP${touch ? '' : ' <kbd>S</kbd>'}</span> <span class="pmk">👁 READING YOU → NO-LOOK${touch ? '' : ' <kbd>N</kbd>'}</span></li>
-            <li><b>Keep it moving.</b> Up to 3 passes, each one opens the shot more. ${touch ? 'Tap LET HIM SHOOT' : 'Press <kbd>SPACE</kbd>'} when he's ready.</li></ol>
-          <p class="pm-lead">A 🔗 duo partner gets a <b style="color:#facc15">golden lane</b> for your duo move.</p>
+          <ol class="pm-steps"><li><b>Read the lanes.</b> Every teammate has a number badge. It glows <span class="pmk g">green</span> while his lane is open and goes dim red when a defender slides in.</li>
+            <li><b>Pass.</b> ${touch ? 'Tap his badge' : 'Press his number <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>'} while it's green. The pass (chest, bounce, lob, skip) picks itself.</li>
+            <li><b>Shoot or one more.</b> After the first pass: ${touch ? 'tap LET HIM SHOOT' : '<kbd>SPACE</kbd> lets him shoot'}, or pass once more. Two passes = <b>BALL MOVEMENT!</b></li>
+            <li><b>Alley-oop.</b> A <span class="pmk o">gold OOP</span> badge over the rim lobs it to a leaper. ${touch ? 'Tap LOB' : 'Press <kbd>SPACE</kbd>'} the moment he takes off.</li></ol>
+          <p class="pm-lead">A 🔗 duo partner's badge is gold: a pass to him sets up your duo move.</p>
           <button class="btn glow" data-a="pmgot">Got it — run the offense</button></div></div>`;
       document.body.appendChild(root); document.body.classList.add('arc-open');
       const $ = id => root.querySelector('#' + id);
@@ -319,7 +320,7 @@ const Arcade = (() => {
         if ((FR.acc += rdt) < 1 / 30) return; FR.acc = 0;
         let f = FR.cv[FR.i]; if (!f || f.width !== cv.width) { f = FR.cv[FR.i] = document.createElement('canvas'); f.width = cv.width; f.height = cv.height; }
         const g = f.getContext('2d'); g.clearRect(0, 0, f.width, f.height); g.drawImage(cv, 0, 0);
-        const z = G.zoom + G.kick, fx_ = clamp(G.zf.x - G.cam, 0, VW), fy = G.zf.y, wx = me.x - G.cam, wy = me.y - me.z - 14;
+        const fp = G.rpFocus || me, z = G.zoom + G.kick, fx_ = clamp(G.zf.x - G.cam, 0, VW), fy = G.zf.y, wx = fp.x - G.cam, wy = fp.y - fp.z - 14;   // the replay follows you (or the man finishing your lob)
         FR.foc[FR.i] = { x: z > 1.001 ? fx_ + (wx - fx_) * z : wx, y: z > 1.001 ? fy + (wy - fy) * z : wy };
         FR.i = (FR.i + 1) % FR.max; FR.n = Math.min(FR.max, FR.n + 1);
       }
@@ -342,7 +343,8 @@ const Arcade = (() => {
         if (!R.cam || R.cutF === 1) R.cam = { x: fo.x, y: fo.y, z: tz * (slow ? 1.1 : .95), r: rot };
         const m = Math.min(1, rdt * 5); R.cam.x += (fo.x - R.cam.x) * m; R.cam.y += (fo.y - R.cam.y) * m; R.cam.z += (tz - R.cam.z) * Math.min(1, rdt * 2); R.cam.r += (rot - R.cam.r) * Math.min(1, rdt * 2);
         c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#05060a'; c.fillRect(0, 0, VW, A.H);
-        c.save(); c.translate(VW / 2, A.H * R.oy); c.rotate(R.cam.r); c.scale(R.cam.z, R.cam.z); c.translate(-R.cam.x, -R.cam.y); c.drawImage(fr, 0, 0); c.restore();
+        const zc = Math.max(1.05, R.cam.z), cx = clamp(R.cam.x, VW / 2 / zc + 4, VW - VW / 2 / zc - 4), cy = clamp(R.cam.y, A.H * R.oy / zc + 4, A.H - A.H * (1 - R.oy) / zc - 4);   // the zoomed frame always fills the screen (a play up at the rim too)
+        c.save(); c.translate(VW / 2, A.H * R.oy); c.rotate(R.cam.r); c.scale(R.cam.z, R.cam.z); c.translate(-cx, -cy); c.drawImage(fr, 0, 0); c.restore();
         c.fillStyle = '#000'; c.fillRect(0, 0, VW, 16); c.fillRect(0, A.H - 16, VW, 16);
         if (Math.floor(R.T * 3) % 2 === 0) { c.fillStyle = '#ef4444'; c.fillRect(8, 5, 5, 5); } Pixel.text(c, slow ? 'REPLAY · SLOW-MO' : 'REPLAY', 17, 4, '#f8fafc', 1, 'left');
         if (slow && R.caption) { R.capAt = R.capAt == null ? R.T : R.capAt; const e = Math.min(1, (R.T - R.capAt) / .2), sc = Pixel.textWidth(R.caption, 3) < VW - 24 ? 3 : 2; c.save(); c.translate(VW / 2, A.H - 46); c.scale(e, e); Pixel.text(c, R.caption, 0, 0, '#fde68a', sc, 'center', '#0a0a12'); c.restore();
@@ -362,7 +364,7 @@ const Arcade = (() => {
       /* =================================================================
          ACTIONS
          ================================================================= */
-      const busyActs = ['shoot', 'layup', 'dunk', 'pass', 'down', 'sit'];
+      const busyActs = ['shoot', 'layup', 'dunk', 'pass', 'down', 'sit', 'oop'];
       function canAct(p) { return p.stun <= 0 && !(p.act && busyActs.includes(p.act.type)); }
 
       /* ---- shooting ---- */
@@ -508,12 +510,12 @@ const Arcade = (() => {
       function scoreBasket(p, pts, kind, foul) {
         const L = p.lastShot || { x: p.x, y: p.y, ft: 3, action: kind };
         G.lastPlay = { team: p.team, by: pdata(p), kind: L.putback ? 'putback' : kind === 'jelly' ? 'jelly' : kind === 'dunk' ? 'dunk' : L.action === 'layup' ? 'layup' : pts === 3 ? (L.ft >= 27 ? 'deep' : 'three') : 'mid',
-          x: L.x, y: L.y, ft: L.ft, def: pdata(L.def), ast: pdata(L.ast), clock: Math.max(0, G.clock), pts, buzzer: !!(SEGM && SEG.untilClock && G.clock <= .05) };
+          x: L.x, y: L.y, ft: L.ft, def: pdata(L.def), ast: pdata(L.ast), oop: !!L.oop, clock: Math.max(0, G.clock), pts, buzzer: !!(SEGM && SEG.untilClock && G.clock <= .05) };
         G.score[p.team] += pts; p.box.pts += pts; p.box.fgm++; if (pts === 3) p.box.tpm++; if (kind === 'dunk') p.box.dunks++;
         G.lastScorer = p;
         let assist = null;
         const ch = G.pmChain;
-        if (ch && ch.includes(me) && p !== me && p.team === me.team) {   // PLAYMAKER: you ran the chain, so the assist is yours, and every earlier pass in it is a hockey assist
+        if (ch && ch.includes(me) && p !== me && p.team === me.team && ball.lastPasser === ch[ch.length - 1] && G.time - ball.passT < 3.5) {   // PLAYMAKER: you ran the chain, so the assist is yours, and every earlier pass in it is a hockey assist
           me.box.ast++; assist = me; if (ch.length >= 2) { me.box.hast += ch.length - 1; tag('HOCKEY ASSIST', me, '#c4b5fd'); logLine(`Hockey assist${ch.length > 2 ? 's' : ''}: ${me.name}.`); } }
         else if (ball.lastPasser && ball.lastPasser.team === p.team && ball.lastPasser !== p && G.time - ball.passT < 3.5) { ball.lastPasser.box.ast++; assist = ball.lastPasser; }
         if (ch && ch.length >= 2 && p.team === me.team) { pop('BALL MOVEMENT!', '#fde68a', true); highlight('playmaker', me, ch.length >= 3 ? 'TIKI-TAKA!' : 'BALL MOVEMENT!', 300); }
@@ -521,7 +523,7 @@ const Arcade = (() => {
         p.streak++; players.forEach(q => { if (q.team !== p.team) { q.streak = 0; q.fire = 0; } });
         if (p.streak === 2 && !p.fire) pop(pick(A.lines.heating), '#fb923c');
         if (p.streak >= 3 && !p.fire) { p.fire = 4; G.anyFire = G.anyFire || p === me; pop(pick(A.lines.fire), '#f97316', true); SFX.play('roar'); } else if (p.fire) p.fire--;
-        if (kind !== 'jelly') pop(kind === 'dunk' ? pick(A.lines.dunk) : pts === 3 ? pick(A.lines.three) : pick(A.lines.two), p.team === me.team ? '#facc15' : '#f87171', kind === 'dunk');
+        if (kind !== 'jelly' && !L.oop) pop(kind === 'dunk' ? pick(A.lines.dunk) : pts === 3 ? pick(A.lines.three) : pick(A.lines.two), p.team === me.team ? '#facc15' : '#f87171', kind === 'dunk');
         SFX.play(kind === 'dunk' ? 'dunk' : 'swish'); SFX.play('net'); SFX.play('crowd', kind === 'dunk' ? 1.6 : 1.1);
         celebrate(p, kind, pts);
         const wins = !SEGM && G.score[p.team] + (foul ? 1 : 0) >= target;
@@ -529,7 +531,7 @@ const Arcade = (() => {
         E.hype = Math.min(1, E.hype + (kind === 'dunk' ? .5 : .25));
         $('ahS' + p.team).textContent = (SEGM ? (p.team ? sc1 : sc0) : 0) + G.score[p.team];
         $('ahS' + p.team).classList.remove('bump'); void $('ahS' + p.team).offsetWidth; $('ahS' + p.team).classList.add('bump');
-        if (kind !== 'jelly') logLine(`${p.name} ${kind === 'dunk' ? 'throws it down' : pts === 3 ? 'drills a three' : kind === 'layup' ? 'finishes at the rim' : 'knocks down the jumper'}${assist ? ` (assist: ${assist.name})` : ''}`);
+        if (kind !== 'jelly' && !L.oop) logLine(`${p.name} ${kind === 'dunk' ? 'throws it down' : pts === 3 ? 'drills a three' : kind === 'layup' ? 'finishes at the rim' : 'knocks down the jumper'}${assist ? ` (assist: ${assist.name})` : ''}`);
         if (foul) { pop('AND ONE!', '#f472b6', true); SFX.play('whistle'); if (p === me) highlight('andone', me, 'AND ONE!', 300); }
         if (SEGM) { const bz = SEG.untilClock && G.clock <= 0; if (bz) { pop('AT THE BUZZER!!', '#fde047', true); RD.confetti(120); if (p.team === me.team) highlight('winner', me, 'AT THE BUZZER!', 350); } return endSoon({ end: foul ? 'foul' : 'score', foul: foul ? { shots: 1, team: p.team } : null, pts, scorer: p, dunk: kind === 'dunk', buzzer: bz }, 1.1); }
         if (foul) { G.score[p.team] += 1; p.box.pts += 1; $('ahS' + p.team).textContent = G.score[p.team]; }
@@ -560,10 +562,9 @@ const Arcade = (() => {
       }
       function throwPass(from, to, pm) {
         if (pm) {   // a PLAYMAKER pass: its outcome was decided at the read (pmThrow); here it just flies, in its own shape
-          const d0 = dist(from, to) || 1, K = { bounce: 1.05, lob: 1.4, skip: 1.25, nolook: .78, duo: 1.1 }[pm.type] || 1, thief = !pm.ok && pm.steal && pm.d ? pm.d : null;
+          const d0 = dist(from, to) || 1, K = { bounce: 1.05, lob: 1.4, skip: 1.25, chest: .9 }[pm.type] || 1, thief = !pm.ok && pm.steal && pm.d ? pm.d : null;
           ball.owner = null; ball.state = 'pass';
           ball.pass = { from, to: thief || to, t: 0, T: clamp(d0 / PACE.pass, PACE.passTime[0], PACE.passTime[1]) * K, sx: from.x + from.face * 5, sy: from.y, sz: from.z + 18, intercept: !!thief, kind: pm.type, pm, tip: !pm.ok && !thief ? (pm.d || from) : null };
-          if (pm.freeze) { teamOf(1 - from.team).forEach(d => { d.stun = Math.max(d.stun, PMC().nolook.freeze); d.act = { type: 'watch', t: 0, T: PMC().nolook.freeze }; }); pop('NO-LOOK!', '#c4b5fd', true); G.flash = Math.max(G.flash, .15); G.flashCol = '196,181,253'; }
           if (pm.perfect) SFX.play('perfect'); SFX.play('pass'); return;
         }
         let intercept = null;
@@ -578,10 +579,8 @@ const Arcade = (() => {
         ball.pass = { from, to: intercept || to, t: 0, T, sx: from.x + from.face * 5, sy: from.y, sz: from.z + 18, intercept: !!intercept };
         SFX.play('pass');
       }
-      /* ---- PLAYMAKER (BALANCE.arcade.playmaker): read the lanes, pick the man, pick the pass, keep it moving ---- */
+      /* ---- PLAYMAKER (BALANCE.arcade.playmaker): read the lanes, press his number while his lane is open, 1 or 2 passes, then a shot ---- */
       const PMC = () => CF().playmaker;
-      const PM_TYPES = { bounce: { key: 'KeyB', k: 'B', icon: '✋', name: 'BOUNCE' }, lob: { key: 'KeyL', k: 'L', icon: '⛰', name: 'LOB' }, skip: { key: 'KeyS', k: 'S', icon: '⇆', name: 'SKIP' }, nolook: { key: 'KeyN', k: 'N', icon: '👁', name: 'NO-LOOK' } };
-      const PM_THREAT = { hands: { label: 'HANDS', col: '#fca5a5' }, big: { label: 'BIG MAN', col: '#fdba74' }, far: { label: 'FAR SIDE', col: '#93c5fd' }, reader: { label: 'READING YOU', col: '#c4b5fd' } };
       const pmSkill = () => (Balance.eff(me.st.pass || 50) * .6 + Balance.eff(me.st.iq || 50) * .4) / 99;   // your read: Passing + IQ
       /* where a defender sits against the lane a → b: distance (y squashed like the court) and how far along it */
       const laneInfo = (d, a, b) => { const dx = b.x - a.x, dy = (b.y - a.y) * 1.3, L2 = dx * dx + dy * dy || 1, u = clamp(((d.x - a.x) * dx + (d.y - a.y) * 1.3 * dy) / L2, 0, 1); return { d: Math.hypot(a.x + (b.x - a.x) * u - d.x, (a.y + (b.y - a.y) * u - d.y) * 1.3), u }; };
@@ -594,60 +593,62 @@ const Arcade = (() => {
           teamOf(1 - me.team).forEach(x => { if (used.has(x)) return; const li = laneInfo(x, h, q), sc = li.d + (li.u < .15 || li.u > .9 ? 40 : 0); if (sc < bd) { bd = sc; d = x; } });
           if (d) used.add(d);
           const pd = d ? clamp((Balance.eff(d.st.perD || 50) - 50) / 50, 0, 1) : 0;
-          const far = Math.abs(q.x - h.x) > C.farX, big = d && ((d.st.intD || 50) >= C.bigAt || (d.st.vert || 50) >= C.bigAt + 4), reader = d && (d.st.iq || 50) + (d.st.perD || 50) >= C.readerAt;
-          const threat = far ? 'far' : pick([].concat(big ? ['big', 'big'] : [], reader ? ['reader'] : [], ['hands', 'hands', big || reader ? 'hands' : 'reader']));
           const lt = rnd(.4, .62), inP = { x: lerp(h.x, q.x, lt), y: lerp(h.y, q.y, lt) }, nx = -(q.y - h.y) * 1.3, ny = q.x - h.x, nl = Math.hypot(nx, ny) || 1, side = d && (d.x - inP.x) * nx + (d.y - inP.y) * ny < 0 ? -1 : 1;
           const outP = { x: clamp(inP.x + nx / nl * 24 * side, A.court.x0, A.court.x1), y: clamp(inP.y + ny / nl * 17 * side, A.court.y0 + 8, A.court.y1) };
           const open = clamp(lerp(C.open[0], C.open[1], sk) - C.defK * .3 * pd, .25, .85);
-          return { to: q, idx: i + 1, d, threat, inP, outP, period: lerp(C.period[0], C.period[1], sk) * (1 - C.defK * pd), thr: (1 - Math.cos(Math.PI * open)) / 2, ph: rnd(0, 1), u: 0, open: true, duo: !!(q.duo && h === me && q.team === me.team) };
+          return { to: q, idx: i + 1, d, inP, outP, period: lerp(C.period[0], C.period[1], sk) * (1 - C.defK * pd), thr: (1 - Math.cos(Math.PI * open)) / 2, ph: rnd(0, 1), u: 0, open: true, duo: !!(q.duo && h === me && q.team === me.team) };
         });
+        // ALLEY-OOP: the best leaper who can get up there (or a duo lob partner) gets a golden lane of his own number
+        const duoOf = q => q.duo && q.duo.arcade === 'alleyoop' && h === me ? q.duo : null;
+        const cut = mates.filter(q => oopOpen(q, duoOf(q))).sort((a, b) => (duoOf(b) ? 99 : oopSkill(b)) - (duoOf(a) ? 99 : oopSkill(a)))[0];
+        if (cut) lanes.push({ to: cut, idx: lanes.length + 1, oop: true, duo: duoOf(cut), d: rimProt(cut.team), open: true });
         const T = lerp(C.read[0], C.read[1], sk);
-        G.pm = Object.assign(G.pm || { n: 0, chain: [] }, { reading: true, holder: h, lanes, sel: null, t: T, T });
+        G.pm = Object.assign(G.pm || { n: 0, chain: [] }, { reading: true, holder: h, lanes, t: T, T });
         if (h.act && h.act.type !== 'catch') h.act = null; h.vx = h.vy = 0; mates.forEach(q => { q.vx = q.vy = 0; q.face = h.x >= q.x ? 1 : -1; });
         pmUI(); SFX.play('whoosh', .6);
       }
       /* the lanes breathe in real time: each lane defender slides into it and back out */
       function pmFrame(rdt) {
         const P = G.pm; P.t -= rdt;
-        P.lanes.forEach(L => { L.ph += rdt / L.period; L.u = .5 - .5 * Math.cos(L.ph * Math.PI * 2); L.open = !L.d || L.u < L.thr || L.d.stun > 0;
+        P.lanes.forEach(L => { if (L.oop) return; L.ph += rdt / L.period; L.u = .5 - .5 * Math.cos(L.ph * Math.PI * 2); L.open = !L.d || L.u < L.thr || L.d.stun > 0;
           if (L.d && L.d.stun <= 0) { L.d.x = lerp(L.outP.x, L.inP.x, L.u); L.d.y = lerp(L.outP.y, L.inP.y, L.u); L.d.vx = L.d.vy = 0; L.d.face = P.holder.x >= L.d.x ? 1 : -1; L.d.stance = true; }
         });
         const step = document.getElementById('pmTime'); if (step) step.style.width = clamp(P.t / P.T, 0, 1) * 100 + '%';
         if (P.t <= 0) pmTimeout();
       }
-      function pmPick(L) { const P = G.pm; if (!P || !P.reading) return; P.sel = L; if (L) { L.picked = L.open;   // the lane counts as it was when you picked the man (choosing the pass takes a moment)
- SFX.play('click'); RD.ring(L.to.x, L.to.y, L.duo ? '#facc15' : '#86efac', 50, .25); } pmUI(); }
-      function pmThrow(type) {
-        const P = G.pm; if (!P || !P.reading || !P.sel) return;
-        const C = PMC(), L = P.sel, h = P.holder, q = L.to, d = L.d, sk = pmSkill();
-        const right = type === 'duo' ? L.duo : C.beats[L.threat] === type;
+      /* his number (or his badge / him) = the pass goes right away; the OOP number starts the lob */
+      function pmPick(L) {
+        const P = G.pm; if (!P || !P.reading || !L) return;
+        if (L.oop) { P.reading = false; pmUI(); return startOop(P.holder, L.to, { duo: L.duo, pm: P }); }
+        pmThrow(L);
+      }
+      function pmThrow(L) {
+        const P = G.pm, C = PMC(), h = P.holder, q = L.to, d = L.d;
         const mine = (h.st.pass || 50) * .6 + (h.st.iq || 50) * .4, theirs = d ? (d.st.perD || 50) * .6 + (d.st.iq || 50) * .4 : 40;
         let pct = C.base + (Balance.eff(mine) - Balance.eff(theirs)) * C.k;
-        if (!right) pct -= C.wrong * (1 - C.forgive * sk);
-        const open = L.picked != null ? L.picked : L.open; if (!open) pct -= C.closed;
-        if (type === 'duo') pct += C.duo;
-        if (type === 'nolook') pct -= C.nolook.risk;
+        if (!L.open) pct -= C.closed;
+        if (L.duo) pct += C.duo;
         pct = clamp(pct, 5, 97);
-        const roll = Math.random() * 100, ok = roll < pct, perfect = ok && right && open && roll < pct - C.perfect;
-        let freeze = false;
-        if (ok && type === 'nolook' && right) { if (d && Math.random() < C.nolook.read * clamp(((d.st.iq || 50) - 50) / 49, 0, 1)) tag('HE READ IT!', d, '#fca5a5'); else freeze = true; }   // good defenders read the no-look
+        const roll = Math.random() * 100, ok = roll < pct, perfect = ok && L.open && roll < pct - C.perfect;
+        // the pass shape comes from what's in the way: far side = skip, a big man in the lane = bounce under his arms, smaller hands = lob over them
+        const li = d ? laneInfo(d, h, q) : null, big = d && ((d.st.intD || 50) >= C.bigAt || (d.st.vert || 50) >= C.bigAt + 4);
+        const kind = Math.abs(q.x - h.x) > C.farX ? 'skip' : li && li.d < 22 && li.u > .15 && li.u < .9 ? (big ? 'bounce' : 'lob') : 'chest';
         if (perfect) G.pmPerfect = (G.pmPerfect || 0) + 1;
-        if (window.__arcDebug && window.__arcDebug.G) (window.__arcDebug.pm = window.__arcDebug.pm || []).push({ from: h.short, to: q.short, threat: L.threat, type, right, open, pct: Math.round(pct), ok });   // automated tests only
-        P.reading = false; P.sel = null; pmUI();
-        h.act = { type: 'pass', t: 0, T: .26, to: q, pm: { type, ok, perfect, freeze, steal: !ok && Math.random() < C.steal, d } };
-        h.face = type === 'nolook' ? (q.x >= h.x ? -1 : 1) : (q.x >= h.x ? 1 : -1);   // a no-look: eyes the other way
-        tag(type === 'duo' ? '🔗 ' + (q.duo && q.duo.move || 'DUO').toUpperCase() : PM_TYPES[type].name + '!', h, type === 'duo' ? '#facc15' : '#e2e8f0');
+        if (window.__arcDebug && window.__arcDebug.G) (window.__arcDebug.pm = window.__arcDebug.pm || []).push({ from: h.short, to: q.short, kind, open: L.open, pct: Math.round(pct), ok });   // automated tests only
+        P.reading = false; pmUI(); SFX.play('click'); RD.ring(q.x, q.y, L.duo ? '#facc15' : '#86efac', 50, .25);
+        h.act = { type: 'pass', t: 0, T: .26, to: q, pm: { type: kind, ok, perfect, steal: !ok && Math.random() < C.steal, d } };
+        h.face = q.x >= h.x ? 1 : -1;
       }
       function pmCatch(rc, P) {
         const M = G.pm; if (!M) return;
         M.n++; M.chain.push(P.from); G.pmPasses = (G.pmPasses || 0) + 1;
         if (P.pm.perfect) { pop('PERFECT PASS!', '#4ade80'); burst(rc.x, rc.y - 22, '#bbf7d0', 12, 40); RD.ring(rc.x, rc.y, '#4ade80', 70, .3); }
         if (M.n >= 2) { tag('BALL MOVEMENT!', rc, '#fde68a'); SFX.play('crowd', 1.2); E.hype = Math.min(1, E.hype + .2); }
-        if (P.pm.type === 'duo') { duoCatch(rc); if (rc.act && rc.act.type === 'dunk') { G.pmChain = M.chain.slice(); G.pm = null; pmUI(); return; } }
+        if (rc.act && rc.act.type === 'dunk') { G.pmChain = M.chain.slice(); G.pm = null; pmUI(); return; }   // a duo catch at the rim goes straight up
         if (M.n >= PMC().maxPasses) return pmShoot(rc);
         setTimeout(() => { if (!G.over && G.pm === M && ball.owner === rc && ball.state === 'held') pmRead(rc); }, 260 / PACE.game);   // the next read starts right away
       }
-      /* the final shot: the holder lets it go with his own stats and weapon, more open for every extra pass */
+      /* the final shot: the holder lets it go with his own stats and weapon, more open after a second pass */
       function pmShoot(p) {
         const M = G.pm, n = M ? M.n : 0, C = PMC();
         G.pmChain = M ? M.chain.slice() : null; G.pm = null; pmUI();
@@ -656,54 +657,229 @@ const Arcade = (() => {
         if (shotChance(p).pct >= C.shootAt) { tag(n > 1 ? 'WIDE OPEN!' : 'SHOOT IT!', p, '#86efac'); p.goal = null; p.aiT = 1; p.wantShoot = true; }
         else { tag('ATTACK!', p, '#86efac'); p.goal = { x: A.hoop.x + (p.x < A.hoop.x ? -8 : 8), y: A.hoop.y + 16 }; p.aiT = .5; }   // not his shot from there: he catches and attacks the scrambling defense
       }
-      function pmLet() { const M = G.pm; if (!M || !M.reading) return; if (M.holder === me || M.n > 0) pmShoot(M.holder); }
+      function pmLet() { const M = G.pm; if (M && M.reading && M.n > 0) pmShoot(M.holder); }   // after the first pass: let him shoot
       function pmTimeout() { const M = G.pm; pop('DEFENSE RECOVERS', '#93c5fd', true); G.pmChain = M.chain.length ? M.chain.slice() : null; const h = M.holder; G.pm = null; pmUI(); if (h !== me) h.aiT = 0; }
       function pmKey(k) {
         const M = G.pm; if (!M || !M.reading) return false;
         const L = M.lanes.find(x => 'Digit' + x.idx === k || 'Numpad' + x.idx === k); if (L) { pmPick(L); return true; }
-        if (M.sel) { const t = Object.keys(PM_TYPES).find(id => PM_TYPES[id].key === k); if (t) { pmThrow(t); return true; } if (k === 'KeyD' && M.sel.duo) { pmThrow('duo'); return true; } if (k === 'Backspace' || k === 'Escape') { pmPick(null); return true; } }
         if (k === 'Space' || k === 'KeyJ') { pmLet(); return true; }
         return false;
       }
-      /* the panel under the court: what to do now, with key icons (none on touch screens) */
+      /* the panel under the court: what to do now (the numbers live in the badges over their heads) */
       function pmUI() {
-        const M = G.pm, on = !!(M && M.reading); root.classList.toggle('pm-on', on); if (!on) return;
-        const kb = k => touch ? '' : `<kbd>${k}</kbd>`, letS = M.holder === me ? 'SHOOT IT YOURSELF' : 'LET HIM SHOOT';
-        $('pmStep').innerHTML = `PASS ${Math.min(M.n + 1, PMC().maxPasses)} / ${PMC().maxPasses}<i class="pm-time"><i id="pmTime"></i></i>`;
-        if (!M.sel) {
-          $('pmMsg').innerHTML = `${touch ? 'Tap' : 'Click'} a teammate with a <b class="g">green lane</b>${touch ? '' : ` (${M.lanes.map(L => kb(L.idx)).join(' ')})`}.`;
-          $('pmBtns').innerHTML = (M.holder === me || M.n > 0 ? `<button data-pm="let" class="let">${letS}${kb('SPACE')}</button>` : '');
+        const M = G.pm, O = G.oop, wait = !!(O && O.human && !O.pressed), on = !!(M && M.reading) || wait; root.classList.toggle('pm-on', on); pmBadges();
+        if (!on) return;
+        const kb = k => touch ? '' : `<kbd>${k}</kbd>`, nums = M && M.reading ? M.lanes.filter(L => !L.oop).map(L => L.idx) : [];
+        if (wait) {
+          const jump = O.human === 'jump';
+          $('pmStep').innerHTML = `<b class="oop">${O.duo ? '🔗 ' + esc(O.duo.move.toUpperCase()) : 'ALLEY-OOP'}</b>`;
+          $('pmMsg').innerHTML = jump ? `The lob is up! ${touch ? 'Tap' : 'Press'} <b class="o">JUMP</b> as you reach the gold mark.` : `${touch ? 'Tap' : 'Press'} <b class="o">LOB</b> the moment <b>${esc(O.q.short.toUpperCase())}</b> takes off (when the ring closes).`;
+          $('pmBtns').innerHTML = `<button data-pm="oop" class="oopb">${jump ? 'JUMP!' : 'LOB IT!'}${kb('SPACE')}</button>`;
         } else {
-          const L = M.sel, th = PM_THREAT[L.threat];
-          $('pmMsg').innerHTML = `To <b>${esc(L.to.short.toUpperCase())}</b> · in the way: <b style="color:${th.col}">${th.label}</b>${L.picked ? '' : ' · <b class="r">lane was closed!</b>'} — pick the pass.`;
-          $('pmBtns').innerHTML = Object.entries(PM_TYPES).map(([id, T]) => `<button data-pm="${id}"><i>${T.icon}</i><b>${T.name}</b><small>beats ${PM_THREAT[Object.keys(PMC().beats).find(x => PMC().beats[x] === id)].label}</small>${kb(T.k)}</button>`).join('')
-            + (L.duo ? `<button data-pm="duo" class="duo"><i>🔗</i><b>${esc((L.to.duo.move || 'DUO').toUpperCase())}</b><small>golden lane</small>${kb('D')}</button>` : '') + `<button data-pm="back" class="back">‹</button>`;
+          $('pmStep').innerHTML = `PASS ${Math.min(M.n + 1, PMC().maxPasses)} / ${PMC().maxPasses}<i class="pm-time"><i id="pmTime"></i></i>`;
+          const oop = M.lanes.find(L => L.oop);
+          $('pmMsg').innerHTML = `${touch ? 'Tap a badge' : `Press ${nums.map(kb).join(' ')}`} while it glows <b class="g">green</b>${oop ? ` · <b class="o">${touch ? 'gold OOP' : oop.idx + ' = OOP'}</b> lobs it to the rim` : ''}${M.n > 0 ? ' — or let him shoot.' : '.'}`;
+          $('pmBtns').innerHTML = M.n > 0 ? `<button data-pm="let" class="let">LET ${esc(M.holder === me ? 'IT FLY' : 'HIM SHOOT')}${kb('SPACE')}</button>` : '';
         }
-        $('pmBtns').querySelectorAll('[data-pm]').forEach(b => b.onclick = e => { e.stopPropagation(); const a = b.dataset.pm; if (a === 'let') pmLet(); else if (a === 'back') pmPick(null); else pmThrow(a); });
+        $('pmBtns').querySelectorAll('[data-pm]').forEach(b => b.onclick = e => { e.stopPropagation(); if (b.dataset.pm === 'let') pmLet(); else oopPress(); });
       }
-      /* the lanes on the court: glow + line (green open, red closed, gold duo) under the players, the labels over them */
-      function pmDraw(labels) {
+      /* numbered badges over their heads (tappable buttons): green = open lane, dim red = closed, gold = the OOP to the rim */
+      const badgeEl = root.querySelector('.arc-badges');
+      function pmBadges() {
+        const M = G.pm, on = !!(M && M.reading);
+        if (!on) { if (badgeEl.childElementCount) badgeEl.innerHTML = ''; return; }
+        if (badgeEl.dataset.k !== M.lanes.map(L => L.idx + (L.oop ? 'o' : '') + L.to.i).join() || badgeEl.childElementCount !== M.lanes.length) {
+          badgeEl.dataset.k = M.lanes.map(L => L.idx + (L.oop ? 'o' : '') + L.to.i).join();
+          badgeEl.innerHTML = M.lanes.map(L => `<button class="pm-badge${L.oop ? ' oop' : ''}${L.duo ? ' duo' : ''}" data-l="${L.idx}" aria-label="Pass to ${esc(L.to.short)}${L.oop ? ' — alley-oop' : ''}"><b>${L.idx}</b>${L.oop ? `<small>${L.duo ? '🔗 ' : ''}OOP</small>` : L.duo ? '<small>🔗</small>' : ''}</button>`).join('');
+          badgeEl.querySelectorAll('.pm-badge').forEach(b => { const go = e => { e.preventDefault(); e.stopPropagation(); const L = G.pm && G.pm.reading && G.pm.lanes.find(x => x.idx === +b.dataset.l); if (L) pmPick(L); }; b.addEventListener('pointerdown', go); b.addEventListener('click', e => e.stopPropagation()); });
+        }
+        // screen spots (px in the stage): over his head (the OOP one over the rim), kept on screen and never on top of each other
+        const W = badgeEl.clientWidth || 1, Hh = badgeEl.clientHeight || 1, kx = W / VW, ky = Hh / A.H, els = [...badgeEl.children], P = [];
+        els.forEach((b, i) => { const L = M.lanes[i], q = L.to, bw = b.offsetWidth || 30, bh = b.offsetHeight || 30;
+          let x = ((L.oop ? lerp(q.x, A.hoop.x, .55) : q.x) - G.cam) * kx, y = (L.oop ? A.hoop.y - A.hoop.z - 6 : q.y - q.z - 44) * ky;   // (x, y) = bottom-center
+          for (let k = 0; k < 4; k++) P.forEach(o => { if (Math.abs(x - o.x) < (bw + o.w) / 2 + 3 && Math.abs(y - o.y) < (bh + o.h) / 2 + 3) x = o.x + (x >= o.x ? 1 : -1) * ((bw + o.w) / 2 + 4); });
+          x = clamp(x, bw / 2 + 2, W - bw / 2 - 2); y = clamp(y, bh + 2, Hh - 2); P.push({ x, y, w: bw, h: bh });
+          b.style.left = x + 'px'; b.style.top = y + 'px'; b.classList.toggle('open', !!L.open); b.classList.toggle('shut', !L.open);
+        });
+      }
+      /* the lanes on the court: glow + line (green open, red closed, gold duo / OOP) under the players */
+      function pmDraw() {
         const M = G.pm, h = M.holder;
-        if (!labels) { c.fillStyle = 'rgba(4,6,14,.42)'; c.fillRect(-20, -20, A.W + 40, A.H + 40); }
+        c.fillStyle = 'rgba(4,6,14,.42)'; c.fillRect(-20, -20, A.W + 40, A.H + 40);
         M.lanes.forEach(L => {
-          const q = L.to, a = { x: h.x, y: h.y - 14 }, b = { x: q.x, y: q.y - q.z - 14 }, sel = M.sel === L, col = !L.open ? '#ef4444' : L.duo ? '#facc15' : '#4ade80';
-          if (!labels) {
-            c.lineCap = 'round'; c.strokeStyle = !L.open ? 'rgba(239,68,68,.22)' : L.duo ? 'rgba(250,204,21,.4)' : 'rgba(74,222,128,.32)'; c.lineWidth = sel ? 8 : 5 + Math.sin(G.real * 6) * 1;
-            c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
-            c.strokeStyle = col; c.lineWidth = sel ? 2 : 1.4; c.setLineDash(L.open ? [] : [3, 3]); c.lineDashOffset = -G.real * 24; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); c.setLineDash([]);
-            c.strokeStyle = col; c.lineWidth = 1; c.beginPath(); c.ellipse(Math.round(q.x) + .5, Math.round(q.y) + .5, 10, 4, 0, 0, 7); c.stroke();
+          const q = L.to, a = { x: h.x, y: h.y - 14 }, b = { x: q.x, y: q.y - q.z - 14 }, col = !L.open ? '#ef4444' : L.duo || L.oop ? '#facc15' : '#4ade80';
+          if (L.oop) {   // the lob's path: from the ball, up and over, down to the rim — and his cut to it
+            const H = A.hoop, r = { x: H.x + (q.x >= H.x ? 5 : -5), y: H.y - H.z + 2 }, top = Math.min(a.y, r.y) - 50 - Math.sin(G.real * 4) * 2;
+            c.strokeStyle = 'rgba(250,204,21,.85)'; c.lineWidth = 1.4; c.setLineDash([3, 3]); c.lineDashOffset = -G.real * 24;
+            c.beginPath(); c.moveTo(a.x, a.y); c.quadraticCurveTo((a.x + r.x) / 2, top, r.x, r.y); c.stroke();
+            c.strokeStyle = 'rgba(250,204,21,.5)'; c.beginPath(); c.moveTo(q.x, q.y); c.lineTo(H.x + (q.x >= H.x ? 24 : -24), H.y + 14); c.stroke(); c.setLineDash([]);
+            c.strokeStyle = '#facc15'; c.lineWidth = 1; c.beginPath(); c.ellipse(Math.round(r.x) + .5, Math.round(r.y) + .5, 9 + Math.sin(G.real * 8), 3, 0, 0, 7); c.stroke();
             return;
           }
-          const th = PM_THREAT[L.threat], m = L.inP; RD.text(th.label, Math.round(m.x), Math.round(m.y - 40), th.col, 1, 'center', '#0a0a12');
-          RD.text(touch ? (L.duo ? 'DUO' : '') : `${L.idx}${L.duo ? ' DUO' : ''}`, Math.round(q.x), Math.round(q.y - q.z - 54), L.duo ? '#facc15' : col, 1, 'center', '#0a0a12');
+          c.lineCap = 'round'; c.strokeStyle = !L.open ? 'rgba(239,68,68,.22)' : L.duo ? 'rgba(250,204,21,.4)' : 'rgba(74,222,128,.32)'; c.lineWidth = 5 + Math.sin(G.real * 6) * 1;
+          c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
+          c.strokeStyle = col; c.lineWidth = 1.4; c.setLineDash(L.open ? [] : [3, 3]); c.lineDashOffset = -G.real * 24; c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); c.setLineDash([]);
+          c.strokeStyle = col; c.lineWidth = 1; c.beginPath(); c.ellipse(Math.round(q.x) + .5, Math.round(q.y) + .5, 10, 4, 0, 0, 7); c.stroke();
         });
+      }
+
+      /* ---- ALLEY-OOPS (BALANCE.arcade.oop): a lob to a man cutting to the rim — a timing tap, the catch at the peak, the slam ---- */
+      const OC = () => CF().oop, eff = v => Balance.eff(v || 50);
+      const oopSkill = q => (eff(q.st.vert) + eff(q.st.dunk)) / 2;
+      const rimProt = t => { let best = null, bd = 1e9; teamOf(1 - t).forEach(d => { if (d.stun > 0) return; const h = toHoop(d); if (h < bd) { bd = h; best = d; } }); return best; };
+      const protRating = d => d ? eff(d.st.intD) * OC().def.intD + eff(d.st.vert) * OC().def.vert : OC().noProt;
+      function oopOpen(q, duo) {   // can he go get one up there, and is the air above the rim open?
+        const C = OC(); if (!canDunk(q) || (!duo && oopSkill(q) < C.minSkill)) return false;
+        const d = rimProt(q.team); return !!duo || !d || toHoop(d) > C.clearR || protRating(d) < oopSkill(q) + C.margin;
+      }
+      function oopPct(passer, q, duo) {
+        const C = OC(), w = C.w, off = eff(passer.st.pass) * w.pass + eff(q.st.vert) * w.vert + eff(q.st.dunk) * w.dunk;
+        return clamp(C.base + (off - protRating(rimProt(q.team))) * C.k + (duo ? duo.bonus : 0), C.min, C.max);
+      }
+      function startOop(passer, q, o = {}) {
+        const C = OC(), H = A.hoop, side = q.x >= H.x ? 1 : -1;
+        const O = G.oop = { passer, q, side, T: { x: H.x + side * C.takeoff[0], y: H.y + C.takeoff[1] }, C: { x: H.x + side * 5, y: H.y + 4 }, peakZ: H.z - 8, duo: o.duo || null, pm: o.pm || null,
+          human: q === me ? 'jump' : 'pass', pct: oopPct(passer, q, o.duo), prot: rimProt(q.team), t: 0, ts: C.slow.run, f0: side < 0 ? 1 : -1 };
+        O.runK = Math.max(C.sprint, dist(q, O.T) / C.runMax / Math.max(30, PACE.run(q.st.speed)));   // a hard cut: he gets there in runMax s at most
+        resetP(q); q.act = { type: 'oop', t: 0, ph: 'run', O }; passer.vx = passer.vy = 0; passer.face = q.x >= passer.x ? 1 : -1; if (passer.act && passer.act.type !== 'catch') passer.act = null;
+        G.rpFocus = q; G.oopCD = G.time + C.cooldown;
+        tag(o.duo ? '🔗 ' + o.duo.move.toUpperCase() : q === me ? 'LOB COMING!' : 'GO GET IT!', q, '#facc15'); SFX.play('whoosh'); SFX.play('squeak', .7);
+        if (O.human === 'jump') { O.eta = oopEta(O); oopThrow(O); }   // he lobs it now: you time your jump
+        pmUI();
+      }
+      const oopEta = O => O.t + dist(O.q, O.T) / Math.max(30, PACE.run(O.q.st.speed) * O.runK * .9);   // when he gets to the takeoff spot
+      function oopThrow(O) {
+        const C = OC(), p = O.passer, peakAt = O.takeAt != null ? O.takeAt + C.rise : (O.eta != null ? O.eta : oopEta(O)) + C.rise;
+        const F = clamp(peakAt - O.t, C.minFlight, 1.5);
+        O.thrownAt = O.t; O.arriveAt = O.t + F; O.ts = C.slow.flight;
+        p.act = { type: 'pass', t: 0, T: .3, to: O.q, thrown: true }; p.face = O.q.x >= p.x ? 1 : -1;
+        ball.owner = null; ball.state = 'pass'; ball.pass = { from: p, to: O.q, t: 0, T: F, sx: p.x + p.face * 5, sy: p.y, sz: p.z + 20, kind: 'oop', oop: O };
+        SFX.play('pass'); SFX.play('whoosh', .5); if (O.duo) SFX.play('sig');
+      }
+      /* SPACE / J / tap: the lob goes (you're passing) or you take off (you're cutting) */
+      function oopPress() {
+        const O = G.oop; if (!O || !O.human || O.pressed) return; O.pressed = true; O.pressAt = O.t;
+        if (O.human === 'pass') { oopThrow(O); if (O.takeAt != null) oopJudge(O, O.t - O.takeAt); }   // late: he's already up
+        else oopTakeoff(O);
+        pmUI();
+      }
+      function oopTakeoff(O) {
+        const p = O.q, C = OC(); p.act.ph = 'air'; O.takeAt = O.t; O.from = { x: p.x, y: p.y }; p.vx = p.vy = 0; p.face = A.hoop.x >= p.x ? 1 : -1; O.f0 = p.face;
+        RD.dust(p.x, p.y, 8); SFX.play('squeak'); SFX.play('whoosh', .6);
+        if (O.human === 'jump') oopJudge(O, O.arriveAt - C.rise - O.t);   // + = you went early (the ball's not there yet when you peak)
+        else if (O.pressed && O.res == null) oopJudge(O, O.pressAt - O.takeAt);
+      }
+      /* the timing decides it: perfect = a clean catch and slam; good = the %; off = the % × badK, and a miss looks like what went wrong */
+      function oopJudge(O, err) {
+        const C = OC(), early = err < 0, a = Math.abs(err), k = clamp((O.pct - 40) / 50, 0, 1), yoursEarly = O.human === 'jump' ? err > 0 : err < 0;   // early = the ball gets there before he's up
+        const Wp = lerp(C.perfect[0], C.perfect[1], k), Wg = lerp(C.good[0], C.good[1], k), near = O.prot && toHoop(O.prot) < C.deflectR;
+        let res = 'slam', perfect = false;
+        if (a <= Wp) perfect = true;
+        else if (!(Math.random() * 100 < O.pct * (a <= Wg ? 1 : C.badK))) res = a <= Wg ? (near && Math.random() < .5 ? 'deflect' : 'miss') : early ? (near ? 'deflect' : 'miss') : 'fumble';
+        O.res = res; O.perfect = perfect;
+        if (O.human && !O.auto) tag(perfect ? 'PERFECT LOB!' : a <= Wg ? 'GOOD TIMING' : yoursEarly ? 'TOO EARLY!' : 'TOO LATE!', O.human === 'jump' ? me : O.passer, perfect ? '#86efac' : a <= Wg ? '#fde68a' : '#fca5a5');
+        else if (O.auto) tag('TOO LATE!', O.human === 'jump' ? me : O.passer, '#fca5a5');
+        if (perfect) { SFX.play('perfect'); G.flash = Math.max(G.flash, .18); G.flashCol = '250,204,21'; }
+        if (window.__arcDebug && window.__arcDebug.G) (window.__arcDebug.oop = window.__arcDebug.oop || []).push({ to: O.q.short, human: O.human, err: +err.toFixed(3), pct: Math.round(O.pct), res, perfect, duo: !!O.duo });   // automated tests only
+      }
+      /* each sim step while the cutter's 'oop' act runs (tickAct) */
+      function oopTick(p, a, dt) {
+        const O = a.O, C = OC(), H = A.hoop; if (G.oop !== O) { p.act = null; return; }
+        O.t += dt;
+        if (a.ph === 'run') {
+          const there = dist(p, O.T) < 6 || O.t > 2.4;
+          if (there && O.reachAt == null) O.reachAt = O.t;
+          if (O.human === 'jump') { if (!O.pressed && O.reachAt != null && O.t - O.reachAt > C.auto) { O.pressed = O.auto = true; O.pressAt = O.t; oopTakeoff(O); pmUI(); } }
+          else if (there) oopTakeoff(O);
+          return;
+        }
+        if (a.ph === 'air') {
+          if (O.human === 'pass' && !O.pressed && O.t - O.takeAt > C.auto) { O.pressed = O.auto = true; O.pressAt = O.t; oopThrow(O); oopJudge(O, O.t - O.takeAt); pmUI(); }
+          const R = clamp((O.arriveAt != null ? O.arriveAt : O.takeAt + C.rise) - O.takeAt, .25, .85), u = clamp((O.t - O.takeAt) / R, 0, 1), e = 1 - (1 - u) * (1 - u);
+          p.x = lerp(O.from.x, O.C.x, e); p.y = lerp(O.from.y, O.C.y, e); p.z = Math.max(.1, Math.sin(u * Math.PI / 2) * O.peakZ); p.vx = p.vy = 0;
+          if (O.duo) p.face = Math.floor(u * 4) % 2 ? -O.f0 : O.f0;   // the duo lob: a full 360 on the way up
+          if (O.res === 'deflect' && O.prot && !O.protUp && O.arriveAt != null && O.arriveAt - O.t < .32) {   // the rim protector rises to meet it
+            const d = O.prot; O.protUp = true; d.x = lerp(d.x, O.C.x - O.side * 6, .7); d.y = lerp(d.y, O.C.y + 2, .7); d.act = { type: 'block', t: 0 }; d.vz = PACE.jump(d.st.vert || 50); d.z = .1; d.face = O.side; SFX.play('squeak', .6); }
+          return;
+        }
+        if (a.ph === 'catch') { p.x = O.C.x; p.y = O.C.y; p.z = O.peakZ; if (O.t - O.catchAt >= C.hold) oopSlam(O); return; }
+        if (a.ph === 'slam') {
+          if (O.t - O.slamAt < .32 && a.made) { p.x = H.x - O.side * 3; p.y = H.y + 3; p.z = H.z - 12; }   // hang on the rim
+          else { p.act = { type: 'jump', t: 0 }; p.vz = 0; p.z = Math.max(p.z, 1); oopEnd(O); }
+        }
+      }
+      /* the ball gets to the catch point */
+      function oopArrive(O) {
+        const p = O.q, a = p.act, C = OC(), M = O.pm;
+        if (!a || a.type !== 'oop') { looseBall(ball.x, ball.y, rnd(-40, 40), rnd(0, 30), 20); return oopEnd(O); }
+        if (a.ph !== 'air') { a.ph = 'air'; O.takeAt = O.t; O.from = { x: p.x, y: p.y }; }
+        if (M) { M.n++; M.chain.push(O.passer); G.pmPasses = (G.pmPasses || 0) + 1; G.pmChain = M.chain.slice(); G.pm = null; pmUI(); }
+        if (O.res === 'fumble' || O.res === 'deflect') {
+          const d = O.res === 'deflect' && O.prot;
+          ball.pass = null; looseBall(ball.x, ball.y, (d ? -O.side : O.side) * rnd(40, 90), rnd(-10, 40), 34); ball.z = Math.max(ball.z, p.z + 24);
+          if (d) { pop('DEFLECTED!', '#38bdf8', true); tag('GOT A HAND ON IT!', d, '#7dd3fc'); SFX.play('slap'); burst(ball.x, ball.y - ball.z, '#e0f2fe', 10, 40); }
+          else { pop('FUMBLED!', '#f87171', true); tag('OFF HIS HANDS', p, '#fca5a5'); SFX.play('bounce'); }
+          SFX.play('groan', .7); logLine(`${O.passer.name}'s lob to ${p.name} — ${d ? `deflected by ${d.name}` : 'fumbled'}.`);
+          G.pmChain = null; p.act = { type: 'jump', t: 0 }; p.vz = 0; return oopEnd(O);
+        }
+        // the catch at the peak: slow motion on it, then the slam
+        giveBall(p); ball.lastPasser = O.passer; ball.passT = G.time; a.ph = 'catch'; O.catchAt = O.t; O.ts = C.slow.catch;
+        const sc = shotChance(p); sc.action = 'dunk'; noteShot(p, sc, 'dunk'); p.lastShot.oop = true;
+        G.slowT = .7; G.zoomT = 1; SFX.play('slap', .7); burst(p.x, p.y - p.z - 36, O.duo ? '#facc15' : '#ffffff', 10, 30); RD.ring(p.x, p.y - p.z - 34, '#fde68a', 46, .22);
+        if (O.duo) { pop(`🔗 ${O.duo.move.toUpperCase()}!`, '#facc15', true); G.flash = Math.max(G.flash, .3); G.flashCol = '250,204,21'; G.duos = (G.duos || 0) + 1; }
+      }
+      function oopSlam(O) {
+        const p = O.q, a = p.act, H = A.hoop, made = O.res === 'slam';
+        a.ph = 'slam'; a.made = made; O.slamAt = O.t; O.ts = 0; p.box.fga++; G.lastShooter = p;
+        p.x = H.x - O.side * 3; p.y = H.y + 3; p.z = H.z - 12;
+        impact(.22, 12, .4, .11); E.rim = 1; E.net.swish = 1; RD.sweat(p.x, p.y - p.z - 26, 6);
+        if (made) {
+          burst(H.x, H.y - H.z, '#facc15', 34); RD.ring(H.x, H.y - H.z + 2, '#fde68a', 190, .45); RD.cheer(1, true); SFX.play('roar'); SFX.play('crowd', 1.9); E.hype = 1;
+          if (O.perfect || O.duo) RD.confetti(70);
+          pop('ALLEY-OOP!', '#facc15', true);
+          if (p.team === me.team) G.oops = (G.oops || 0) + 1;
+          if (O.perfect || O.duo || p === me || O.passer === me) oopReplay(p, O.duo ? O.duo.move : O.perfect ? 'PERFECT LOB!' : 'ALLEY-OOP!');
+          ball.owner = null; ball.state = 'net'; ball.x = H.x; ball.y = H.y; ball.z = H.z; ball.vz = -40; ball.netT = 0;
+          logLine(`${O.passer.name} lobs it — ${p.name} throws down the alley-oop!`);
+          scoreBasket(p, 2, 'dunk', false);
+        } else {
+          pop('RIMMED OUT!', '#f87171'); SFX.play('rim'); looseBall(H.x, H.y + 4, rnd(-80, 80), rnd(30, 70), 60); ball.z = H.z;
+          p.streak = 0; if (p.fire) p.fire--; logLine(`${p.name} can't finish the lob.`);
+        }
+      }
+      function oopEnd(O) { if (G.oop !== O) return; G.oop = null; setTimeout(() => { if (!G.oop) G.rpFocus = null; }, 600); if (G.pm && !G.pm.reading) { G.pm = null; } pmUI(); }
+      /* the slam again, from the last second and a half, zoomed on him (rate-limited like the other highlights) */
+      function oopReplay(q, caption) {
+        if (G.over || G.real - G.cutAt < 7 || G.cuts >= (SEGM ? 1 : 3) || FR.n < 15 || q.team !== me.team) return;
+        G.cutAt = G.real; G.cuts++; setTimeout(() => { if (!G.over) replay(caption, q.name, cfg.teams[q.team].colors); }, 260);
+      }
+      /* the timing: a gold mark where he leaves the floor and a ring that closes on him as he gets there — closed = now */
+      function oopDraw() {
+        const O = G.oop, q = O.q; if (!O.human || O.pressed) return;
+        const T = O.T, run = q.act && q.act.type === 'oop' && q.act.ph === 'run';
+        const rem = O.human === 'jump' ? (O.arriveAt - OC().rise) - O.t : run ? Math.max(0, dist(q, T) - 6) / Math.max(30, PACE.run(q.st.speed) * O.runK * .9) : -(O.t - O.takeAt);   // s until the right moment
+        const col = Math.abs(rem) < .07 ? '#4ade80' : rem < 0 ? '#ef4444' : '#ffffff', r = Math.max(5, 7 + rem * 70);
+        c.lineWidth = 1; c.strokeStyle = '#facc15'; c.beginPath(); c.ellipse(Math.round(T.x) + .5, Math.round(T.y) + .5, 10, 4, 0, 0, 7); c.stroke(); RD.px(T.x - 1, T.y - 1, 2, 2, '#facc15');
+        c.strokeStyle = col; c.beginPath(); c.ellipse(Math.round(q.x) + .5, Math.round(q.y) + .5, Math.min(60, r * 1.6), Math.min(24, r * .62), 0, 0, 7); c.stroke();
+        c.strokeStyle = 'rgba(250,204,21,.7)'; c.beginPath(); c.ellipse(Math.round(q.x) + .5, Math.round(q.y) + .5, 10, 4, 0, 0, 7); c.stroke();
+        RD.text(O.human === 'jump' ? 'JUMP!' : 'LOB!', Math.round(q.x), Math.round(q.y - q.z - 50 + Math.sin(G.real * 9)), '#fde68a', 1, 'center', '#0a0a12');
+        RD.text(touch ? 'TAP' : 'SPACE', Math.round(q.x), Math.round(q.y - q.z - 41), col, 1, 'center', '#0a0a12');
+      }
+      /* a teammate lobs it to you when you cut hard to the rim (a duo lob partner does his own move) */
+      function aiOop(p) {
+        const C = OC(), H = A.hoop; if (G.oop || G.pm || p.team !== me.team || ball.owner !== p || G.time < (G.oopCD || 0) || !canAct(me) || me.z > 0 || ball.owner === me) return false;
+        const dh = toHoop(me); if (dh < C.range[0] || dh > C.range[1]) return false;
+        const toward = -((me.x - H.x) * me.vx + (me.y - H.y) * 1.69 * me.vy) / (dh || 1); if (toward < C.cutSpeed) return false;
+        const duo = p.duo && p.duo.arcade === 'alleyoop' ? p.duo : null; if (!oopOpen(me, duo)) return false;
+        if (Math.random() > (duo ? .9 : C.aiThrow)) { G.oopCD = G.time + 1; return false; }
+        startOop(p, me, { duo }); return true;
       }
       /* ---- steals / shoves ---- */
       function trySteal(p) {
         if (p.stealCD > 0 || !canAct(p) || p.z > 0) return; p.stealCD = .7;
         const h = ball.owner;
         p.act = { type: 'reach', t: 0, T: .32 }; if (h) p.face = h.x >= p.x ? 1 : -1;
-        if (!h || h.team === p.team || ball.state !== 'held' || dist(p, h) > 17) return;
+        if (!h || h.team === p.team || ball.state !== 'held' || dist(p, h) > 17 || (h.act && h.act.type === 'oop')) return;
         if (p.slide > 0 && p === me) return shove(p, h);
         const busy = h.act && (h.act.type === 'move' || h.act.type === 'shoot');
         if (p !== me) aiWeapon(p, 'steal');
@@ -809,6 +985,7 @@ const Arcade = (() => {
       const kd = e => {
         if (help.classList.contains('on')) return;
         const k = e.code; if (keys[k]) return; keys[k] = true;
+        if (G.oop && G.paused !== true) { if (k === 'Space' || k.startsWith('Arrow')) e.preventDefault(); if (G.oop.human && !G.oop.pressed && (['Space', 'KeyJ', 'KeyK', 'Enter'].includes(k) || /^(Digit|Numpad)\d$/.test(k))) oopPress(); return; }   // an alley-oop: one timing tap, then it plays out
         if (G.pm && G.pm.reading) { if (pmKey(k)) e.preventDefault(); return; }
         if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(k)) e.preventDefault();
         if ((k === 'KeyJ' || k === 'Space') && !input.shoot) { input.shoot = true; pressShootBtn(); }
@@ -819,6 +996,7 @@ const Arcade = (() => {
       const ku = e => { keys[e.code] = false; if ((e.code === 'KeyJ' || e.code === 'Space') && input.shoot) { input.shoot = false; releaseShoot(me); } };
       addEventListener('keydown', kd); addEventListener('keyup', ku);
       root.querySelector('.arc-stage').addEventListener('pointerdown', e => {   // PLAYMAKER: tap / click a teammate to pick his lane
+        if (G.oop && G.oop.human && !G.oop.pressed && G.paused !== true) { e.preventDefault(); return oopPress(); }   // the lob / jump timing: tap anywhere
         if (!(G.pm && G.pm.reading) || G.paused === true) return; const r = cv.getBoundingClientRect(), x = G.cam + (e.clientX - r.left) / r.width * VW, y = (e.clientY - r.top) / r.height * A.H;
         let best = null, bd = 22; G.pm.lanes.forEach(L => { const q = L.to, d = Math.hypot(q.x - x, (q.y - q.z - 14 - y) * .8); if (d < bd) { bd = d; best = L; } });
         if (best) { e.preventDefault(); pmPick(best); } });
@@ -833,6 +1011,7 @@ const Arcade = (() => {
       }
       function pressShootBtn() {
         if (!live()) return;
+        if (G.oop) { if (G.oop.human && !G.oop.pressed) oopPress(); return; }
         if (ball.owner === me) return pressShoot(me);
         if (ball.state === 'loose' && ball.z < 34) { startDive(me); return; }
         const theirBall = (ball.owner && ball.owner.team !== me.team) || (ball.state === 'shot' && ball.shot && ball.shot.by.team !== me.team);
@@ -840,6 +1019,7 @@ const Arcade = (() => {
       }
       function pressPassBtn() {
         if (!live()) return;
+        if (G.oop) { if (G.oop.human && !G.oop.pressed) oopPress(); return; }
         if (ball.owner === me) {
           const mates = teamOf(me.team).filter(p => p !== me); if (!mates.length) return;
           const [ix, iy] = stick(); let best = null;
@@ -903,6 +1083,7 @@ const Arcade = (() => {
       }
       function aiHandler(p, AI) {
         if (p.act && busyActs.includes(p.act.type)) return;
+        if (aiOop(p)) return;   // you're cutting: he lobs it up
         if (p.isStar) AI = Object.assign({}, AI, { shootAt: AI.shootAt - 6, moves: AI.moves + .15 });   // stars hunt their shot
         const dh = toHoop(p), def = nearestDef(p), dd = def ? dist(def, p) : 999;
         if (p.giveGo > 0 && p.team === me.team && toHoop(me) < A.layupRange * 1.4 && canAct(me)) { p.giveGo = 0; me.duoT = 2; me.duoB = p.duo ? p.duo.bonus : 6; G.duos = (G.duos || 0) + 1; pop(`🔗 ${(p.duo && p.duo.move || 'GIVE-AND-GO').toUpperCase()}!`, '#4ade80'); return startPass(p, me); }   // duo: he hits you on the cut
@@ -1018,6 +1199,7 @@ const Arcade = (() => {
             if (s && p.z === 0 && canAct(p) && dist(p, s) < 18 && !p.blockTry) { p.blockTry = s.act; if (Math.random() < Math.min(.95, aiFor(p).block + CT().aiJump) * (p.role === 'trail' ? 1.3 : 1)) { const err = (1 - aiFor(p).block) * .22, delay = Math.max(0, (s.act.type === 'shoot' ? Math.max(0, PACE.gather - s.act.t) + .05 : .08) + rnd(-err * .5, err)); setTimeout(() => !G.over && tryBlock(p), delay * 1000 / PACE.game); } }
             if (!s) p.blockTry = null;
           }
+          if (p.act && p.act.type === 'oop') { ix = iy = 0; if (p.act.ph === 'run') { const O = p.act.O, dx = O.T.x - p.x, dy = O.T.y - p.y, l = Math.hypot(dx, dy); if (l > 2) { ix = dx / l; iy = dy / l / .78; const m = Math.hypot(ix, iy); ix /= m; iy /= m; } } }   // the cut: straight to his takeoff spot
           if (p.act) tickAct(p, dt);
           // movement
           const a = p.act, locked = p.stun > 0 || (a && ['shoot', 'pass', 'down', 'sit', 'stumble', 'hang', 'flex', 'point', 'thump', 'clap', 'chestbump'].includes(a.type)) || (a && a.type === 'dunk') || (a && a.type === 'layup' && a.t > .2);
@@ -1026,13 +1208,14 @@ const Arcade = (() => {
           else if (p.burst > 0 || p.slide > 0) { if (l < .3) { ix = p.bdx; iy = p.bdy; l = 1; } }
           const hasBall = ball.owner === p && ball.state === 'held';
           const fat = .82 + .18 * p.stamina / 100;
-          let sp = (p.diveT > 0 ? BALANCE.arcade.scramble.diveSpeed : 1) * PACE.run(p.st.speed) * fat * (hasBall ? PACE.withBall : 1) * (p.burst > 0 && !(a && a.type === 'move' && a.t < a.T * .45) ? CF().moves.burst : 1) * (p.slide > 0 ? 1.45 : 1) * (BREAK && p.role === 'trail' ? 1.12 : 1) * (p.z > 0 ? .55 : 1);
+          let sp = (p.diveT > 0 ? BALANCE.arcade.scramble.diveSpeed : 1) * (a && a.type === 'oop' ? a.O.runK : 1) * PACE.run(p.st.speed) * fat * (hasBall ? PACE.withBall : 1) * (p.burst > 0 && !(a && a.type === 'move' && a.t < a.T * .45) ? CF().moves.burst : 1) * (p.slide > 0 ? 1.45 : 1) * (BREAK && p.role === 'trail' ? 1.12 : 1) * (p.z > 0 ? .55 : 1);
           if (locked) sp = 0;
           if (a && a.type === 'layup' && a.t <= .2) sp *= .7;
           const k = Math.min(1, dt * PACE.accel * (p.burst > 0 || p.slide > 0 ? 2 : 1));
           if (p.z <= 0 || p.act && p.act.type === 'layup') { p.vx += (ix * sp - p.vx) * k; p.vy += (iy * sp * .78 - p.vy) * k; }
           if (a && a.type === 'down') { p.vx *= Math.pow(.05, dt); p.vy *= Math.pow(.05, dt); }
-          if (!(a && a.type === 'dunk' && a.t > .22)) { p.x = clamp(p.x + p.vx * dt, A.court.x0, A.court.x1); p.y = clamp(p.y + p.vy * dt, A.court.y0 + 8, A.court.y1); }
+          if (a && a.type === 'oop' && a.ph !== 'run') { p.vx = p.vy = 0; }   // in the air: the oop places him
+          else if (!(a && a.type === 'dunk' && a.t > .22)) { p.x = clamp(p.x + p.vx * dt, A.court.x0, A.court.x1); p.y = clamp(p.y + p.vy * dt, A.court.y0 + 8, A.court.y1); }
           const spd = Math.hypot(p.vx, p.vy);
           p.phase += spd * dt * .21;
           if (hasBall) { const per = spd > 12 ? PACE.dribble.run : PACE.dribble.stand, prev = p.dribT % 1; p.dribT += dt / per; if (prev < .5 && p.dribT % 1 >= .5 && (!a || a.type !== 'move')) SFX.play('bounce', p === me ? 1 : .3); }
@@ -1049,7 +1232,7 @@ const Arcade = (() => {
           if (p.burst <= 0 && p.slide <= 0) p.stamina = Math.min(100, p.stamina + PACE.stamina.regen * (1 + (p.st.stam - 50) / 100) * dt);
           // jumping
           if (p.z > 0 || p.vz > 0) {
-            if (!(a && a.type === 'dunk')) { p.z += p.vz * dt; p.vz -= PACE.gravity * dt; }
+            if (!(a && (a.type === 'dunk' || a.type === 'oop'))) { p.z += p.vz * dt; p.vz -= PACE.gravity * dt; }
             if (p.z <= 0) { p.z = 0; p.vz = 0; if (a && (['block', 'reb', 'jump', 'celebrate'].includes(a.type) || (['shoot', 'layup'].includes(a.type) && a.released))) p.act = p.stun > 0 ? null : { type: 'land', t: 0, T: .17 }; }
           }
         });
@@ -1149,6 +1332,7 @@ const Arcade = (() => {
             break;
           }
           case 'pass': if (!a.thrown && a.t >= .1) { a.thrown = true; throwPass(p, a.to, a.pm); } if (a.t >= a.T) p.act = null; break;
+          case 'oop': oopTick(p, a, dt); break;
           case 'move': {
             if (a.f0 !== a.f1 && a.t >= a.T * .5) p.face = a.f1;
             if (a.id === 'spin') p.face = Math.floor(a.t / a.T * 4) % 2 ? -a.f0 : a.f0;
@@ -1175,7 +1359,15 @@ const Arcade = (() => {
         if (ball.state === 'held' && ball.owner) { const o = ball.owner; ball.x = o.x + o.face * 5; ball.y = o.y + 1; ball.z = o.z + 10; }
         else if (ball.state === 'pass' && ball.pass) {
           const P = ball.pass; P.t += dt; const k = clamp(P.t / P.T, 0, 1);
-          const arcH = P.kind === 'lob' ? 44 : P.kind === 'skip' ? 20 : P.kind === 'nolook' ? 2 : 6;   // each pass type flies its own way
+          if (P.kind === 'oop') {   // the lob: a high, soft arc that floats up and drops into his hands at the top of his jump
+            const O = P.oop, Cp = { x: O.C.x, y: O.C.y, z: O.peakZ + 30 }, e = k * k * (3 - 2 * k) * .35 + k * .65;
+            ball.x = lerp(P.sx, Cp.x, e); ball.y = lerp(P.sy, Cp.y, e); ball.z = lerp(P.sz, Cp.z, k) + OC().arc * 4 * k * (1 - k);
+            if ((P.tk = (P.tk || 0) + 1) % 2 === 0) E.fx.push({ x: ball.x, y: ball.y - ball.z - 2, vx: 0, vy: 0, life: .22, col: O.duo || O.perfect ? '#facc15' : '#fde68a', sz: 1 });
+            if (k >= 1) { const a = O.q.act; if (a && a.type === 'oop' && a.ph === 'run') oopTakeoff(O);
+              if (a && a.type === 'oop' && a.ph === 'air' && O.t - O.takeAt < .25) O.arriveAt = O.takeAt + .25; else if (G.oop === O) oopArrive(O); }   // he's not up yet: it hangs there a beat
+            return;
+          }
+          const arcH = P.kind === 'lob' ? 44 : P.kind === 'skip' ? 20 : P.kind === 'chest' ? 3 : 6;   // each pass flies its own way
           ball.x = lerp(P.sx, P.to.x, k); ball.y = lerp(P.sy, P.to.y, k); ball.z = lerp(P.sz, P.to.z + 18, k) + Math.sin(k * Math.PI) * arcH;
           if (P.kind === 'bounce') { ball.z = k < .55 ? lerp(P.sz, 0, k / .55) : lerp(0, P.to.z + 18, (k - .55) / .45); if (!P.bounced && k >= .55) { P.bounced = true; SFX.play('bounce'); RD.dust(ball.x, ball.y, 2); } }
           if (P.kind && (k * 30 | 0) % 2 === 0) E.fx.push({ x: ball.x, y: ball.y - ball.z - 2, vx: 0, vy: 0, life: .14, col: P.kind === 'duo' ? '#facc15' : P.pm && P.pm.perfect ? '#86efac' : '#e2e8f0', sz: 1 });   // a trail
@@ -1299,7 +1491,7 @@ const Arcade = (() => {
       function drawP(p) {
         const K = RD.player(p, { me: p === me, mate: p.team === me.team && p !== me, fire: p.fire > 0, ring: p === me ? G.ringCol : null });
         if (p.wpn && p.wpn.t > 0) { const col = p.team === me.team ? '#facc15' : '#ef4444'; for (let k = 0; k < 2; k++) E.fx.push({ x: p.x + rnd(-6, 6), y: p.y - p.z - rnd(0, 30), vx: rnd(-10, 10), vy: -rnd(20, 50), life: .35, col: k ? col : '#ffffff', sz: 2, g: -.4 }); }
-        if (ball.owner === me && p.team === me.team && p !== me && ball.state === 'held' && openness(p) > 24 && !G.pending) {   // OPEN indicator over teammates calling for the ball
+        if (ball.owner === me && p.team === me.team && p !== me && ball.state === 'held' && openness(p) > 24 && !G.pending && !G.pm && !G.oop) {   // OPEN indicator over teammates calling for the ball
           const y = Math.round(K.head[1] - 13 + Math.sin(G.real * 8) * 1.5), x = Math.round(K.head[0]);
           RD.text('OPEN', x, y - 6, '#86efac', 1, 'center', '#0a0a12'); RD.px(x - 2, y, 5, 1, '#86efac'); RD.px(x - 1, y + 1, 3, 1, '#86efac'); RD.px(x, y + 2, 1, 1, '#86efac');
           if (G.real - (p.callT || 0) > 2.4 && Math.random() < .02) { p.callT = G.real; tag(pick(['HERE!', 'I\'M OPEN!', 'BALL!']), p, '#86efac'); SFX.play('blip', { f: 240 + p.i * 40, w: 'square', g: .03 }); }
@@ -1317,12 +1509,12 @@ const Arcade = (() => {
       }
       function render(rdt, vdt) {
         E.t = G.vt;
-        if (VW < A.W) { const R = G.pm && G.pm.reading ? [G.pm.holder.x].concat(G.pm.lanes.map(L => L.to.x)) : null, tgt = R ? (Math.min(...R) + Math.max(...R)) / 2 : ball.owner ? ball.owner.x : ball.x; G.cam += (clamp(tgt - VW / 2, 0, A.W - VW) - G.cam) * Math.min(1, rdt * 3); }   // a PLAYMAKER read frames every lane
+        if (VW < A.W) { const R = G.pm && G.pm.reading ? [G.pm.holder.x].concat(G.pm.lanes.map(L => L.oop ? A.hoop.x : L.to.x)) : null, tgt = R ? (Math.min(...R) + Math.max(...R)) / 2 : ball.owner ? ball.owner.x : ball.x; G.cam += (clamp(tgt - VW / 2, 0, A.W - VW) - G.cam) * Math.min(1, rdt * 3); }   // a PLAYMAKER read frames every lane
         const cam = Math.round(G.cam);
         c.setTransform(1, 0, 0, 1, 0, 0);
         // camera focus follows the action (ball / dunker); zoom = big-moment push-in + impact punch-in
         const J = G.jel, H = A.hoop;
-        const act = J ? null : players.find(p => p.act && p.act.type === 'dunk') || (ball.owner) || null;
+        const act = J ? null : players.find(p => p.act && (p.act.type === 'dunk' || (p.act.type === 'oop' && p.act.ph !== 'run'))) || (ball.owner) || null;
         let tx = act ? act.x : ball.x, ty = act ? act.y - act.z - 14 : ball.y - ball.z;
         if (J && J.p) { const sh = ball.owner === J.p ? { x: J.p.x, y: J.p.y - J.p.z - 18 } : { x: ball.x, y: ball.y - ball.z };   // the jelly camera: on the ball, on the rim, or low between him and the rim
           if (J.cam === 'rim' && ball.owner !== J.p) { tx = H.x; ty = H.y - H.z; } else if (J.cam === 'low') { tx = (sh.x + H.x) / 2; ty = (sh.y + H.y - H.z) / 2 + 8; } else { tx = sh.x; ty = sh.y; } }
@@ -1333,20 +1525,20 @@ const Arcade = (() => {
         c.translate(-cam, 0);
         c.drawImage(VEN.bg, 0, 0);
         RD.crowd(); RD.hoop(false);
-        if (G.pm && G.pm.reading) pmDraw(false);   // PLAYMAKER: the court dims, the lanes glow
+        if (G.pm && G.pm.reading) { pmDraw(); pmBadges(); }   // PLAYMAKER: the court dims, the lanes glow, the badges follow the camera
         players.forEach(p => { p.hasBall = ball.owner === p && ball.state === 'held'; });
         if (VEN.def.reflect) players.forEach(p => RD.reflection(p));
         const items = players.map(p => ({ y: p.y, d: () => drawP(p) }));
         if (ball.state !== 'held') items.push({ y: ball.y + .5, d: () => RD.freeBall(ball, !!(ball.shot && ball.shot.by && ball.shot.by.fire > 0)) });
         items.sort((a, b) => a.y - b.y).forEach(i => i.d());
-        const dunker = players.find(p => p.act && p.act.type === 'dunk' && p.act.t > .5 && p.act.t < .95);
+        const dunker = players.find(p => p.act && ((p.act.type === 'dunk' && p.act.t > .5 && p.act.t < .95) || (p.act.type === 'oop' && (p.act.ph === 'catch' || p.act.ph === 'slam'))));
         RD.hoop(true);
         if (dunker) drawP(dunker);   // hanging on the rim, in front of it
         if (ball.state === 'loose' && !G.pending) {   // where the loose ball comes down (everyone can see it, not just the AI)
           const l = landing(), r = 5 + Math.sin(G.real * 10) * 1.2; c.strokeStyle = 'rgba(250,204,21,.85)'; c.lineWidth = 1; c.beginPath(); c.ellipse(Math.round(l.x) + .5, Math.round(l.y) + .5, r * 1.6, r * .7, 0, 0, 7); c.stroke();
           RD.px(l.x - .5, l.y - .5, 1, 1, '#facc15'); if (dist(me, ball) < 34) RD.text('DIVE', me.x, me.y - me.z - 44, '#fde68a', 1, 'center', '#0a0a12');
         }
-        if (G.pm && G.pm.reading) pmDraw(true);
+        if (G.oop) oopDraw();   // the alley-oop timing mark + ring, in front of everyone
         RD.fx(vdt);
         if (G.speedT > 0) { c.fillStyle = 'rgba(255,255,255,.28)'; for (let i = 0; i < 18; i++) { const x = (i * 53 + G.real * 900) % A.W, y = (i * 37 + G.real * 620) % A.H; c.fillRect(Math.round(x), Math.round(y), 1, 10 + (i % 3) * 8); } }
         RD.weather(vdt); RD.lights();
@@ -1383,11 +1575,12 @@ const Arcade = (() => {
         const J = G.jel; if (J) { G.ts += (J.ts - G.ts) * (1 - Math.exp(-rdt * J.rate)); J.t += rdt; if (J.t > 7) jellyEnd(); }   // the jelly's slow-motion ramp (real time), never stuck
         G.jelA = (G.jelA || 0) + ((J && !J.snapped ? 1 : 0) - (G.jelA || 0)) * (1 - Math.exp(-rdt * 5)); G.tiltC = (G.tiltC || 0) + ((J ? J.tilt : 0) - (G.tiltC || 0)) * (1 - Math.exp(-rdt * 5));
         const PMS = G.pm && G.pm.reading ? PMC().slow : 0; if (PMS && G.paused !== true) pmFrame(rdt);   // PLAYMAKER: time slows while you read the lanes
-        const tsc = J ? G.ts : PMS || (G.slowT > 0 ? Math.max(.45, PACE.slowmo) : 1), vdt = stopped ? 0 : rdt * tsc; G.vt += vdt;
+        const OOS = G.oop && G.oop.ts ? G.oop.ts : 0;   // an alley-oop runs on its own clock: slow while you time it, slower at the catch
+        const tsc = J ? G.ts : OOS || PMS || (G.slowT > 0 ? Math.max(.45, PACE.slowmo) : 1), vdt = stopped ? 0 : rdt * tsc; G.vt += vdt;
         if (!stopped) { G.slowT = Math.max(0, G.slowT - rdt); G.speedT = Math.max(0, G.speedT - rdt); }
         const zt = J ? J.zoom : G.slowT > 0 && G.zoomT ? (G.winShot ? 1.3 : 1.22) : 1; G.zoom += (zt - G.zoom) * Math.min(1, rdt * 6); if (G.slowT <= 0) G.zoomT = 0;
         G.shake *= Math.pow(.02, rdt); G.flash *= Math.pow(.02, rdt); G.kick *= Math.pow(.004, rdt);
-        if (!stopped) acc += rdt * PACE.game * (J ? G.ts : PMS || (G.slowT > 0 ? PACE.slowmo : 1));
+        if (!stopped) acc += rdt * PACE.game * (J ? G.ts : OOS || PMS || (G.slowT > 0 ? PACE.slowmo : 1));
         let n = 0; while (acc >= 1 / 60 && n < 8) { update(1 / 60); acc -= 1 / 60; n++; }
         if (G.paused !== true && !G.rp) G.active = (G.active || 0) + rdt;   // real playing time (help card / pause menu don't count)
         if ((lvlT -= rdt) <= 0) { lvlT = .8; SFX.crowd && SFX.crowd.level(E.hype); }
@@ -1435,12 +1628,12 @@ const Arcade = (() => {
           const scorer = extra.scorer || null;
           res = { kind: SEG.kind, ptsUs: G.score[0], ptsThem: G.score[1], pts: G.score[0], end: extra.end || 'miss', offense: G.off, scorer: role(scorer), scorerName: scorer && scorer.name, me: Object.assign({}, me.box),
             foul: extra.foul || null, fouled: role(extra.fouled || (extra.foul && scorer)), dunk: !!extra.dunk, buzzer: !!extra.buzzer, stamina: Math.round(G.stamUsed + (100 - me.stamina) * .3), log: G.log.slice(), ankles: G.anklesBy || 0,
-            all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice(), play: G.lastPlay || null, stop: G.lastStop || null, jellies: G.jellies || 0, jellyTries: G.jellyTries || 0, jellyBlocks: G.jellyBlocks || 0, duos: G.duos || 0, pmPasses: G.pmPasses || 0, pmPerfect: G.pmPerfect || 0 };
+            all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice(), play: G.lastPlay || null, stop: G.lastStop || null, jellies: G.jellies || 0, jellyTries: G.jellyTries || 0, jellyBlocks: G.jellyBlocks || 0, duos: G.duos || 0, pmPasses: G.pmPasses || 0, pmPerfect: G.pmPerfect || 0, oops: G.oops || 0 };
           banner = res.ptsUs ? (extra.foul ? 'AND ONE!' : extra.buzzer ? 'AT THE BUZZER!' : `+${res.ptsUs}`) : res.ptsThem ? (extra.foul ? 'AND ONE — THEM' : 'THEY SCORE') :
             ({ foul: res.foul && res.foul.team === 1 ? 'FOUL ON YOU' : 'FOUL — TO THE LINE', to: 'TURNOVER', set: 'DEFENSE SET', oreb: 'RESET', miss: 'NO GOOD', stop: 'STOP!', buzzer: 'BUZZER' })[res.end] || 'NO GOOD';
         } else {
           const win = extra.forfeit ? false : G.score[0] > G.score[1];
-          res = { play: G.lastPlay || null, stop: G.lastStop || null, jellies: G.jellies || 0, jellyTries: G.jellyTries || 0, jellyBlocks: G.jellyBlocks || 0, duos: G.duos || 0, win, score: G.score.slice(), box: me.box, fire: G.anyFire, shatter: E.shatter, forfeit: !!extra.forfeit, ankles: G.anklesBy || 0, fatigue: clamp(Math.round(G.stamUsed / 5 + 15), 15, 60), all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice() };
+          res = { play: G.lastPlay || null, stop: G.lastStop || null, jellies: G.jellies || 0, jellyTries: G.jellyTries || 0, jellyBlocks: G.jellyBlocks || 0, duos: G.duos || 0, oops: G.oops || 0, win, score: G.score.slice(), box: me.box, fire: G.anyFire, shatter: E.shatter, forfeit: !!extra.forfeit, ankles: G.anklesBy || 0, fatigue: clamp(Math.round(G.stamUsed / 5 + 15), 15, 60), all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice() };
           banner = win ? 'YOU WIN!' : 'GAME OVER'; sub = `${G.score[0]} – ${G.score[1]}`;
         }
         intro.className = 'arc-intro on'; intro.innerHTML = `<b>${banner}</b>${sub ? `<small>${sub}</small>` : ''}`;

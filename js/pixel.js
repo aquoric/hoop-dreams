@@ -279,6 +279,11 @@ const Pixel = (() => {
           else if (a.made && a.t < .9) { const sw = Math.sin(t * 11) * .25; o.legs = [[.35 + sw, -.5], [.05 + sw, -.45]]; o.arms = [[2.95, 0], [3.02, 0]]; o.ball = null; o.snap = a.t < .67; }
           else { o.legs = [[.3, -.6], [-.1, -.4]]; o.arms = [[2.4, .3], [2.0, .3]]; o.ball = null; }
           if (a.stuffed) o.ball = null; break;
+        case 'oop':   // ALLEY-OOP: the cut is a normal sprint; then up reaching, the catch cocked back at the peak, the slam + hang
+          if (a.ph === 'air') { o.legs = [[.85, -1.5], [-.05, -.45]]; o.arms = [[2.95, .3], [3.1, .2]]; o.lean = -.12; o.stretch = .22; o.ball = null; o.rate = 40; }
+          else if (a.ph === 'catch') { o.legs = [[.65, -1.25], [.1, -.55]]; o.arms = [[3.35, .95], [3.6, .85]]; o.ball = 'behind'; o.lean = -.16; o.stretch = .24; o.snap = true; }
+          else if (a.ph === 'slam') { if (a.made) { const sw = Math.sin(t * 11) * .25; o.legs = [[.35 + sw, -.5], [.05 + sw, -.45]]; o.arms = [[2.95, 0], [3.02, 0]]; } else { o.legs = [[.3, -.6], [-.1, -.4]]; o.arms = [[2.4, .3], [2.0, .3]]; } o.ball = null; o.snap = (a.O && a.O.t - a.O.slamAt < .04); }
+          break;
         case 'pass':
           if (!a.thrown && a.t < .1) { o.arms = [[.7, 1.75], [.8, 1.75]]; o.ball = 'chest'; o.lean = -.06; o.legs = [[.3, -.5], [-.3, -.45]]; }
           else { o.arms = [[1.5, .05], [1.62, 0]]; o.lean = .22; o.legs = [[.7, -.55], [-.45, -.25]]; o.ball = a.thrown ? null : 'chest'; o.snap = a.t < .14; }

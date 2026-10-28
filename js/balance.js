@@ -284,24 +284,41 @@ const BALANCE = {
        Who comes up with it: BALANCE.actions.scramble (Speed + Vertical + Strength), × diveBonus while diving, closer = better. */
     scramble: { react: [.38, .62], aim: 14, aiDive: 24, dive: .32, diveSpeed: 2.3, reach: 20, grab: 13, diveBonus: 1.25, cooldown: .9 },
     /* PLAYMAKER (an arcade segment): you have the ball and the defense is scrambling. Time slows, the passing lanes light up and
-       defenders slide in and out of them. Pick an open teammate, then the pass that beats what's in the way; chain up to maxPasses,
-       then he shoots (his stats + weapon). skill = your Passing (.6) + IQ (.4) after diminishing returns, 0..1.
+       defenders slide in and out of them. Each teammate gets a numbered badge: press his number (or tap the badge / him) while his
+       lane is open. 1 or 2 passes, then a shot: after the first pass, SPACE lets him shoot or one more number moves it again.
+       The pass itself (chest, bounce, lob, skip) is picked for you from where the defenders are.
+       skill = your Passing (.6) + IQ (.4) after diminishing returns, 0..1.
        slow: time scale while reading · read: seconds per read [low skill, high skill] · period: a defender's slide in/out cycle (s)
        [low, high skill] · open: share of the cycle the lane is open [low, high] · defK: Perimeter D above 50 shortens both (better
-       defenders close lanes faster) · beats: which pass beats which threat (hands → bounce, big → lob, far → skip, reader → no-look)
-       base: % on the right pass through an open lane at equal ratings · k: % per point of the passer's Passing/IQ vs the defender's
-       Perimeter D/IQ · wrong / closed: % off for the wrong pass type / an occupied lane (× (1 − forgive × skill) for the wrong type)
-       nolook: freeze (s) when it works · read: chance a defender with 99 IQ reads it (scaled from 50 IQ) · risk: % off any no-look
-       perfect: right pass + open lane + a roll this far under the % = PERFECT PASS · steal: share of lost passes that are steals
-       (the rest are tipped loose) · movement: look = shot % for the open look a scrambling defense gives up, shot = % per pass after
-       the first (BALL MOVEMENT!), open = how far (px) the shooter's man is left behind per pass
-       duo: % on a Chemistry Link duo pass (the golden lane) · farX: px apart for a far-side lane · bigAt / readerAt: defender stats
-       that make a big man / a reader in the lane · maxPasses: passes in one chain · shootAt: the % the final shooter needs to
-       let it fly from where he caught it (below it he attacks the rim instead) */
-    playmaker: { maxPasses: 3, slow: .16, read: [3.4, 6.5], period: [1.6, 2.6], open: [.46, .7], defK: .35,
-      beats: { hands: 'bounce', big: 'lob', far: 'skip', reader: 'nolook' },
-      base: 90, k: .45, wrong: 34, closed: 42, forgive: .5, nolook: { freeze: .9, read: .5, risk: 4 }, perfect: 25, steal: .5,
-      movement: { look: 8, shot: 8, open: 14 }, duo: 12, farX: 150, bigAt: 62, readerAt: 126, shootAt: 40 },
+       defenders close lanes faster) · base: % through an open lane at equal ratings · k: % per point of the passer's Passing/IQ vs
+       the lane defender's Perimeter D/IQ · closed: % off when his lane was closed · perfect: an open lane + a roll this far under
+       the % = PERFECT PASS · steal: share of lost passes that are steals (the rest are tipped loose) · movement: look = shot % for
+       the open look a scrambling defense gives up, shot = % for the second pass (BALL MOVEMENT!), open = how far (px) the shooter's
+       man is left behind per pass · duo: % on a pass to a Chemistry Link duo partner · farX: px apart for a skip pass · bigAt: a
+       lane defender with this Interior D (or Vertical + 4) gets a bounce pass under his arms, a smaller one a lob over his hands
+       maxPasses: passes in one chain · shootAt: the % the final shooter needs to let it fly from where he caught it (below it he
+       attacks the rim instead) */
+    playmaker: { maxPasses: 2, slow: .16, read: [3.4, 6.5], period: [1.6, 2.6], open: [.46, .7], defK: .35,
+      base: 90, k: .45, closed: 42, perfect: 25, steal: .5,
+      movement: { look: 8, shot: 8, open: 14 }, duo: 12, farX: 150, bigAt: 62, shootAt: 40 },
+    /* ALLEY-OOPS: a teammate with Vertical + Dunking (average after diminishing returns) of minSkill or more who can get to the rim
+       gets a golden OOP lane when the air is open: no rim protector within clearR px of the rim, or one whose rating (Interior D
+       × def.intD + Vertical × def.vert) is under the cutter's skill + margin. A Chemistry Link duo lob always qualifies.
+       Then a timing tap: lob it (or, when you're the one cutting, jump) as he takes off.
+       pct = base + (Passing × w.pass + his Vertical × w.vert + his Dunking × w.dunk − the rim protector's rating) × k (+ the duo
+       bonus), clamped min..max (noProt = the rating when nobody is back) · timing: within perfect s (scaled up from [low, high] as
+       the % goes from 40 to 90) = a clean catch and slam every time; within good s = roll the %; worse = roll the % × badK, and a
+       miss is a fumbled catch (late lob / early jump), a deflection (rim protector within deflectR px) or a lob he can't finish
+       takeoff: [px out from the rim, px below it] where he leaves the floor · rise: s from takeoff to the catch at the peak (he
+       hangs there if the ball is late) · minFlight: shortest lob (s) · arc: px the lob floats above its ends · auto: s after
+       takeoff before a lob / jump goes off by itself (late) · hold: s he holds it overhead before the slam · sprint: speed on the cut (faster when it's far: he gets there in runMax s)
+       slow: time scale while you wait to time it / while the lob floats / at the catch
+       aiThrow: chance a teammate lobs it to you when you cut to the rim (moving at cutSpeed+ px/s toward it, range px from it)
+       cooldown: s between those · replay: the slam gets an instant replay when it was perfect, a duo move, or yours */
+    oop: { minSkill: 58, clearR: 30, margin: 6, w: { pass: .4, vert: .3, dunk: .3 }, def: { intD: .6, vert: .4 }, noProt: 30,
+      base: 62, k: .6, min: 8, max: 95, perfect: [.05, .09], good: [.12, .2], badK: .25, deflectR: 46,
+      takeoff: [24, 14], rise: .5, minFlight: .3, arc: 22, auto: .3, hold: .12, sprint: 1.25, runMax: .7,
+      slow: { run: .5, flight: .6, catch: .22 }, aiThrow: .55, cutSpeed: 22, range: [36, 140], cooldown: 4 },
   },
 };
 /* Difficulty values feed the rest of the game */

@@ -2754,7 +2754,7 @@ const Match = (() => {
     /* ---------- FULL ARCADE GAME (pickups + the Kai 1-on-1): tip-off to the final basket, live ---------- */
     function arcadeExtras(r) {   // jellies + duo moves played live in arcade
       if (r.jellies) { cnt('jellies', r.jellies); st.highlights.push(r.jellies > 1 ? `${r.jellies} jellies in the open floor` : 'Jelly in the open floor'); if (JM && JM.payoff && !st.jmDone) { st.jmDone = true; cnt('jellyPayoff'); } }
-      if (r.jellyTries) cnt('jellyTries', r.jellyTries); if (r.jellyBlocks) cnt('jellyBlocks', r.jellyBlocks); if (r.duos) cnt('duoMoves', r.duos);
+      if (r.jellyTries) cnt('jellyTries', r.jellyTries); if (r.jellyBlocks) cnt('jellyBlocks', r.jellyBlocks); if (r.duos) cnt('duoMoves', r.duos); if (r.oops) cnt('alleyOops', r.oops);
     }
     /* ---------- SUMMER JAM (cfg.jam): the live game stops at some dead balls for a choice moment ----------
        street calls (they set up your next possession), matchups (who you guard), key possessions (a decision + minigame),
