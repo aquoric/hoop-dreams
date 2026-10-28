@@ -377,7 +377,7 @@ const USA4 = (() => {
     ] };
     return '_usa_kai_tv';
   }
-  /* camp: Dre's give-and-go (the Chemistry Links scene) and Big Ike sending your layups into the bleachers */
+  /* camp: Dre's give-and-go (the Chemistry Links scene) */
   function giveGo(s, ctx) {
     const DR = look('dre'); ctx.venue = 'usa_center'; ctx.team = { colors: LOCAL_TEAMS.usa_red.colors }; ctx.them = { colors: LOCAL_TEAMS.usa_white.colors };
     CUTSCENES._usa_givego = { name: 'Give & Go', chapter: 'Interlude', shots: [
@@ -392,19 +392,165 @@ const USA4 = (() => {
     ] };
     return '_usa_givego';
   }
-  function ikeBlocks(s, ctx) {
-    const IK = look('ike'); ctx.venue = 'usa_center'; ctx.team = { colors: LOCAL_TEAMS.usa_red.colors }; ctx.them = { colors: LOCAL_TEAMS.usa_white.colors };
-    const block = (tm, ike, you) => { ike.face = 1; ike.act = { type: 'block', t: .1 }; ike.z = Math.max(0, Math.sin(Math.min(1, Math.max(0, (tm - .3) / .6)) * Math.PI) * 14); CSK.jumper(you._S, you, tm, .15, { made: false, flight: 1, jump: 12, arc: 10 }); };
-    CUTSCENES._usa_ike = { name: 'Big Ike', chapter: 'Interlude', shots: [
-      { d: 3200, court: 'usa_center', slow: [[400, 2200, .4]], cam: [[0, 10, 20, 2.0], [1, 6, 10, 2.2, 'io']], cast: [SP('you', 214, 128), SP('ike', 196, 116, 1, IK)],
-        ev: [[1200, 'sfx', 'impact'], [1200, 'impact', 140], [1200, 'shake', 6]], title: { text: 'GET THAT OUTTA HERE', style: 'slam', at: 1300 },
-        play(S2, tm) { S2.sp.you._S = S2; block(tm, S2.sp.ike, S2.sp.you); } },
-      { d: 2600, scene: 'gym', cam: [[0, 0, 8, 1.3], [1, 0, 12, 1.42]], cast: [{ id: 'ike', kind: 'bust', x: .3, expr: 'fierce', rim: '#94a3b8' }, { id: 'you', kind: 'bust', x: -.66, y: 136, sil: true, rim: '#93c5fd', d: 1.2 }],
-        title: { text: 'Two trips later: again.', style: 'line', at: 900 }, ev: [[900, 'sfx', 'impact']] },
-    ] };
-    return '_usa_ike';
+  /* ---------- THE WALL: Big Ike in the day-2 scrimmage (js/match.js cfg.wall), the mocking, Scoop, the payoff ---------- */
+  const lerp = (a, b, k) => a + (b - a) * k, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const campCtx = ctx => { ctx.venue = 'usa_center'; ctx.team = { colors: LOCAL_TEAMS.usa_red.colors }; ctx.them = { colors: LOCAL_TEAMS.usa_white.colors }; return ctx; };
+  /* the drive and the rise, slow motion as he rises: you come in from the right, he meets you (from behind on 'chase') */
+  function denyRise(kind) {
+    const H = PIX.hoop, dunk = kind === 'stuff', chase = kind === 'chase';
+    return (S2, tm) => {
+      const p = S2.sp.you, k = S2.sp.ike, B = S2.ball, u = tm - .9;
+      if (tm < .9) { B.holder = p; CSK.run(p, tm, 0, .9, H.x + 74, H.y + 74, H.x + (dunk ? 10 : 15), H.y + (dunk ? 15 : 20)); p.face = -1;
+        if (chase) CSK.run(k, tm, 0, 1.2, H.x + 150, H.y + 96, H.x + 24, H.y + 24); else { CSK.run(k, tm, .3, .9, H.x - 10, H.y + 15, H.x, H.y + 17); k.stance = true; }
+        k.face = -1; return; }
+      if (chase && tm < 1.2) CSK.run(k, tm, 0, 1.2, H.x + 150, H.y + 96, H.x + 24, H.y + 24);
+      if (dunk) { p.act = { type: 'dunk', t: Math.min(.6, .22 + u * .7), T: 1.05 }; p.z = Math.sin(Math.min(1, u / .5) * Math.PI / 2) * (H.z - 12); p.x = lerp(H.x + 10, H.x + 12, Math.min(1, u / .5)); }
+      else { p.act = { type: 'layup', t: Math.min(.42, .18 + u * .5), T: .7 }; p.z = Math.sin(Math.min(1, u / .45) * Math.PI / 2) * 14; }
+      const ku = chase ? u - .22 : u - .05; k.act = { type: 'block', t: .1 }; k.face = -1; k.z = Math.max(0, Math.sin(clamp(ku / .45, 0, 1) * Math.PI / 2) * (dunk ? H.z - 10 : 20));
+      B.holder = p;
+      if (u > .45 && !S2._hit) { S2._hit = 1; SFX.play('slap'); SFX.play('dunk'); S2.fx.impact(160); S2.fx.shake(9); }
+    };
   }
-  return { roster, bench, finalOpen, awaken, scripts, podium, kaiTv, giveGo, ikeBlocks };
+  /* where the ball goes: pinned on the glass, into the bleachers, stuffed straight down, or pinned from behind and out */
+  function denyBall(kind) {
+    const H = PIX.hoop;
+    return (S2, tm) => {
+      const p = S2.sp.you, k = S2.sp.ike, B = S2.ball; B.holder = null; k.face = -1; k.act = { type: 'block', t: .1 };
+      if (kind === 'bleachers') {   // swatted sideways, up, over the sideline and into the stands
+        p.x = H.x + 14; p.y = H.y + 20; p.z = Math.max(0, 14 - tm * 40); p.act = p.z > 0 ? { type: 'jump', t: tm } : { type: 'land', t: tm, T: .3 }; k.x = H.x + 6; k.y = H.y + 18; k.z = Math.max(0, 20 - tm * 50);
+        B.x = H.x + 6 - tm * 260; B.y = H.y + 10 + tm * 30; B.z = 46 + tm * 120 - tm * tm * 70; B.spin = tm * 30;
+        if (tm > .7 && !S2._st) { S2._st = 1; SFX.play('crowd', 1.6); SFX.play('ooh'); }
+      } else if (kind === 'glass' || kind === 'chase') {   // pinned high on the backboard, his hand flat on it, then he takes it away
+        const pin = Math.min(1, tm / .12); p.x = H.x + (kind === 'chase' ? 10 : 14); p.y = H.y + 20; p.z = Math.max(0, 12 - tm * 30); p.act = p.z > 0 ? { type: 'jump', t: tm } : { type: 'stumble', t: tm, T: 1 };
+        k.x = H.x + 3; k.y = H.y + 10; k.z = tm < .7 ? 16 : Math.max(0, 16 - (tm - .7) * 60);
+        if (tm < .7) { B.x = lerp(H.x + 10, H.x + 1, pin); B.y = H.y - 2; B.z = lerp(40, H.z + 8, pin); if (!S2._pin) { S2._pin = 1; SFX.play('rim'); S2.R.E.rim = 1.2; S2.fx.shake(10); S2.fx.impact(150); } }
+        else if (kind === 'chase') { const a = tm - .7; B.x = H.x - a * 120; B.y = H.y + a * 10; B.z = Math.max(0, H.z + 8 - a * 60 - a * a * 90); if (B.z === 0 && !S2._bn) { S2._bn = 1; SFX.play('bounce'); } }   // out of bounds, off the baseline
+        else B.holder = k;   // he grabs it off the glass
+      } else {   // stuffed: back down through his own hands, you on the floor
+        k.x = H.x; k.y = H.y + 15; k.z = Math.max(0, H.z - 10 - tm * 60); p.x = H.x + 13; p.y = H.y + 16; p.z = Math.max(0, H.z - 12 - tm * 90); p.act = p.z > 0 ? { type: 'jump', t: tm } : { type: 'down', t: tm, T: 2 };
+        B.x = H.x + 6; B.y = H.y + 18; B.z = Math.max(0, H.z + 6 - tm * 160); if (B.z === 0) { B.y = H.y + 18 + (tm - .2) * 20; B.x = H.x + 6 + (tm - .2) * 30; if (!S2._bn) { S2._bn = 1; SFX.play('bounce'); SFX.play('ooh'); } }
+      }
+    };
+  }
+  const DENY = {
+    stuff: { cap: 'STUFFED', sub: 'At the rim', line: 'Not in here. Not ever.', expr: 'fierce' },
+    glass: { cap: 'PINNED', sub: 'On the glass', line: 'That\'s MY glass.', expr: 'fierce' },
+    bleachers: { cap: 'ROW NINE', sub: 'Into the bleachers', line: 'Go get it. It\'s in row nine.', expr: 'smile' },
+    chase: { cap: 'CHASED DOWN', sub: 'From behind', line: 'You thought you were alone?', expr: 'smile' },
+  };
+  function ikeDeny(s, ctx, kind, W) {
+    const IK = look('ike'), D = DENY[kind] || DENY.glass, H = PIX.hoop; campCtx(ctx);
+    const id = '_usa_deny_' + kind, n = W ? W.n : 1;
+    CUTSCENES[id] = { name: 'Denied', chapter: 'Interlude', shots: [
+      { d: 1750, court: 'usa_center', music: null, slow: [[950, 1750, .36]], speed: 'h', cam: [[0, 44, 2, 1.45], [.42, 22, -34, 1.8], [1, 10, -70, 2.05, 'io']], tr: 'cut',
+        cast: [SP('you', H.x + 74, H.y + 74), SP('ike', kind === 'chase' ? H.x + 150 : H.x - 8, kind === 'chase' ? H.y + 96 : H.y + 15, 1, IK)],
+        ev: [[0, 'sfx', 'squeak'], [950, 'sfx', 'heartbeat'], [950, 'riser', 1.3]], play: denyRise(kind) },
+      { d: 1300, scene: 'void', grade: 'red', speed: 'radial', music: null, cam: [[0, 0, 0, 1.25], [1, 0, 0, 1.5, 'snap']],
+        cast: [{ id: 'ike', kind: 'hand', x: 0, y: 150, s: 5.2, curlTo: [[0, 0], [380, .62]], ball: true, shake: 2.5 }],
+        ev: [[360, 'sfx', 'slap'], [360, 'impact', 160], [360, 'flash', '#ffffff', .6], [360, 'shake', 12]] },
+      { d: kind === 'bleachers' ? 2200 : 1900, court: 'usa_center', tr: 'flash', cam: kind === 'bleachers' ? [[0, 6, -70, 1.8], [1, -150, -100, 1.3, 'out']] : [[0, 6, -74, 2.0], [1, 6, -66, 1.75]],
+        cast: [SP('you', H.x + 14, H.y + 20), SP('ike', H.x + 4, H.y + 17, 1, IK)], ev: [[0, 'sfx', 'crowd', 1.4], [0, 'shake', 8], [0, 'cheer', 1]], play: denyBall(kind) },
+      { d: 1500, scene: 'void', grade: 'red', speed: 'radial', music: null, cam: [[0, 0, 4, 1.2], [1, 0, 8, 1.35, 'snap']],
+        cast: [{ id: 'ike', kind: 'bust', x: .35, expr: 'fierce', rim: '#f87171' }],
+        title: { text: 'DENIED', sub: `${D.cap} · ${n} at the rim`, style: 'slam', at: 80 }, ev: [[80, 'sfx', 'impact'], [80, 'impact', 170], [80, 'flash', '#fca5a5', .7], [80, 'shake', 14]] },
+      { d: 2600, scene: 'gym', grade: 'dark', cam: [[0, 0, 28, 1.25], [1, 0, 18, 1.4, 'io']],
+        cast: [{ id: 'you', kind: 'actor', x: -.22, y: 84, s: 2.4, acts: [[0, 'sit', 99]] }, { id: 'ike', kind: 'full', x: .22, y: 70, d: .9, expr: D.expr, rim: '#94a3b8' }],
+        say: ['ike', D.line], ev: [[0, 'sfx', 'crowd', .8]] },
+    ] };
+    return id;
+  }
+  /* the White bench: a timeout during the game, then the walk off after it */
+  function ikeMock(s, ctx, kind, W) {
+    campCtx(ctx); const n = W ? W.n : (s.usa && s.usa.ike ? s.usa.ike.blocks : 6), pts = s.usa && s.usa.ike ? s.usa.ike.pts : 0;
+    if (kind === 'timeout') {
+      CUTSCENES._usa_mock_to = { name: 'Timeout', chapter: 'Interlude', shots: [
+        { d: 2600, scene: 'gym', grade: 'blue', music: null, tr: 'flash', cam: [[0, -20, 8, 1.0], [1, 10, 6, 1.06]],
+          cast: [{ id: 'kai', kind: 'actor', x: -.42, y: 78, s: 1.9, acts: [[0, 'clap', 99]] }, { id: 'jet', kind: 'actor', x: -.08, y: 80, s: 1.9, acts: [[0, 'joy', 99]] }, { id: 'ike', kind: 'actor', x: .32, y: 76, s: 2.1, acts: [[300, 'flex', 1.5]] }],
+          say: ['narrator', `Timeout, Red. ${n} shots at the rim, ${n} blocks.`], ev: [[0, 'sfx', 'whistle'], [300, 'sfx', 'crowd', 1.2]] },
+        { d: 2400, scene: 'gym', grade: 'blue', cam: [[0, 0, 4, 1.1], [1, 0, 2, 1.2]],
+          cast: [{ id: 'jet', kind: 'actor', x: 0, y: 80, s: 2.2, acts: [[0, 'block', .45], [550, 'block', .45], [1100, 'block', .45]], zs: [[0, 0], [250, 9], [500, 0], [800, 9], [1050, 0], [1350, 9], [1600, 0]] }],
+          say: ['jet', '(swatting the air) Get that OUTTA here!', 'smile'] },
+        { d: 2600, scene: 'gym', grade: 'red', speed: 'h', cam: [[0, 0, 10, 1.0], [1, 0, 10, 1.06]],
+          cast: [{ id: 'kai', kind: 'actor', x: -.5, y: 86, s: 1.8, acts: [[0, 'clap', 99]] }, { id: 'jet', kind: 'actor', x: -.17, y: 88, s: 1.8, acts: [[0, 'clap', 99]] }, { id: 'ike', kind: 'actor', x: .16, y: 84, s: 2, acts: [[0, 'clap', 99]] }, { id: 'milo', kind: 'actor', x: .55, y: 90, s: 1.8, acts: [[0, 'slump', 99]] }],
+          title: { text: 'DE-NIED!', sub: 'DE-NIED! DE-NIED!', style: 'rise', at: 200 }, ev: [[200, 'sfx', 'crowd', 1.6], [200, 'shake', 4], [900, 'sfx', 'clap'], [1300, 'sfx', 'clap'], [1700, 'sfx', 'clap']] },
+        { d: 2300, scene: 'gym', grade: 'gold', cam: [[0, 0, 8, 1.3], [1, 0, 12, 1.45, 'io']], cast: [{ id: 'kai', kind: 'face', x: 0, expr: 'smile', rim: '#facc15' }],
+          say: ['kai', 'Seven-one, {first}. What was the plan?'] },
+        { d: 2400, scene: 'void', grade: 'blue', music: null, cam: [[0, 0, 6, 1.35], [1, 0, 10, 1.5]], cast: [{ id: 'you', kind: 'face', x: 0, expr: 'angry', rim: '#93c5fd', sweat: true }],
+          say: ['you', '(under your breath) Next one goes in. Next one goes in.'], ev: [[0, 'sfx', 'heartbeat'], [1200, 'sfx', 'heartbeat']] },
+      ] };
+      return '_usa_mock_to';
+    }
+    CUTSCENES._usa_mock_after = { name: 'The Walk Off', chapter: 'Interlude', shots: [
+      { d: 2800, scene: 'locker', grade: 'dark', music: null, tr: 'fade', cam: [[0, -30, -6, 1.1], [1, 10, -10, 1.18]],
+        cast: [{ id: 'ike', kind: 'actor', x: .9, y: 76, s: 2.1, path: [[0, .9], [2600, -.2]] }, { id: 'jet', kind: 'actor', x: 1.2, y: 80, s: 1.9, path: [[0, 1.2], [2600, .2]], acts: [[900, 'block', .5]] }, { id: 'you', kind: 'actor', x: -.55, y: 86, s: 2.1, acts: [[0, 'bench', 99]] }],
+        say: ['ike', 'Told you day one. Anything near the rim is mine.', 'smile'] },
+      { d: 2600, scene: 'locker', grade: 'gold', cam: [[0, 20, -2, 1.2], [1, 24, 2, 1.28]], cast: [{ id: 'kai', kind: 'bust', x: .3, expr: 'smile', rim: '#facc15' }, { id: 'you', kind: 'bust', x: -.66, y: 136, sil: true, rim: '#93c5fd', d: 1.2 }],
+        say: ['kai', n >= 2 ? `${n} blocks. They grade those too, you know.` : 'You stopped going inside. Coaches noticed that too.'] },
+      { d: 2800, scene: 'locker', cam: [[0, -10, -4, 1.15], [1, 0, -6, 1.24]],
+        cast: [{ id: 'milo', kind: 'actor', x: -.2, y: 82, s: 2.1, acts: [[200, 'block', .5], [1200, 'block', .5]], zs: [[0, 0], [400, 8], [700, 0], [1400, 8], [1700, 0]] }, { id: 'dre', kind: 'actor', x: .3, y: 84, s: 2, acts: [[0, 'clap', 99]] }],
+        say: ['milo', '(swatting a water bottle off the bench) Sorry. Sorry. It\'s a little funny.', 'smile'], ev: [[300, 'sfx', 'slap', .6]] },
+      { d: 3000, scene: 'void', grade: 'blue', music: 'sad', cam: [[0, 0, 6, 1.3], [1, 0, 12, 1.5, 'io']], cast: [{ id: 'you', kind: 'face', x: 0, expr: 'sad', rim: '#93c5fd' }],
+        say: ['narrator', pts >= 8 ? `${pts} points tonight. Nobody will remember one of them.` : 'Nothing you threw at the rim got to the rim.'], ev: [[0, 'sfx', 'heartbeat']] },
+    ] };
+    return '_usa_mock_after';
+  }
+  /* Scoop DeLuca, the first time: the empty gym, footsteps, a ball, a name */
+  function scoopIntro(s, ctx) {
+    campCtx(ctx); const nb = s.usa && s.usa.ike ? s.usa.ike.blocks : 6;
+    CUTSCENES._usa_scoop = { name: 'Scoop', chapter: 'Interlude', shots: [
+      { d: 3200, scene: 'gym', empty: true, grade: 'spot', music: null, tr: 'fade', cam: [[0, -40, 6, 1.05], [1, -20, 4, 1.1]],
+        cast: [{ id: 'you', kind: 'actor', x: -.35, y: 80, s: 1.9, acts: [[0, 'bench', 99]] }],
+        say: ['narrator', 'Everybody\'s gone. You\'re still in the bleachers, replaying every block.'], ev: [[1800, 'sfx', 'bounce', .4]] },
+      { d: 3200, scene: 'gym', empty: true, grade: 'spot', music: 'build', cam: [[0, 30, 6, 1.05], [1, 0, 4, 1.12]],
+        cast: [{ id: 'sal', kind: 'actor', x: 1.1, y: 76, s: 1.9, ball: true, path: [[0, 1.1], [2600, .3, null, 'out']] }, { id: 'you', kind: 'actor', x: -.35, y: 80, s: 1.9, acts: [[0, 'bench', 99]], faceFix: 1 }],
+        say: ['narrator', 'Squeak. Bounce. Squeak. Somebody else is still here.'], ev: [[0, 'riser', 3]] },
+      { d: 3000, scene: 'gym', empty: true, grade: 'gold', cam: [[0, 30, -2, 1.18], [1, 30, 4, 1.3, 'io']], speed: 'h',
+        cast: [{ id: 'sal', kind: 'bust', x: .3, expr: 'smile', rim: '#fde68a', from: { dx: 80, t: 400, ease: 'back' } }, { id: 'you', kind: 'bust', x: -.7, y: 130, sil: true, rim: '#93c5fd', d: 1.2 }],
+        say: ['sal', 'Sal DeLuca. They call me Scoop. I coach the guards on this staff.'],
+        ev: [[500, 'freeze', 1700, { name: 'SAL "SCOOP" DeLUCA', sub: 'USA Basketball · coaching staff', stats: [['VISION', 98], ['HANDLES', 94], ['EU YEARS', 11]] }], [500, 'sfx', 'stinger']] },
+      { d: 2700, scene: 'gym', empty: true, grade: 'spot', cam: [[0, 0, 8, 1.3], [1, 0, 12, 1.42]], cast: [{ id: 'sal', kind: 'face', x: 0, expr: 'neutral', rim: '#fde68a' }],
+        say: ['sal', nb >= 2 ? `I counted every one of those blocks. ${nb}.` : nb === 1 ? 'I saw the block. I saw you stop going inside after it, too.' : 'I saw you stop going inside. So did Ike.'] },
+      { d: 3000, scene: 'gym', empty: true, grade: 'spot', cam: [[0, 20, 0, 1.2], [1, 20, 4, 1.3]], cast: [{ id: 'sal', kind: 'bust', x: .3, expr: 'smile', rim: '#fde68a' }, { id: 'you', kind: 'bust', x: -.66, y: 136, sil: true, rim: '#93c5fd', d: 1.2 }],
+        say: ['sal', 'You can\'t go through a seven-footer. So you go around him.'] },
+      { d: 2600, scene: 'gym', empty: true, grade: 'night', music: null, cam: [[0, 0, 0, 1.2], [1, 0, -6, 1.3]], title: { text: 'COURT TWO · 11 P.M.', sub: 'Bring a ball.', style: 'loc', at: 300 }, ev: [[300, 'sfx', 'bounce', .5]] },
+    ] };
+    return '_usa_scoop';
+  }
+  /* court two at night: Scoop shows you once (you play the big man), then you try */
+  function courtTwo(s, ctx) {
+    campCtx(ctx); let demo = [];
+    if (Cutscene.playShots) { try { demo = Cutscene.playShots({ side: 'us', kind: 'jelly', by: { name: 'Sal DeLuca', short: 'Scoop', look: look('sal'), num: 9 },
+      def: { name: `${s.player.first} ${s.player.last}`, short: s.player.last, look: Engine.look(s), num: s.player.num }, px: PIX.hoop.x + 44, py: PIX.hoop.y + 40, clock: 0, pts: 2 }, Object.assign({}, ctx, { size: 1 }), { replay: false, music: null }).slice(0, 1); } catch (e) { console.warn('court two demo', e); demo = []; } }
+    CUTSCENES._usa_court2 = { name: 'Court Two', chapter: 'Interlude', shots: [
+      { d: 3000, scene: 'gym', empty: true, grade: 'spot', music: null, tr: 'fade', cam: [[0, -20, 6, 1.05], [1, 0, 4, 1.1]],
+        cast: [{ id: 'sal', kind: 'actor', x: .2, y: 78, s: 1.9, ball: true }], say: ['narrator', 'Eleven p.m. Court two. One light, one ball, one old man.'] },
+      { d: 2600, scene: 'gym', empty: true, grade: 'spot', cam: [[0, 20, 0, 1.2], [1, 20, 4, 1.28]], cast: [{ id: 'sal', kind: 'bust', x: .3, expr: 'smile', rim: '#fde68a' }, { id: 'you', kind: 'bust', x: -.66, y: 136, sil: true, rim: '#93c5fd', d: 1.2 }],
+        say: ['sal', 'You be Ike. Jump at the ball. Watch where it goes.'] },
+      ...demo,
+      { d: 2800, scene: 'gym', empty: true, grade: 'spot', cam: [[0, 0, 8, 1.3], [1, 0, 12, 1.42]], cast: [{ id: 'sal', kind: 'face', x: 0, expr: 'smile', rim: '#fde68a' }],
+        say: ['sal', 'His arm goes up one side. The ball goes up the other, soft off the glass.'] },
+    ] };
+    return '_usa_court2';
+  }
+  /* the Morning Run: your first jelly over Big Ike, replayed, and the gym flips from laughing to silent */
+  function ikePayoff(s, ctx) {
+    campCtx(ctx); let rep = [];
+    if (Cutscene.playShots) { try { rep = Cutscene.playShots({ side: 'us', kind: 'jelly', by: { name: `${s.player.first} ${s.player.last}`, short: s.player.last, look: Engine.look(s), num: s.player.num, isUser: true },
+      def: { name: 'Isaiah "Big Ike" Grant', short: 'Big Ike', look: look('ike'), num: 50 }, px: PIX.hoop.x + 46, py: PIX.hoop.y + 42, clock: 0, pts: 2 }, ctx, { replay: true, music: null }).slice(0, 2); } catch (e) { console.warn('ike payoff', e); rep = []; } }
+    CUTSCENES._usa_ike_payoff = { name: 'Around Him', chapter: 'Interlude', shots: [
+      { d: 1600, scene: 'void', music: null, title: { text: 'THE JELLY', sub: 'Over Big Ike', style: 'slam', at: 100 }, ev: [[100, 'sfx', 'stinger']] },
+      ...rep,
+      { d: 2600, scene: 'gym', grade: 'blue', music: null, cam: [[0, 0, 6, 1.3], [1, 0, 10, 1.42]], cast: [{ id: 'kai', kind: 'face', x: 0, expr: 'shocked', rim: '#93c5fd' }],
+        say: ['narrator', 'The White bench was halfway into "DE-NIED." Nobody finishes it.'], ev: [[0, 'sfx', 'heartbeat'], [1300, 'sfx', 'heartbeat']] },
+      { d: 2400, scene: 'gym', grade: 'blue', cam: [[0, 20, 0, 1.2], [1, 20, 6, 1.3]], cast: [{ id: 'ike', kind: 'bust', x: .3, expr: 'sad', rim: '#94a3b8' }, { id: 'you', kind: 'bust', x: -.66, y: 136, sil: true, rim: '#fde68a', d: 1.2 }],
+        say: ['ike', '…Where did the ball GO?', 'sad'] },
+      { d: 2800, scene: 'gym', grade: 'gold', speed: 'radial', music: 'victory', cam: [[0, 0, 0, 1.2], [1, 0, 0, 1.05, 'snap']],
+        cast: [{ id: 'jet', kind: 'actor', x: -.5, y: 88, s: 1.8, acts: [[0, 'joy', 99]] }, { id: 'milo', kind: 'actor', x: -.17, y: 90, s: 1.8, acts: [[0, 'celebrate', 99]] }, { id: 'dre', kind: 'actor', x: .16, y: 88, s: 1.8, acts: [[0, 'joy', 99]] }, { id: 'you', kind: 'actor', x: .5, y: 90, s: 2.1, acts: [[0, 'flex', 99]] }],
+        title: { text: 'AROUND HIM.', style: 'slam', at: 150 }, ev: [[150, 'sfx', 'impact'], [150, 'flash', '#fde68a', .6], [150, 'shake', 8], [150, 'cheer', 1], [400, 'confetti', 60]] },
+    ] };
+    return '_usa_ike_payoff';
+  }
+  return { roster, bench, finalOpen, awaken, scripts, podium, kaiTv, giveGo, ikeDeny, ikeMock, scoopIntro, courtTwo, ikePayoff };
 })();
 if (typeof JAM_SCRIPTS !== 'undefined') Object.assign(JAM_SCRIPTS, USA4.scripts);
 

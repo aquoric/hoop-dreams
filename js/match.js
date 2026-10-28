@@ -1576,6 +1576,8 @@ const Match = (() => {
 
     /* ---------- outcome helpers (animate + score + stats) ---------- */
     async function myShot(kind, made, o = {}) {
+      st.walled = false;
+      if (WALLC && (kind === 'layup' || kind === 'dunk' || kind === 'drive')) { await wallBlock(kind); st.walled = true; return false; }   // the wall: nothing at the rim goes in today
       const pts = kind === 'three' ? 3 : 2;
       st.box.fga++; if (kind === 'three') st.box.tpa++;
       if (kind === 'dunk') { court.greenNext = !!(o.perfect && made); made = await court.dunk(U, made, o.poster); court.greenNext = false; }
@@ -1718,6 +1720,36 @@ const Match = (() => {
     const rimGuy = () => TH.filter(p => !p.hidden && p !== opp(U)).sort((a, b) => (b.stats.intD || 0) - (a.stats.intD || 0))[0] || opp(U);
     const nickOf = p => { const m = /"([^"]+)"/.exec(p.full || ''); return m ? m[1] : p.short; };   // Big Ike, not Grant
     const jellyBonus = () => { const L = BALANCE.jelly.levels[Features.jellyLevel(s)]; return L && L.bonus ? [{ label: L.name, v: L.bonus }] : []; };
+    /* THE WALL (story, cfg.wall): a rim protector who blocks EVERY shot you take at the rim this game, however well you play.
+       cfg.wall: { by (his full name), cines: [block numbers that get a cinematic], cut(s, ctx, kind, W) → cutscene id, mockAt, timeout(s, ctx, W) → id }
+       the rest of the game plays normally; r.wall = { blocks, pts } for the story */
+    const WALLC = cfg.wall || null, WALLP = WALLC ? (TH.find(p => p.full === WALLC.by) || rimGuy()) : null;
+    const wallCtx = () => ({ usAbbr: cfg.us.abbr, themAbbr: cfg.them.abbr, team: { colors: cfg.us.colors }, them: { colors: cfg.them.colors }, venue: court.venueId, score: [st.us, st.them] });
+    const wallState = () => st.wall || (st.wall = { n: 0, cines: 0, used: [], mocked: false });
+    async function wallCut(fn, k, seen) {   // a story cutscene in the middle of the game (unskippable the first time)
+      if (!fn || typeof Story === 'undefined') return; const ctx = wallCtx();
+      try { const id = fn(s, ctx, k, wallState()); if (id) await Story.cut(id, ctx, { seenId: seen }); } catch (e) { console.warn('wall cutscene', e); }
+      beat();
+    }
+    async function wallBlock(kind) {
+      const W = wallState(), side = U.x >= 0 ? 1 : -1, nick = WALLP ? nickOf(WALLP) : 'The big man'; W.n++; cnt('wallBlocks'); st.box.fga++;
+      if (WALLP && WALLP.box) WALLP.box.blk++;
+      await court.drive(U, side * 3, 9, .3); if (WALLP) await court.block(WALLP, U, true);
+      court.pop('DENIED!', U.x, U.y, 10, '#f87171', 44); SFX.play('crowd', 1.3);
+      // a few of them as cinematics, each one different: stuffed at the rim, pinned on the glass, into the bleachers, the chase-down
+      if ((WALLC.cines || [1, 3, 5]).includes(W.n) && WALLC.cut) {
+        const pool = ['glass', 'bleachers', 'chase', 'stuff'].filter(k => !W.used.includes(k)), want = kind === 'dunk' ? 'stuff' : st.sitNow === 'break' ? 'chase' : null;
+        const k = want && pool.includes(want) ? want : pool.filter(x => x !== 'stuff' || kind === 'dunk')[0] || pool[0] || 'glass'; W.used.push(k); W.cines++;
+        await wallCut(WALLC.cut, k, 'usa_deny_' + k);
+      }
+      pbp(`🚫 ${escH(nick)} ${Engine.pick(['swallows it whole', 'meets you at the summit', 'sends it back where it came from'].concat(W.n > 1 ? ['says no. Again'] : []))}. That's ${W.n} at the rim.`, 'bad');
+      await wallMock();
+    }
+    async function wallMock() {   // the blocks pile up: a timeout, and the White bench lets you hear it
+      const W = st.wall; if (!W || W.mocked || !WALLC.timeout || W.n < (WALLC.mockAt || 3)) return;
+      W.mocked = true; SFX.play('whistle'); pbp(`⏱ ${escH(cfg.us.name)} call timeout. The other bench is chanting.`, 'bad');
+      await wallCut(WALLC.timeout, 'timeout', 'usa_mock_to');
+    }
     /* set-play choreography on the court before the shot */
     async function runPlay(p) {
       const M = MATES(), m1 = M[0], m2 = M[1] || M[0], D = opp(U), sd = U.x < 0 ? -1 : 1;
@@ -1789,12 +1821,14 @@ const Match = (() => {
         st.jmDone = true; st.jmNow = JM; txt = JM.text;
         const dr = opts.find(x => x.k === 'layup'); if (dr) { dr.label = '🍯 Attack the rim'; dr.desc = 'He\'s waiting for you. Go around him.'; dr.cls = 'jm'; opts = [dr].concat(opts.filter(x => x !== dr)); }
       }
+      if (!clutchCtx && WALLC && WALLP && (!st.wall || st.wall.n < 4)) {   // the wall game: he's at the rim and the drive is right there (still your call)
+        const dr = opts.find(x => x.k === 'layup') || opts.find(x => x.k === 'dunk'); if (dr) { dr.desc = `${nickOf(WALLP)} is waiting at the rim.`; opts = [dr].concat(opts.filter(x => x !== dr)); } }
       const ch = await choose(`<b>${escH(txt)}</b>`, opts);
       return runOffense(ch, txt, sit);
     }
     async function runOffense(o, text, sit) {
       if (!o.chained) tire();
-      const setup = `<b>${escH(text)}</b>`, JMn = o.k === 'layup' ? st.jmNow : null; st.jmNow = null; st.astNext = null;
+      const setup = `<b>${escH(text)}</b>`, JMn = o.k === 'layup' ? st.jmNow : null; st.jmNow = null; st.astNext = null; st.sitNow = sit;
       if (o.k === 'sig') return weapon(setup, o.wid);
       if (st.tut === 'shoot' && (o.k === 'catch' || o.k === 'pull')) await tutTip('meter');
       if (st.tut === 'drive' && o.k === 'layup') await tutTip('drive');
@@ -1888,6 +1922,7 @@ const Match = (() => {
       let fin = Balance.apply(o.action, o.pct, q, FT(o.action), { perfect, contest: shotCon }), made = roll(fin);   // a perfect release goes in most of the time (BALANCE.perfect)
       if (!made && (o.k === 'hook' || o.k === 'fade') && Engine.hasSpecial(s, 'postpone') && !st.postponed) { st.postponed = true; pbp('⏳ <b>Right of Postponement</b>: you hang in the air and wait out the block…', 'hot'); made = roll(Math.min(95, fin + 10)); }
       made = await myShot(kind === 'dunk' ? 'dunk' : kind === 'layup' ? 'layup' : kind === 'hook' ? 'hook' : kind, made, { poster, perfect, slowmo: st.clutch && st.last });
+      if (st.walled) { fail(); await boardAfterMiss(true); return false; }   // blocked by the wall (its own lines)
       const key = { three: 'three', mid: 'mid', layup: 'drive', dunk: 'dunk', hook: 'post', fade: 'mid' }[kind];
       pbp(say(key === 'dunk' ? (made ? (poster ? 'poster' : 'dunk') : 'dunk_miss') : key + (made ? '_make' : '_miss')) + ` <i class="pct-note">${fin}%</i>`, made ? 'good' : '');
       if (poster && made) st.highlights.push(`Posterized ${star.name}`);
@@ -2609,7 +2644,7 @@ const Match = (() => {
       const hd = no > 1 ? (o.handler || 'me') : 'me';
       let r = null; try { r = await Arcade.segment({ kind, setup, offense, clock, clockLabel, untilClock, title: kind === 'fastbreak' && no > nd ? `FAST BREAK! ${no} ON ${nd}` : K.title,
         us: cfg.us, them: cfg.them, star, oppRating: oppR - (tutOn() ? 8 : 0), forceHelp: !!o.forceHelp, mateRating: cfg.mateRating || 45, numbers: [no, nd], backD, handler: hd, lastTeam: o.lastTeam,
-        score: [st.us, st.them], venue: court.venueId, bonus: a => bonuses(a), stats: Object.assign({}, ME), stamina: 100 - st.fatigue, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank })), level: s.player.level }); } catch (e) { console.error('arcade segment', e); }
+        score: [st.us, st.them], venue: court.venueId, bonus: a => bonuses(a), stats: Object.assign({}, ME), stamina: 100 - st.fatigue, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank })), level: s.player.level, wall: WALLC ? WALLC.by : null }); } catch (e) { console.error('arcade segment', e); }
       document.querySelectorAll('.arc').forEach(el => el.remove()); document.body.classList.remove('arc-open');   // nothing left on top of the match
       if (!r || typeof r !== 'object') r = { ptsUs: 0, ptsThem: 0, end: 'set', me: {}, all: [], log: [], weapons: [] };
       st.inSeg = false; beat();
@@ -2619,6 +2654,7 @@ const Match = (() => {
       (r.weapons || []).forEach(w => pbp(`🕹 ⚔ <b>${escH(shortOf(w.name))}</b> used <b>${escH(w.weapon)}</b>.`, w.team === 0 ? 'hot' : 'bad'));
       ['fga', 'fgm', 'tpa', 'tpm', 'reb', 'ast', 'stl', 'blk', 'to', 'pts'].forEach(k => st.box[k] += b[k] || 0);
       if (b.hast) cnt('hockeyAssists', b.hast);
+      if (r.wallBlocks) { const W = wallState(); W.n += r.wallBlocks; cnt('wallBlocks', r.wallBlocks); pbp(`🚫 ${escH(WALLP ? nickOf(WALLP) : 'The big man')} again, live. That's ${W.n} at the rim.`, 'bad'); await wallMock(); }
       if (b.dunks) cnt('dunks', b.dunks); if (b.tpm) cnt('threes', b.tpm); if (b.ast) cnt('assists', b.ast); if (b.stl) cnt('steals', b.stl); if (b.blk) cnt('blocks', b.blk); if (b.reb) cnt('rebounds', b.reb); if (r.ankles) cnt('crosses', r.ankles);
       if (b.fgm && b.dunks < b.fgm && !b.tpm) cnt('layups', b.fgm - (b.dunks || 0));
       st.fatigue = Math.min(100, st.fatigue + 2 + (r.stamina || 0) * .12);
@@ -2671,6 +2707,7 @@ const Match = (() => {
 
     /* ---------- moment selection ---------- */
     function pickMoment() {
+      if (WALLC && (!st.wall || st.wall.n < 4) && st.lastType !== 'off_poss' && Math.random() < .75) return 'off_poss';   // the wall game: you keep getting your chances at him
       const big = ['PF', 'C'].includes(s.player.pos);
       const hasM = MATES().length > 0, hasO = TH.length > 1;
       const w = { off_poss: 5, def_poss: 4, quick_off: 1.5, quick_def: 1.5, rebound: big ? 2 : 1, pass_play: hasM ? 2.2 : 0, mate_play: hasM ? OB.mate : 0, opp_play: hasO && hasM ? OB.opp : 0 };
@@ -2985,7 +3022,7 @@ const Match = (() => {
     return {
       win, us: st.us, them: st.them, box: st.box, grade, gradeScore: gs, script: st.script || null, successes: st.succ, attempts: st.att, clutchMoments: st.clutchN, clutchWins: st.clutchW,
       gameWinner: st.gameWinner, highlights: st.highlights, counters: st.counters, perfects: st.perfects, posterizers: st.posterizers, segments: st.seg, segKinds: st.segKinds, segMoments: st.segMoments || [], moments: n, venueId: court.venueId,
-      fatigue: st.fatigue, level: cfg.level, importance: cfg.importance || 1, cfg, teams, closeCalls: st.closeN, winPlay, losePlay,
+      fatigue: st.fatigue, level: cfg.level, importance: cfg.importance || 1, cfg, teams, closeCalls: st.closeN, winPlay, losePlay, wall: st.wall ? { blocks: st.wall.n, pts: st.box.pts } : null,
     };
   }
 

@@ -262,6 +262,7 @@ const Engine = (() => {
       name: p.first + ' ' + p.last, first: p.first, last: p.last, pos: p.pos, posName: POSITIONS[p.pos].name,
       hometown: p.hometown, num: p.num, FIRST: p.first.toUpperCase(), LAST: p.last.toUpperCase(), arch: archOf(s).name, sig: weaponOf(s).name, weapon: weaponOf(s).name, wingspan: heightStr(p.wingspan || p.height + 2),
       height: heightStr(p.height), ovr: ovr(s),
+      ikeBlocks: s.usa && s.usa.ike ? s.usa.ike.blocks : 'six', ikePts: s.usa && s.usa.ike ? s.usa.ike.pts : 0,   // the national team camp: Big Ike's wall game
       hs: s.career.hs && LOCAL_TEAMS[s.career.hs] ? LOCAL_TEAMS[s.career.hs].name : 'Lincoln High',
       hsShort: s.career.hs === 'westbrook' ? 'Westbrook' : 'Lincoln',
       rivalHs: s.career.hs === 'westbrook' ? 'Lincoln' : 'Westbrook',

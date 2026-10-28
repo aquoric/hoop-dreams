@@ -157,6 +157,11 @@ const Arcade = (() => {
       players.forEach(p => p.moves = movesFor(p));
       const me = players.find(p => p.isUser) || players[0];
       const teamOf = t => players.filter(p => p.team === t);
+      const WALL = SEGM && cfg.wall ? players.find(p => p.team !== me.team && p.name === cfg.wall) : null;   // the story's rim protector: he gets every shot you take at the rim
+      /* the wall rotates over as you go up (a chase-down if he has to) and leaves the floor as you let it go */
+      function wallChase(p, dt) { const W = WALL; if (!W) return; if (W.act && ['down', 'sit', 'stumble'].includes(W.act.type)) W.act = null; W.stun = 0;
+        const tx = lerp(p.x, A.hoop.x, .4), ty = p.y - 3, k = Math.min(1, dt * 11); W.x += (tx - W.x) * k; W.y += (ty - W.y) * k; W.face = p.x >= W.x ? 1 : -1; }
+      function wallUp(p) { const W = WALL; if (!W || W.z > 0) return; W.act = { type: 'block', t: 0 }; W.vz = PACE.jump(W.st.vert || 80); W.z = .1; W.face = p.x >= W.x ? 1 : -1; }
       const ball = { state: 'held', owner: null, x: 192, y: 160, z: 10, vx: 0, vy: 0, vz: 0, spin: 0, shot: null, pass: null, lastPasser: null, passT: -9, sx: 0, sy: 0, sz: 0 };
       const G = { score: [0, 0], off: 0, clock: SEGM ? SEG.clock : PACE.shotClock, over: false, paused: true, started: false, time: 0, real: 0, cam: (A.W - VW) / 2,
         slowT: 0, ts: 1, jel: null, jelA: 0, tiltC: 0, zoom: 1, zf: { x: A.hoop.x, y: 40 }, shake: 0, flash: 0, speedT: 0, stop: 0, kick: 0, vt: 0, cutAt: -99, cuts: 0, flashCol: '255,255,255', wlog: [], callT: 0,
@@ -439,7 +444,8 @@ const Arcade = (() => {
       function blocked(q, shooter) {
         q.box.blk++; stopRec('block', q, shooter); ball.shot = null; ball.owner = null; ball.state = 'loose';
         ball.x = shooter.x + shooter.face * 4; ball.y = shooter.y; ball.z = Math.max(18, shooter.z + 26); ball.vx = (q.x < shooter.x ? 1 : -1) * rnd(50, 110); ball.vy = rnd(10, 60); ball.vz = 50;
-        pop(pick(A.lines.block), '#38bdf8', true); SFX.play('dunk'); SFX.play('crowd', 1.5); impact(.13, 7, .25, .06, '186,230,253'); E.hype = Math.min(1, E.hype + .3); burst(ball.x, ball.y - ball.z, '#e0f2fe', 16); RD.ring(ball.x, ball.y - ball.z, '#bae6fd', 140, .3); RD.sweat(shooter.x, shooter.y - shooter.z - 22, 5); RD.cheer(.8);
+        if (q === WALL && shooter === me) { G.wallBlocks = (G.wallBlocks || 0) + 1; pop('DENIED!', '#f87171', true); tag(pick(['NOT TODAY!', 'GET THAT OUT!', 'MY RIM!']), q, '#fca5a5'); } else pop(pick(A.lines.block), '#38bdf8', true);
+        SFX.play('dunk'); SFX.play('crowd', 1.5); impact(.13, 7, .25, .06, '186,230,253'); E.hype = Math.min(1, E.hype + .3); burst(ball.x, ball.y - ball.z, '#e0f2fe', 16); RD.ring(ball.x, ball.y - ball.z, '#bae6fd', 140, .3); RD.sweat(shooter.x, shooter.y - shooter.z - 22, 5); RD.cheer(.8);
         if (q === me) highlight('block', q, pick(A.lines.block), 140);
         shooter.streak = 0; if (shooter.fire) shooter.fire = 0;
         logLine(`${q.name} blocks ${shooter.name}!`);
@@ -491,14 +497,14 @@ const Arcade = (() => {
       }
       function startLayup(p, sc) {
         noteShot(p, sc, 'layup');
-        p.act = { type: 'layup', t: 0, T: .7, sc, from: { x: p.x, y: p.y }, released: false, foul: foulCheck(p) };
+        p.act = { type: 'layup', t: 0, T: .7, sc, from: { x: p.x, y: p.y }, released: false, foul: foulCheck(p), wall: !!(WALL && p === me) };
         p.face = A.hoop.x >= p.x ? 1 : -1; armBlockers(p);
       }
       function startDunk(p, sc) {
         noteShot(p, sc, 'dunk');
         const poster = players.some(q => q.team !== p.team && q.stun <= 0 && toHoop(q) < 22);
         const big = BREAK || poster || p.st.dunk >= 70 || Math.random() < .35;
-        p.act = { type: 'dunk', t: 0, T: 1.05, sc, from: { x: p.x, y: p.y }, big, poster, foul: foulCheck(p) };
+        p.act = { type: 'dunk', t: 0, T: 1.05, sc, from: { x: p.x, y: p.y }, big, poster, foul: foulCheck(p), wall: !!(WALL && p === me) };
         p.face = A.hoop.x >= p.x ? 1 : -1; SFX.play('whoosh'); armBlockers(p);
       }
       function foulCheck(p) {
@@ -729,7 +735,7 @@ const Arcade = (() => {
       const rimProt = t => { let best = null, bd = 1e9; teamOf(1 - t).forEach(d => { if (d.stun > 0) return; const h = toHoop(d); if (h < bd) { bd = h; best = d; } }); return best; };
       const protRating = d => d ? eff(d.st.intD) * OC().def.intD + eff(d.st.vert) * OC().def.vert : OC().noProt;
       function oopOpen(q, duo) {   // can he go get one up there, and is the air above the rim open?
-        const C = OC(); if (!canDunk(q) || (!duo && oopSkill(q) < C.minSkill)) return false;
+        const C = OC(); if (!canDunk(q) || (!duo && oopSkill(q) < C.minSkill) || (WALL && q === me)) return false;   // (nobody lobs it to you over the story's wall)
         const d = rimProt(q.team); return !!duo || !d || toHoop(d) > C.clearR || protRating(d) < oopSkill(q) + C.margin;
       }
       function oopPct(passer, q, duo) {
@@ -1258,7 +1264,7 @@ const Arcade = (() => {
             break;
           }
           case 'layup': {
-            const H = A.hoop;
+            const H = A.hoop; if (a.wall && !a.released) { wallChase(p, dt); if (a.t > .22) wallUp(p); }
             if (a.t > .18 && !a.jumped) { a.jumped = true; p.vz = PACE.jump(p.st.vert) * (a.jelly ? .9 : .8); p.z = .1; a.apex = .18 + p.vz / PACE.gravity;
               if (a.jelly) { p.face = -a.jelly.side * (A.hoop.x >= p.x ? 1 : -1) || p.face; RD.dust(p.x, p.y, 6); SFX.play('squeak', .8); SFX.play('whoosh');
                 if (G.jel && G.jel.p === p) { G.jel.ts = G.jel.drama ? .2 : G.jel.mine ? .46 : .6; G.jel.zoom = G.jel.drama ? 1.42 : 1.3; } } }   // gather: time ramps down, the camera pushes in
@@ -1272,6 +1278,7 @@ const Arcade = (() => {
             if (!a.released && ball.owner === p && a.t >= relAt) {
               a.released = true;
               const ct = contest(p, 'layup'); p.box.fga++; G.lastShooter = p;
+              if (a.wall && WALL) { ct.block = true; ct.by = WALL; }   // the wall
               const JB = BALANCE.jelly;
               if (a.jelly && ct.block && Math.random() > JB.blockFactor) { ct.block = false; if (ct.by) { tag('SWATS AIR!', ct.by, '#fde68a'); ct.by.stun = Math.max(ct.by.stun, .5); } }   // he jumps at where the ball was
               if (ct.block) { if (a.jelly && p === me) G.jellyBlocks = (G.jellyBlocks || 0) + 1; if (a.jelly) jellyEnd(); return blocked(ct.by, p); }
@@ -1301,13 +1308,14 @@ const Arcade = (() => {
           }
           case 'dunk': {
             const H = A.hoop, k = a.t / a.T;
+            if (a.wall && !a.chk) { wallChase(p, dt); if (a.t > .3) wallUp(p); }
             if (a.wantRelease && a.relT == null) a.relT = a.t;
             if (a.t < .22) { p.vx = (H.x - p.x) * 1.5; p.vy = (H.y + 8 - p.y) * 1.5; p.x += p.vx * dt; p.y += p.vy * dt; }
             else if (a.t < .64) {
               if (!a.rise) { a.rise = { x: p.x, y: p.y }; if (a.big) { G.slowT = .9; G.zoomT = 1; } }
               const u = (a.t - .22) / .42, e = 1 - Math.pow(1 - u, 2);
               p.x = lerp(a.rise.x, H.x - p.face * 4, e); p.y = lerp(a.rise.y, H.y + 3, e); p.z = Math.sin(u * Math.PI * .5) * (H.z - 10);
-              if (!a.chk && u > .4) { a.chk = true; const ct = a.ct = contest(p, 'dunk'); if (ct.block) { p.box.fga++; G.lastShooter = p; a.stuffed = true; blocked(ct.by, p); p.act = { type: 'jump', t: 0 }; p.vz = 0; return; } showContest(p, ct); if (ct.foul) a.foul = true; }
+              if (!a.chk && u > .4) { a.chk = true; const ct = a.ct = contest(p, 'dunk'); if (a.wall && WALL) { ct.block = true; ct.by = WALL; } if (ct.block) { p.box.fga++; G.lastShooter = p; a.stuffed = true; blocked(ct.by, p); p.act = { type: 'jump', t: 0 }; p.vz = 0; return; } showContest(p, ct); if (ct.foul) a.foul = true; }
             } else if (!a.slammed) {
               a.slammed = true; p.box.fga++; G.lastShooter = p;
               const q = p === me ? (a.relT != null ? releaseQuality(p, Math.abs(a.relT - .6), p.st.dunk, 2) : .55) : aiGreen(p, p.st.dunk) ? 1 : clamp(aiFor(p).shotQ + .1 + rnd(-.15, .15), 0, .97);
@@ -1628,7 +1636,7 @@ const Arcade = (() => {
           const scorer = extra.scorer || null;
           res = { kind: SEG.kind, ptsUs: G.score[0], ptsThem: G.score[1], pts: G.score[0], end: extra.end || 'miss', offense: G.off, scorer: role(scorer), scorerName: scorer && scorer.name, me: Object.assign({}, me.box),
             foul: extra.foul || null, fouled: role(extra.fouled || (extra.foul && scorer)), dunk: !!extra.dunk, buzzer: !!extra.buzzer, stamina: Math.round(G.stamUsed + (100 - me.stamina) * .3), log: G.log.slice(), ankles: G.anklesBy || 0,
-            all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice(), play: G.lastPlay || null, stop: G.lastStop || null, jellies: G.jellies || 0, jellyTries: G.jellyTries || 0, jellyBlocks: G.jellyBlocks || 0, duos: G.duos || 0, pmPasses: G.pmPasses || 0, pmPerfect: G.pmPerfect || 0, oops: G.oops || 0 };
+            all: players.map(p => ({ team: p.team, name: p.name, isUser: p.isUser, box: p.box })), weapons: G.wlog.slice(), play: G.lastPlay || null, stop: G.lastStop || null, jellies: G.jellies || 0, jellyTries: G.jellyTries || 0, jellyBlocks: G.jellyBlocks || 0, duos: G.duos || 0, pmPasses: G.pmPasses || 0, pmPerfect: G.pmPerfect || 0, oops: G.oops || 0, wallBlocks: G.wallBlocks || 0 };
           banner = res.ptsUs ? (extra.foul ? 'AND ONE!' : extra.buzzer ? 'AT THE BUZZER!' : `+${res.ptsUs}`) : res.ptsThem ? (extra.foul ? 'AND ONE — THEM' : 'THEY SCORE') :
             ({ foul: res.foul && res.foul.team === 1 ? 'FOUL ON YOU' : 'FOUL — TO THE LINE', to: 'TURNOVER', set: 'DEFENSE SET', oreb: 'RESET', miss: 'NO GOOD', stop: 'STOP!', buzzer: 'BUZZER' })[res.end] || 'NO GOOD';
         } else {
@@ -1685,10 +1693,12 @@ const Arcade = (() => {
     const mates = crew(m.us, m.mateRating || 45, Math.max(0, no - 1));
     const usPl = m.handler === 'mate' && mates.length && m.setup === 'break' ? [mates[0], meP].concat(mates.slice(1)) : [meP].concat(mates);
     const thPl = crew(m.them, m.oppRating || 45, Math.max(1, nd), m.star && nd >= 1 ? m.star : null);
+    if (m.wall && !thPl.some(p => p.name === m.wall)) { const w = crew({ roster: [m.wall], abbr: m.them.abbr }, m.oppRating || 45, 1)[0]; thPl[thPl.length - 1] = w; }   // the story's wall is always out there
+    if (m.wall) thPl.forEach(p => { if (p.name === m.wall) Object.assign(p.stats, { intD: Math.max(p.stats.intD || 50, 82), vert: Math.max(p.stats.vert || 50, 80) }); });
     const pace = BALANCE.arcade.pace;
     return run({ mode: 'seg', teams: [{ name: m.us.name, abbr: m.us.abbr, colors: m.us.colors, players: usPl }, { name: m.them.name, abbr: m.them.abbr, colors: m.them.colors, players: thPl }],
       seg: { kind: m.kind || 'fastbreak', setup: m.setup || 'break', offense: m.offense != null ? m.offense : 0, clock: m.clock || pace.breakClock, clockLabel: m.clockLabel || 'BREAK', untilClock: !!m.untilClock, handler: m.handler, lastTeam: m.lastTeam },
-      backD: m.backD, score: m.score, venue: m.venue || 'rec_center', title: m.title || 'FAST BREAK!', forceHelp: m.forceHelp });
+      backD: m.backD, score: m.score, venue: m.venue || 'rec_center', title: m.title || 'FAST BREAK!', forceHelp: m.forceHelp, wall: m.wall || null });
   }
   function fastBreak(m) { const [no, nd] = m.numbers || [2, 1]; return segment(Object.assign({ kind: 'fastbreak', setup: 'break', offense: 0, title: no > nd ? `FAST BREAK! ${no} ON ${nd}` : 'FAST BREAK!' }, m)); }
   return { play, segment, fastBreak, userPlayer, crew, movesFor };

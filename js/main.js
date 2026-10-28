@@ -294,6 +294,7 @@ const Game = {
     cfg.jellyMoment = node.jellyMoment || this.jellyPayoff(cfg.importance);
     if (node.coach) cfg.coach = node.coach;   // whose voice in the huddles (the national team: Coach Reyes)
     if (node.lateEntry) cfg.lateEntry = node.lateEntry;   // you check in late (the World Youth final)
+    if (node.wall) cfg.wall = node.wall;   // a rim protector who blocks everything you take at the rim (the national team camp: Big Ike)
     if (node.tutorial && !s.flags.tutorial_done) Object.assign(cfg, { tutorial: true, size: node.pickup.size || 3, target: node.pickup.target || 15, moments: (node.moments || 8) + 3,   // the first Kai game: choices + minigames + arcade segments, taught step by step
       sub: `${cfg.sub ? cfg.sub + ' · ' : ''}Tutorial · first to ${node.pickup.target || 15}` });
     if (node.jam) {   // the Summer Jam: live arcade with choice moments (js/match.js jamBreak); your crew and game plan
@@ -313,6 +314,7 @@ const Game = {
     await this.bigMoment(r);
     const summary = this.applyMatch(r, node);
     this.afterStoryGame(r, cfg, node.title);
+    if (r.wall) { (s.usa || (s.usa = { pts: 0, day: 1, cut: [], prev: {} })).ike = r.wall; s.flags.ike_wall = true; if (r.wall.pts >= 8) s.flags.ike_scored = true; }   // how the wall game went: the story remembers
     if (node.gradeFlag && r.gradeScore >= node.gradeFlag.min) s.flags[node.gradeFlag.flag] = true;
     if (node.leadFlag && r.script && r.script.at[0] - r.script.at[1] >= node.leadFlag.min) s.flags[node.leadFlag.flag] = true;   // a scripted game: how far ahead you were when the story took over
     if (node.camp && s.usa) { const cp = (USA_CAMP.grade[r.grade[0]] || 0) + (r.win ? USA_CAMP.win : 0); s.usa.pts += cp; UI.toast(`🇺🇸 Camp points <b>${cp >= 0 ? '+' : ''}${cp}</b> (grade ${r.grade})`, cp >= 0 ? 'good' : 'bad', 3200); }
