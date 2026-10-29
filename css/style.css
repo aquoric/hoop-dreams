@@ -400,8 +400,8 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 .mg-result { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 2.2rem; letter-spacing: .05em; background: rgba(5, 8, 15, .8); animation: pop 1s ease forwards; }
 .mg-result.good { color: #4ade80; text-shadow: 0 0 20px #22c55e; } .mg-result.bad { color: #f87171; }
 .meter { position: relative; width: 44px; height: 190px; border-radius: 22px; background: #0b1220; border: 2px solid #ffffff33; overflow: hidden; margin: 8px 30px; }
-.meter-green { position: absolute; left: 0; right: 0; background: rgba(34, 197, 94, .45); border-top: 2px solid #4ade80; border-bottom: 2px solid #4ade80; }
-.meter-perfect { position: absolute; left: 0; right: 0; top: 36%; bottom: 36%; background: #a3e635; box-shadow: 0 0 10px #a3e635; }
+.meter-good { position: absolute; left: 0; right: 0; background: rgba(250, 204, 21, .32); box-shadow: inset 0 2px 0 #facc15, inset 0 -2px 0 #facc15; }   /* good */
+.meter-perfect { position: absolute; left: 0; right: 0; background: #22c55e; box-shadow: 0 0 10px #4ade80; }   /* GREEN = perfect, exactly */
 .meter-fill { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(0deg, #f97316, #facc15 80%); opacity: .5; }
 .meter-line { position: absolute; left: -2px; right: -2px; height: 4px; background: #fff; box-shadow: 0 0 10px #fff; transform: translateY(2px); }
 .ft-dots { display: flex; gap: 8px; margin-top: 6px; } .ft-dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #ffffff55; } .ft-dots i.make { background: #22c55e; border-color: #22c55e; } .ft-dots i.miss { background: #ef4444; border-color: #ef4444; }
@@ -643,7 +643,7 @@ body[data-screen=hubscreen] #nowplaying { bottom: 92px; }
 .ftv-stage { position: relative; min-height: 0; }
 .ftv-stage canvas { position: absolute; inset: 0; display: block; }
 .ftv-bot { justify-content: space-between; font-size: .85rem; color: #e2e8f0; }
-.ftv-bot .g { color: #4ade80; } .ftv-bot .press { color: #f87171; font-style: normal; font-weight: 700; }
+.ftv-bot .g { color: #4ade80; } .ftv-bot .y { color: #facc15; } .ftv-bot .press { color: #f87171; font-style: normal; font-weight: 700; }
 .train-stage { min-height: 380px; }
 /* strength push */
 .push-track { position: relative; width: min(300px, 70vw); height: 46px; background: #1e293b; border-radius: 23px; overflow: hidden; margin: 12px 0 6px; }
@@ -841,7 +841,7 @@ body[data-screen=match] .bar { border-radius: 0; height: 8px; border: 1px solid 
 .pxc, .mg-body canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 .meter { border-radius: 0; border: 3px solid #000; outline: 2px solid #475569; background: #111827; }
 .meter-fill { background: repeating-linear-gradient(0deg, #f97316 0 6px, #facc15 6px 8px); opacity: .6; }
-.meter-green { border-radius: 0; } .meter-perfect { box-shadow: none; }
+.meter-good { border-radius: 0; } .meter-perfect { box-shadow: none; }
 .meter-line { height: 4px; box-shadow: none; outline: 1px solid #000; }
 .ft-dots i, .ftv-dots i { border-radius: 0 !important; }
 .combo-seq span { border-radius: 0; border: 3px solid #000; box-shadow: 3px 3px 0 #000; font-size: 1.2rem; }

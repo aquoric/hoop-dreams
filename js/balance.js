@@ -211,6 +211,11 @@ const BALANCE = {
            arcadeEase: { ovr: [45, 66], ai: .45, shot: 5 } },
   },
 
+  /* ---------- TIMING (every timing minigame + the arcade shot meter) ----------
+     GREEN on screen is exactly the PERFECT window; YELLOW around it is "good". An input is judged at the moment you press
+     (or let go), and also against the frame you were looking at, ± tol seconds for input delay. */
+  timing: { tol: .012 },
+
   /* ---------- NATIONAL TEAM SELECTION CAMP (js/usa.js, js/match.js, js/arcade.js) ----------
      A big step up from high school: applies to every drill and every camp game (match nodes with camp:true).
      board: where you sit on the staff's board. You're always in the bottom `band` spots (never the safe ones):

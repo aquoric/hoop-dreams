@@ -493,9 +493,18 @@ const Match = (() => {
   }
   const mgOffs = new Set();   // input listeners of the running minigame (released if it's cut short)
   /* universal "tap" input: pointer on element, or Space/Enter */
+  /* TIMING (BALANCE.timing): the closest a moving marker f(ms) came to `target` from the frame on screen (seen) to the input
+     (now), ± tol — what you saw and where it really was both count, so stopping it in the green is always perfect */
+  function closest(f, seen, now, target) {
+    const tol = ((BALANCE.timing || {}).tol || .012) * 1000, a = Math.min(seen, now) - tol, b = now + tol; let best = f(now), bd = Math.abs(best - target);
+    for (let i = 0; i <= 24; i++) { const v = f(a + (b - a) * i / 24), d = Math.abs(v - target); if (d < bd) { bd = d; best = v; } }
+    return best;
+  }
+  /* the same for a moment in seconds: how far `target` was from the span between the frame on screen and the press (± tol) */
+  const missBy = (seen, at, target) => { const tol = (BALANCE.timing || {}).tol || .012, a = Math.min(seen, at) - tol, b = at + tol; return target < a ? a - target : target > b ? target - b : 0; };
   function onTap(target, fn) {
-    const pd = e => { e.preventDefault(); fn(); };
-    const kd = e => { if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); fn(); } };
+    const pd = e => { e.preventDefault(); fn(true); };
+    const kd = e => { if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); fn(true); } };
     target.addEventListener('pointerdown', pd); window.addEventListener('keydown', kd);
     const off = () => { target.removeEventListener('pointerdown', pd); window.removeEventListener('keydown', kd); mgOffs.delete(off); }; mgOffs.add(off); return off;
   }
@@ -604,14 +613,17 @@ const Match = (() => {
   const MG = {
     /* 1. SHOOTING METER — stop the rising bar in the green zone */
     shotMeter(layer, o = {}) {
-      const green = clamp(o.green || .14, .05, .4), dur = o.dur || 1.05, center = .8, pk = .28 * (o.perfK || 1);   // pk: the perfect slice of the green
+      const green = clamp(o.green || .14, .05, .4), dur = o.dur || 1.05, center = .8, pk = Math.max(.28 * (o.perfK || 1), .032 / green);   // pk: the perfect slice of the good zone (never thinner than ~2 frames of travel, so the line can't skip it)
       const sh = mgShell(layer, o.title || 'SHOT METER', 'Tap / click / SPACE to release at the top', 'mg-shot');
-      sh.body.innerHTML = `<div class="meter"><div class="meter-green" style="bottom:${(center - green / 2) * 100}%;height:${green * 100}%"><div class="meter-perfect" style="top:${(1 - pk) * 50}%;bottom:${(1 - pk) * 50}%"></div></div><div class="meter-fill"></div><div class="meter-line"></div></div><div class="mg-sub">${o.sub || ''}</div>`;
+      // yellow = good, green = PERFECT: exactly the windows finish() checks (same reference box as the line)
+      sh.body.innerHTML = `<div class="meter"><div class="meter-good" style="bottom:${(center - green / 2) * 100}%;height:${green * 100}%"></div><div class="meter-perfect" style="bottom:${(center - pk * green / 2) * 100}%;height:${pk * green * 100}%"></div><div class="meter-fill"></div><div class="meter-line"></div></div><div class="mg-sub">${o.sub || ''}</div>`;
       const fill = sh.body.querySelector('.meter-fill'), line = sh.body.querySelector('.meter-line');
       return new Promise(res => {
-        let t0 = performance.now(), done = false, v = 0;
-        const finish = async () => {
+        let t0 = performance.now(), done = false, v = 0, seen = t0;
+        const vAt = ms => { const t = (ms - t0) / 1000 / dur; return t < 1 ? EASE.out(Math.max(0, t)) : 1 - (t - 1) * 1.6; };   // the meter's real position at any moment
+        const finish = async tapped => {
           if (done) return; done = true; off();
+          if (tapped) v = closest(vAt, seen, performance.now(), center);   // judged at the press, not the next frame
           const dist = Math.abs(v - center) / (green / 2);
           let r; if (dist <= pk) r = 'perfect'; else if (dist <= 1) r = 'good'; else r = v < center ? 'early' : 'late';
           const q = clamp(1 - Math.max(0, dist - 1) / 2.5, 0, 1);
@@ -621,8 +633,8 @@ const Match = (() => {
         };
         const off = onTap(sh.el, finish);
         const step = now => {
-          if (done) return; const t = (now - t0) / 1000 / dur;
-          v = t < 1 ? EASE.out(t) * 1 : 1 - (t - 1) * 1.6; // rise to top, then fall
+          if (done) return; const t = (now - t0) / 1000 / dur; seen = now;
+          v = vAt(now); // rise to top, then fall
           fill.style.height = clamp(v, 0, 1) * 100 + '%'; line.style.bottom = clamp(v, 0, 1) * 100 + '%';
           if (t > 1.6) { v = 0; return finish(); }
                     requestAnimationFrame(step);
@@ -643,7 +655,7 @@ const Match = (() => {
       const el = document.createElement('div'); el.className = 'mg mg-ftview';
       el.innerHTML = `<div class="ftv-top"><b>${o.title || 'FREE THROWS'}</b><span class="ftv-dots">${'<i></i>'.repeat(shots)}</span><span class="ftv-score"></span><span class="ftv-res"></span></div>
         <div class="ftv-stage"><canvas></canvas></div>
-        <div class="ftv-bot"><span>${o.stat != null ? `Free Throw <b>${o.stat}</b> · ` : ''}base <b>${base}%</b>${o.pressure ? ' · <em class="press">PRESSURE</em>' : ''}</span><span>Tap / click / SPACE when the reticle turns <b class="g">GREEN</b></span></div>`;
+        <div class="ftv-bot"><span>${o.stat != null ? `Free Throw <b>${o.stat}</b> · ` : ''}base <b>${base}%</b>${o.pressure ? ' · <em class="press">PRESSURE</em>' : ''}</span><span>Tap / click / SPACE in the <b class="g">GREEN</b> = perfect · <b class="y">YELLOW</b> = good</span></div>`;
       layer.appendChild(el); layer.classList.add('on', 'ftmode'); requestAnimationFrame(() => el.classList.add('in'));
       const stage = el.querySelector('.ftv-stage'), cv = stage.querySelector('canvas'), c = cv.getContext('2d');
       const dots = el.querySelectorAll('.ftv-dots i'), resEl = el.querySelector('.ftv-res'), scEl = el.querySelector('.ftv-score');
@@ -653,9 +665,12 @@ const Match = (() => {
       const fit = () => { const r = stage.getBoundingClientRect(); W = Math.max(200, r.width); H = Math.max(150, r.height); cv.width = Math.round(W * PXS); cv.height = Math.round(H * PXS); cv.style.width = W + 'px'; cv.style.height = H + 'px'; c.setTransform(PXS, 0, 0, PXS, 0, 0); c.imageSmoothingEnabled = false; };
       fit(); const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null; ro && ro.observe(stage);
       const G = () => { const rr = Math.min(W * .075, H * .085); return { rr, RX: W / 2, RY: H * .33, zone: rr * zoneMul, amp: rr * ampMul, aimW: rr * 3.3, aimH: rr * 2.1 }; };
+      const PF = .35 * pk;   // the green (perfect) circle: this share of the yellow (good) zone
       return new Promise(res => {
         let k = 0, made = 0, perfect = 0, busy = false, alive = true, t0 = performance.now(), ph = [rnd(0, 6), rnd(0, 6), rnd(0, 6)], net = 0;
-        const ret = { x: 0, y: 0 }; let ball = null;
+        const ret = { x: 0, y: 0 }; let ball = null, seen = t0;
+        const retAt = (ms, g) => { const t = (ms - t0) / 1000;   // where the reticle really is at any moment
+          return { x: clamp(g.RX + Math.sin(t * 1.5 + ph[0]) * g.amp + Math.sin(t * 2.9 + ph[1]) * g.amp * .25, g.RX - g.aimW, g.RX + g.aimW), y: clamp(g.RY + Math.sin(t * 2.1 + ph[2]) * g.amp * .55, g.RY - g.aimH, g.RY + g.aimH) }; };
         const person = (x, y, sc, col, trim, num, back) => { // small lane player / big shooter
           c.fillStyle = 'rgba(0,0,0,.3)'; c.beginPath(); c.ellipse(x, y, 14 * sc, 4 * sc, 0, 0, 7); c.fill();
           c.fillStyle = '#7c4a2a'; c.fillRect(x - 6 * sc, y - 26 * sc, 4 * sc, 24 * sc); c.fillRect(x + 2 * sc, y - 26 * sc, 4 * sc, 24 * sc);
@@ -666,10 +681,8 @@ const Match = (() => {
         const draw = now => {
           if (!alive) return;
           const g = G(), { rr, RX, RY } = g;
-          if (!busy) { const t = (now - t0) / 1000;
-            ret.x = clamp(RX + Math.sin(t * 1.5 + ph[0]) * g.amp + Math.sin(t * 2.9 + ph[1]) * g.amp * .25, RX - g.aimW, RX + g.aimW);
-            ret.y = clamp(RY + Math.sin(t * 2.1 + ph[2]) * g.amp * .55, RY - g.aimH, RY + g.aimH); }
-          const d = Math.hypot(ret.x - RX, ret.y - RY), inside = d <= g.zone; cv.dataset.inside = inside ? '1' : '0';
+          if (!busy) { Object.assign(ret, retAt(now, g)); seen = now; }
+          const d = Math.hypot(ret.x - RX, ret.y - RY), inside = d <= g.zone, inPf = d <= g.zone * PF; cv.dataset.inside = inside ? '1' : '0'; cv.dataset.perfect = inPf ? '1' : '0';
           // arena + floor
           const bgG = c.createLinearGradient(0, 0, 0, H); bgG.addColorStop(0, '#0b1020'); bgG.addColorStop(.55, '#1a2236'); bgG.addColorStop(.56, '#8a5a2b'); bgG.addColorStop(1, '#c98b4e');
           c.fillStyle = bgG; c.fillRect(0, 0, W, H);
@@ -690,9 +703,10 @@ const Match = (() => {
           c.strokeStyle = '#ffffffb0'; c.lineWidth = 1.2;
           for (let i = -4; i <= 4; i++) { c.beginPath(); c.moveTo(RX + i * rr * .22, RY + 2); c.lineTo(RX + i * rr * .13 + wv, RY + rr * 1.25 + net * rr * .4); c.stroke(); }
           // make zone (green) + perfect ring
-          c.fillStyle = inside && !busy ? 'rgba(34,197,94,.38)' : 'rgba(34,197,94,.16)'; c.strokeStyle = '#4ade80'; c.lineWidth = 2;
+          // yellow = good, green = PERFECT: exactly the circles shoot() checks
+          c.fillStyle = inside && !busy ? 'rgba(250,204,21,.3)' : 'rgba(250,204,21,.14)'; c.strokeStyle = '#facc15'; c.lineWidth = 2;
           c.beginPath(); c.arc(RX, RY, g.zone, 0, 7); c.fill(); c.stroke();
-          c.setLineDash([4, 4]); c.beginPath(); c.arc(RX, RY, g.zone * .35 * pk, 0, 7); c.stroke(); c.setLineDash([]);
+          c.fillStyle = inPf && !busy ? 'rgba(34,197,94,.75)' : 'rgba(34,197,94,.45)'; c.strokeStyle = '#4ade80'; c.beginPath(); c.arc(RX, RY, g.zone * PF, 0, 7); c.fill(); c.stroke();
           c.strokeStyle = '#f97316'; c.lineWidth = 4; c.beginPath(); c.ellipse(RX, RY, rr, rr * .3, 0, 0, 7); c.stroke();
           // shooter (from behind)
           const sx = W / 2, sy = H * 1.06, sc = Math.min(W, H) / 150;
@@ -716,18 +730,18 @@ const Match = (() => {
           } else {
             c.fillStyle = '#ea580c'; c.beginPath(); c.arc(bx0, by0, rr * .75, 0, 7); c.fill();
             // reticle
-            const col = inside ? '#4ade80' : '#facc15'; c.strokeStyle = col; c.lineWidth = 3; c.beginPath(); c.arc(ret.x, ret.y, rr * .42, 0, 7);
+            const col = inPf ? '#4ade80' : inside ? '#facc15' : '#ffffff'; c.strokeStyle = col; c.lineWidth = 3; c.beginPath(); c.arc(ret.x, ret.y, rr * .42, 0, 7);
             c.moveTo(ret.x - rr * .9, ret.y); c.lineTo(ret.x - rr * .25, ret.y); c.moveTo(ret.x + rr * .25, ret.y); c.lineTo(ret.x + rr * .9, ret.y);
             c.moveTo(ret.x, ret.y - rr * .9); c.lineTo(ret.x, ret.y - rr * .25); c.moveTo(ret.x, ret.y + rr * .25); c.lineTo(ret.x, ret.y + rr * .9); c.stroke();
-            if (inside) { c.fillStyle = 'rgba(74,222,128,.35)'; c.beginPath(); c.arc(ret.x, ret.y, rr * .42, 0, 7); c.fill(); }
+            if (inside) { c.fillStyle = inPf ? 'rgba(74,222,128,.45)' : 'rgba(250,204,21,.3)'; c.beginPath(); c.arc(ret.x, ret.y, rr * .42, 0, 7); c.fill(); }
           }
           requestAnimationFrame(draw);
         };
         const shoot = async () => {
           if (busy || k >= shots) return; busy = true;
-          const g = G(), d = Math.hypot(ret.x - g.RX, ret.y - g.RY);
-          const q = d <= g.zone ? 1 - (d / g.zone) * .45 : clamp(.5 - (d - g.zone) / (g.zone * 2.2), 0, .5);
-          const pf = d <= g.zone * .222 * pk, fin = Balance.apply('ft', base, q, null, { perfect: pf }), ok = Math.random() * 100 < fin;   // a perfect free throw almost never misses
+          const g = G(), at = ms => { const r = retAt(ms, g); return Math.hypot(r.x - g.RX, r.y - g.RY); }, d = closest(at, seen, performance.now(), 0);   // judged at the press
+          const pf = d <= g.zone * PF, q = pf ? 1 : d <= g.zone ? 1 - (d / g.zone) * .45 : clamp(.5 - (d - g.zone) / (g.zone * 2.2), 0, .5);
+          const fin = Balance.apply('ft', base, q, null, { perfect: pf }), ok = Math.random() * 100 < fin;   // a perfect free throw almost never misses
           const kind = ok ? (q > .8 ? 'swish' : 'rimin') : (d > g.zone * 2.6 ? 'airball' : 'rimout');
           ball = { t: performance.now(), dur: 1050, kind, tx: kind === 'airball' ? ret.x : kind === 'swish' ? g.RX : g.RX + (ret.x >= g.RX ? 1 : -1) * g.rr * .8, ty: kind === 'airball' ? g.RY + g.rr * 1.4 : g.RY };
           await sleep(650);
@@ -735,7 +749,7 @@ const Match = (() => {
           await sleep(420);
           if (ok) { made++; if (pf) perfect++; }
           dots[k].className = ok ? 'make' : 'miss';
-          resEl.textContent = { swish: 'SWISH!', rimin: 'RIM IN!', rimout: 'RIM OUT', airball: 'AIRBALL' }[kind]; resEl.className = 'ftv-res ' + (ok ? 'good' : 'bad');
+          resEl.textContent = (pf ? 'PERFECT · ' : '') + { swish: 'SWISH!', rimin: 'RIM IN!', rimout: 'RIM OUT', airball: 'AIRBALL' }[kind];   // the timing, even on a miss resEl.className = 'ftv-res ' + (ok ? 'good' : 'bad');
           o.onShot && o.onShot(ok); showScore();
           k++; ball = null;
           await sleep(650);
@@ -786,25 +800,28 @@ const Match = (() => {
       const sh = mgShell(layer, o.title || 'DUNK TIMING', 'Tap / click / SPACE when the ring hits the circle', 'mg-dunk');
       sh.body.innerHTML = `<canvas class="pxc" width="130" height="100" style="width:260px;aspect-ratio:26/20"></canvas><div class="ft-dots">${'<i></i>'.repeat(rings)}</div><div class="mg-sub ring-lbl"></div>`;
       const cv = sh.body.querySelector('canvas'), c = cv.getContext('2d'), dots = sh.body.querySelectorAll('.ft-dots i'), lbl = sh.body.querySelector('.ring-lbl'); c.setTransform(.5, 0, 0, .5, 0, 0);
-      const TR = 30;
+      const TR = 30, PB = .4;   // PB: the green (perfect) band is this share of the yellow (good) band
       return new Promise(res => {
-        let k = 0, hits = 0, acc = 0, r = 105, sp = (o.speed || 85), done = false, flash = 0, last = performance.now();
-        const tap = () => {
-          if (done) return; const e = Math.abs(r - TR), ok = e <= tol; flash = ok ? 1 : -1;
-          dots[k].className = ok ? 'make' : 'miss'; if (ok) { hits++; acc += 1 - e / tol * .6; } SFX.play(ok ? 'good' : 'bad'); k++; r = 105; sp *= 1.2;
-          if (k >= rings) { done = true; off(); const q = acc / rings; sh.close(hits === rings ? (rings > 1 ? 'POSTERIZED!' : 'PERFECT TOUCH') : hits ? 'GOT IT UP' : 'STUFFED', hits >= Math.ceil(rings * .6)).then(() => res({ hits, total: rings, quality: q, perfect: hits === rings && q > .9 })); }
+        let k = 0, hits = 0, pfs = 0, acc = 0, r = 105, sp = (o.speed || 85), done = false, flash = 0, last = performance.now();
+        const tap = tapped => {
+          if (done) return;
+          const now = performance.now(), rAt = ms => r - sp * (ms - last) / 1000, e = Math.abs((tapped ? closest(rAt, last, now, TR) : r) - TR);   // judged at the press
+          const ok = e <= tol, pf = ok && e <= tol * PB; flash = ok ? 1 : -1;
+          dots[k].className = ok ? 'make' : 'miss'; if (ok) { hits++; acc += pf ? 1 : 1 - e / tol * .6; } if (pf) pfs++; SFX.play(ok ? 'good' : 'bad'); lbl2 = pf ? 'PERFECT' : ok ? 'GOOD' : tapped ? (r > TR ? 'EARLY' : 'LATE') : 'MISSED'; k++; r = 105; sp *= 1.2;
+          if (k >= rings) { done = true; off(); const q = acc / rings; sh.close(pfs === rings ? (rings > 1 ? 'PERFECT — POSTERIZED!' : 'PERFECT TOUCH') : hits === rings && rings > 1 ? 'POSTERIZED!' : hits ? 'GOT IT UP' : 'STUFFED', hits >= Math.ceil(rings * .6)).then(() => res({ hits, total: rings, quality: q, perfect: pfs === rings })); }
         };
+        let lbl2 = '';
         const off = onTap(sh.el, tap);
         const step = now => {
-          if (done) return; const dt = (now - last) / 1000; last = now; r -= sp * dt;
+          if (done) return; const dt = (now - last) / 1000; last = now; r -= sp * dt; cv.dataset.pf = Math.abs(r - TR) <= tol * PB ? '1' : '0';   // (for automated tests)
           if (r < TR - tol - 4) tap();
           c.clearRect(0, 0, 260, 200);
           c.fillStyle = flash > 0 ? '#22c55e55' : flash < 0 ? '#ef444455' : '#ffffff10'; flash *= .9;
           c.beginPath(); c.arc(130, 100, TR, 0, 7); c.fill();
-          c.strokeStyle = '#22c55e66'; c.lineWidth = tol * 2; c.beginPath(); c.arc(130, 100, TR, 0, 7); c.stroke();
-          c.strokeStyle = '#fff'; c.lineWidth = 3; c.beginPath(); c.arc(130, 100, TR, 0, 7); c.stroke();
+          c.strokeStyle = 'rgba(250,204,21,.4)'; c.lineWidth = tol * 2; c.beginPath(); c.arc(130, 100, TR, 0, 7); c.stroke();   // yellow = good
+          c.strokeStyle = 'rgba(34,197,94,.85)'; c.lineWidth = tol * PB * 2; c.beginPath(); c.arc(130, 100, TR, 0, 7); c.stroke();   // green = PERFECT
           c.strokeStyle = '#f97316'; c.lineWidth = 5; c.beginPath(); c.arc(130, 100, Math.max(2, r), 0, 7); c.stroke();
-          const lb = labels[Math.min(k, labels.length - 1)] || ''; if (lbl.textContent !== lb) lbl.textContent = lb;
+          const lb = (lbl2 ? lbl2 + ' · ' : '') + (labels[Math.min(k, labels.length - 1)] || ''); if (lbl.textContent !== lb) lbl.textContent = lb;
           requestAnimationFrame(step);
         };
         requestAnimationFrame(step);
@@ -952,18 +969,18 @@ const Match = (() => {
       D.camT = { x: 192, y: 52, z: 1.35 }; D.tapAny = true; dvSub(D, o.sub); dvKeys(D, ['T']);   // the rim (and its release ring) high in the frame, you rising toward it
       return (async () => {
         dvSay(D, 'GET UP…', 'low');
-        const t0 = performance.now() + 450, tNow = () => (performance.now() - t0) / 1000; let tapAt = null;
+        const t0 = performance.now() + 450, tNow = () => (performance.now() - t0) / 1000; let tapAt = null, seenT = -1;
         D.input = d => { if (d !== 'T' || tapAt != null) return; const t = tNow(); if (t > -.1) { tapAt = t; dvHit(D, 'T'); } };
-        D.screen = c => {   // the release ring sits on the rim: green = good, bright band = perfect
-          const z = D.cam.z, rx = 128 + z * (192 - D.cam.x), ry = 72 + z * (PIX.hoop.y - PIX.hoop.z - D.cam.y), t = tNow(), R0 = 7;
-          c.strokeStyle = 'rgba(74,222,128,.35)'; c.lineWidth = Math.max(2, win * 120); c.beginPath(); c.arc(rx, ry, R0 + win * 30, 0, 7); c.stroke();
-          c.strokeStyle = '#4ade80'; c.lineWidth = 2; c.beginPath(); c.arc(rx, ry, R0, 0, 7); c.stroke();
-          c.strokeStyle = '#bbf7d0'; c.lineWidth = 1; c.beginPath(); c.arc(rx, ry, R0 + win * 15, 0, 7); c.stroke();
-          if (tapAt == null) { const r = R0 + Math.max(0, T - t) * 60; c.strokeStyle = '#ffffff'; c.lineWidth = 2; c.beginPath(); c.arc(rx, ry, Math.max(3, r), 0, 7); c.stroke(); }
-          Pixel.text(c, 'PERFECT', rx, ry + R0 + win * 30 + 4, '#4ade80', 1, 'center', '#000');
+        const R0 = 12, S = 70, pwin = Math.max(win * .5, .02);   // the ring: R0 at the release beat, shrinking S px per second (and on past it) · pwin: the perfect half-window (≥ ~1 frame either side)
+        D.screen = c => {   // the release ring sits on the rim: yellow = good, green = PERFECT (exactly the windows below)
+          const z = D.cam.z, rx = 128 + z * (192 - D.cam.x), ry = 72 + z * (PIX.hoop.y - PIX.hoop.z - D.cam.y), t = tNow();
+          c.strokeStyle = 'rgba(250,204,21,.45)'; c.lineWidth = win * S * 2; c.beginPath(); c.arc(rx, ry, R0, 0, 7); c.stroke();
+          c.strokeStyle = 'rgba(34,197,94,.9)'; c.lineWidth = pwin * S * 2; c.beginPath(); c.arc(rx, ry, R0, 0, 7); c.stroke();
+          if (tapAt == null) { const r = R0 + (T - t) * S; D.el.dataset.pf = Math.abs(r - R0) <= pwin * S ? '1' : '0'; c.strokeStyle = '#ffffff'; c.lineWidth = 2; c.beginPath(); c.arc(rx, ry, Math.max(1, r), 0, 7); c.stroke(); }
+          Pixel.text(c, 'PERFECT', rx, ry + R0 + win * S + 4, '#4ade80', 1, 'center', '#000');
         };
         for (;;) {
-          const t = tNow(), k = clamp(t / T, 0, 1.2);
+          const t = tNow(), k = clamp(t / T, 0, 1.2); if (tapAt == null) seenT = t;
           me.act = { type: 'layup', t: Math.min(.68, k * .6), T: .7, hold: true }; me.face = side;   // rise toward the rim
           me.x = x0 + (tx - x0) * Math.min(1, k); me.y = y0 + (ty - y0) * Math.min(1, k); me.z = Math.sin(Math.min(1, k) * Math.PI / 2) * 20;
           if (t >= T - win - .18) dvSay(D, 'RELEASE!', 'go low');
@@ -972,7 +989,7 @@ const Match = (() => {
           await nextFrame(); if (D.run !== my) return Object.assign({}, MG_FALLBACK);
         }
         D.input = null; D.tapAny = false; dvKeys(D, []); dvSay(D, '');
-        const e = tapAt == null ? 1 : Math.abs(tapAt - T), perfect = e <= win * .5, good = e <= win;
+        const e = tapAt == null ? 1 : missBy(seenT, tapAt, T), perfect = e <= pwin, good = e <= win;   // judged at the press
         const q = good ? 1 - e / win * .35 : clamp(.55 - (e - win) / (win * 3), 0, .5);
         await dvFb(D, tapAt == null ? 'TOO LATE' : perfect ? 'PERFECT RELEASE!' : good ? 'GOOD TOUCH' : tapAt < T ? 'TOO EARLY' : 'TOO LATE', good, 600);
         dvDone(D, 'rel'); closeDrive(layer);
@@ -1027,8 +1044,10 @@ const Match = (() => {
         // the glass target (backboard, on the side you flicked to) + the closing ring
         if (ph === 'glass' || ph === 'fly') {
           const G = { x: rim.x + choice * 9, y: rim.y - 13 };
-          c.strokeStyle = '#4ade80'; c.lineWidth = 1; c.beginPath(); c.arc(G.x, G.y, 4, 0, 7); c.stroke(); c.fillStyle = 'rgba(74,222,128,.25)'; c.fillRect(G.x - 2, G.y - 2, 4, 4);
-          if (ph === 'glass' && tapAt == null) { const r = 4 + Math.max(0, T2 - tB) * 34; c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.beginPath(); c.arc(G.x, G.y, Math.max(2, r), 0, 7); c.stroke(); Pixel.text(c, 'KISS IT', G.x, G.y - 14, '#bbf7d0', 1, 'center', '#000'); }
+          const R0 = 9, S = 60;   // the ring is R0 on the beat: yellow = good, green = PERFECT (exactly the windows below)
+          c.strokeStyle = 'rgba(250,204,21,.5)'; c.lineWidth = tol * S * 2; c.beginPath(); c.arc(G.x, G.y, R0, 0, 7); c.stroke();
+          c.strokeStyle = 'rgba(34,197,94,.9)'; c.lineWidth = tol * .45 * S * 2; c.beginPath(); c.arc(G.x, G.y, R0, 0, 7); c.stroke();
+          if (ph === 'glass' && tapAt == null) { const r = R0 + (T2 - tB) * S; D.el.dataset.pf = Math.abs(r - R0) <= tol * .45 * S ? '1' : '0'; c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.beginPath(); c.arc(G.x, G.y, Math.max(1, r), 0, 7); c.stroke(); Pixel.text(c, 'KISS IT', G.x, G.y - R0 - tol * S - 6, '#bbf7d0', 1, 'center', '#000'); }
         }
         // the ball (+ spin trail off the glass)
         trail.forEach((q, i) => { c.fillStyle = `rgba(253,230,138,${i / trail.length * .6})`; c.fillRect(Math.round(q.x) - 1, Math.round(q.y) - 1, 3, 3); });
@@ -1055,11 +1074,11 @@ const Match = (() => {
         if (side !== 'late') {
           // 3) kiss it off the glass: tap as the ring closes
           ph = 'glass'; dvSay(D, 'NOW — OFF THE GLASS!', 'go low'); dvKeys(D, ['T']); D.tapAny = true;
-          D.input = d => { if (d !== 'T' || tapAt != null) return; tapAt = tB; dvHit(D, 'T'); };
-          const t1 = performance.now();
+          const t1 = performance.now(); let seenB = 0;
+          D.input = d => { if (d !== 'T' || tapAt != null) return; seenB = tB; tapAt = (performance.now() - t1) / 1000; dvHit(D, 'T'); };   // the moment you pressed (not the next frame)
           for (;;) { tB = (performance.now() - t1) / 1000; dvTimer(D, 1 - clamp(tB / (T2 + tol), 0, 1)); Object.assign(ball, hand(choice)); if (tapAt != null || tB > T2 + tol + .2) break; await nextFrame(); if (D.run !== my) return Object.assign({}, MG_FALLBACK, { side }); }
           D.input = null; D.tapAny = false; dvKeys(D, []);
-          e = tapAt == null ? 1 : Math.abs(tapAt - T2); perfect = e <= tol * .45; good = e <= tol;
+          e = tapAt == null ? 1 : missBy(seenB, tapAt, T2); perfect = e <= tol * .45; good = e <= tol;
         }
         dvSay(D, '');
         // the flick: off the glass and down — or straight into his hand

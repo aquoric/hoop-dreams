@@ -395,6 +395,7 @@ const Arcade = (() => {
       }
       function releaseShoot(p) {
         const a = p.act; if (!a || !['shoot', 'layup', 'dunk'].includes(a.type)) return; a.wantRelease = true;
+        if (p === me && a.type === 'shoot' && a.relSeen == null) { a.relSeen = a.t; a.relNow = a.t + acc + Math.max(0, performance.now() - (G.frameAt || 0)) / 1000 * (G.simK || 0); a.relWin = a.win || null; a.relRows = a.rows || null; }   // the moment you let go (and the frame you saw), not the next tick
         if (p === me && a.type === 'dunk' && a.held && a.relT == null && !a.slammed && a.t < CF().finish.hold) tag('LET GO EARLY', me, '#fca5a5');   // a weaker dunk
       }
       /* a second tap while your layup is still on its way up (CF().finish.dbl): the dunk — or, without the bounce for it, a strong layup */
@@ -426,11 +427,14 @@ const Arcade = (() => {
       /* a perfect release: contests cut it only a little (BALANCE.perfect.arcadeCut); other players hit greens too */
       const perfCut = (q, cut) => q >= .999 ? 1 - (1 - cut) * BALANCE.perfect.arcadeCut : cut;
       const aiGreen = (p, stat) => Math.random() < BALANCE.perfect.ai * (.6 + Balance.eff(stat || 50) / 99 * .8);
-      function releaseQuality(p, err, stat, wide = 1) {
+      /* your jump shot's windows (s either side of the top of the jump): pw = PERFECT (green on the meter), gw = good (yellow).
+         Contests and distance shrink both — the meter over your head is drawn from these every frame */
+      function shotWin(p, stat, wide = 1) { const gw = (.05 + Balance.eff(stat) / 99 * .09) * WINDOW * wide * contestK(p) * Balance.greenAt(p.act && p.act.sc ? p.act.sc.ft : null); return { gw, pw: gw * .35 }; }
+      function releaseQuality(p, err, stat, wide = 1, W0) {
         if (p !== me) return aiGreen(p, stat) ? 1 : clamp(aiFor(p).shotQ + rnd(-.22, .22), 0, .97);
-        const win = (.05 + Balance.eff(stat) / 99 * .09) * WINDOW * wide * contestK(p) * Balance.greenAt(p.act && p.act.sc ? p.act.sc.ft : null);   // smaller from far out
-        if (err < win * .35) { tag('PERFECT', p, '#86efac'); SFX.play('good'); return 1; }   // green comes only if it goes in
-        return clamp(1 - err / (win * 3), 0, 1);
+        const W = W0 || shotWin(p, stat, wide);   // W0: the windows on screen when you let go
+        if (err <= W.pw) { tag('PERFECT', p, '#86efac'); SFX.play('good'); return 1; }   // the timing is perfect even if it misses; the green comes only if it goes in
+        return clamp(1 - err / (W.gw * 3), 0, 1);
       }
       /* ---- CONTESTS: jumping is how you contest (the shoot/block button) — closeness × timing × stat (BALANCE.arcade.contest) ---- */
       const CT = () => CF().contest;
@@ -1289,7 +1293,10 @@ const Arcade = (() => {
             if (!a.air && a.t >= PACE.gather) { a.air = true; p.vz = PACE.jump(p.st.vert); p.z = .1; a.apex = PACE.gather + p.vz / PACE.gravity; if (a.aiRel != null) a.aiRel = a.apex + a.aiRel; }
             if (a.air && !a.released && ball.owner === p) {
               const rel = a.aiRel != null ? a.t >= a.aiRel : (a.wantRelease || a.t > a.apex + .55 || (p.z <= .5 && a.t > PACE.gather + .1));
-              if (rel) { a.released = true; const stat = a.sc.three ? p.st.three : p.st.mid; launch(p, a.sc, releaseQuality(p, Math.abs(a.t - a.apex), stat)); }
+              if (rel) { a.released = true; const stat = a.sc.three ? p.st.three : p.st.mid, tol = (BALANCE.timing || {}).tol || .012;
+                const err = a.relSeen != null ? Math.max(0, a.apex < Math.min(a.relSeen, a.relNow) - tol ? Math.min(a.relSeen, a.relNow) - tol - a.apex : a.apex > a.relNow + tol ? a.apex - a.relNow - tol : 0) : Math.abs(a.t - a.apex);
+                const R = a.relRows, inGreen = !!R && a.relSeen != null && [a.relSeen, a.relNow].some(x => { const r = R.row(x); return r >= R.pTop && r <= R.pBot; });   // the line was in the green: perfect
+                launch(p, a.sc, releaseQuality(p, inGreen ? 0 : err, stat, 1, a.relWin)); }
             }
             if (ball.owner !== p && !a.released) p.act = null;   // stripped / blocked
             break;
@@ -1535,15 +1542,18 @@ const Arcade = (() => {
           RD.text('OPEN', x, y - 6, '#86efac', 1, 'center', '#0a0a12'); RD.px(x - 2, y, 5, 1, '#86efac'); RD.px(x - 1, y + 1, 3, 1, '#86efac'); RD.px(x, y + 2, 1, 1, '#86efac');
           if (G.real - (p.callT || 0) > 2.4 && Math.random() < .02) { p.callT = G.real; tag(pick(['HERE!', 'I\'M OPEN!', 'BALL!']), p, '#86efac'); SFX.play('blip', { f: 240 + p.i * 40, w: 'square', g: .03 }); }
         }
-        if (p === me && p.act && (p.act.type === 'layup' || p.act.type === 'dunk') && !p.act.released && !p.act.slammed && p.act.relT == null) {   // layup / dunk timing: a ring shrinks onto the circle at the release moment
-          const a = p.act, target = a.type === 'dunk' ? .6 : Math.min(a.apex || .5, .5), left = target - a.t, hx = Math.round(K.arms[1].hand[0]), hy = Math.round(K.arms[1].hand[1] - 3);
-          if (left > -.08) { c.strokeStyle = '#4ade80'; c.lineWidth = 1; c.beginPath(); c.arc(hx + .5, hy + .5, 5, 0, 7); c.stroke(); c.strokeStyle = Math.abs(left) < .05 ? '#4ade80' : '#ffffff'; c.beginPath(); c.arc(hx + .5, hy + .5, Math.max(2, 5 + left * 40), 0, 7); c.stroke(); }
+        if (p === me && p.act && p.act.type === 'dunk' && p.act.held && !p.act.slammed) {   // the dunk: the ring fills while you hold (green = the full slam)
+          const a = p.act, u = a.relT != null ? clamp(a.relT / CF().finish.hold, 0, 1) : clamp(a.t / CF().finish.hold, 0, 1), hx = Math.round(p.x), hy = Math.round(K.head[1]) - 12;
+          c.strokeStyle = '#0a0a12'; c.lineWidth = 3; c.beginPath(); c.arc(hx + .5, hy + .5, 5, 0, 7); c.stroke();
+          c.strokeStyle = u >= 1 ? '#22c55e' : a.relT != null ? '#f87171' : '#facc15'; c.lineWidth = 2; c.beginPath(); c.arc(hx + .5, hy + .5, 5, -Math.PI / 2, -Math.PI / 2 + u * Math.PI * 2); c.stroke();
         }
         if (p === me && p.act && p.act.type === 'shoot' && !p.act.released) {   // shot meter over your head
           const a = p.act, apex = a.apex || (PACE.gather + PACE.jump(p.st.vert) / PACE.gravity), kk = clamp(a.t / (apex * 2), 0, 1);
-          const stat = a.sc.three ? p.st.three : p.st.mid, win = (.05 + Balance.eff(stat) / 99 * .09) * WINDOW, gh = Math.max(2, Math.round(win * 2 / (apex * 2) * 22));
-          const bx = Math.round(p.x) + 9, by = Math.round(K.head[1]) - 10;
-          RD.px(bx - 1, by - 1, 5, 24, '#0a0a12'); RD.px(bx, by, 3, 22, '#1e293b'); RD.px(bx, by + 11 - gh / 2, 3, gh, '#22c55e'); RD.px(bx - 1, by + 21 - Math.round(kk * 21), 5, 1, '#fff');
+          // exactly the windows releaseQuality() checks, on the same pixel rows the release is judged on (yellow = good, green = PERFECT)
+          const stat = a.sc.three ? p.st.three : p.st.mid, W = a.win = shotWin(p, stat), MH = 32, row = s => MH - 1 - Math.round(clamp(s / (apex * 2), 0, 1) * (MH - 1));
+          const pTop = row(apex + W.pw), pBot = row(apex - W.pw), gTop = row(apex + W.gw), gBot = row(apex - W.gw), bx = Math.round(p.x) + 9, by = Math.round(K.head[1]) - 20;
+          a.rows = { pTop, pBot, row };
+          RD.px(bx - 1, by - 1, 5, MH + 2, '#0a0a12'); RD.px(bx, by, 3, MH, '#1e293b'); RD.px(bx, by + gTop, 3, gBot - gTop + 1, '#ca8a04'); RD.px(bx, by + pTop, 3, pBot - pTop + 1, '#22c55e'); RD.px(bx - 1, by + row(a.t), 5, 1, '#fff');
         }
       }
       function render(rdt, vdt) {
@@ -1617,6 +1627,7 @@ const Arcade = (() => {
         const PMS = G.pm && G.pm.reading ? PMC().slow : 0; if (PMS && G.paused !== true) pmFrame(rdt);   // PLAYMAKER: time slows while you read the lanes
         const OOS = G.oop && G.oop.ts ? G.oop.ts : 0;   // an alley-oop runs on its own clock: slow while you time it, slower at the catch
         const tsc = J ? G.ts : OOS || PMS || (G.slowT > 0 ? Math.max(.45, PACE.slowmo) : 1), vdt = stopped ? 0 : rdt * tsc; G.vt += vdt;
+        G.frameAt = now; G.simK = stopped || G.paused === true ? 0 : PACE.game * (J ? G.ts : OOS || PMS || (G.slowT > 0 ? PACE.slowmo : 1));   // (inputs between frames: how far the game has really moved)
         if (!stopped) { G.slowT = Math.max(0, G.slowT - rdt); G.speedT = Math.max(0, G.speedT - rdt); }
         const zt = J ? J.zoom : G.slowT > 0 && G.zoomT ? (G.winShot ? 1.3 : 1.22) : 1; G.zoom += (zt - G.zoom) * Math.min(1, rdt * 6); if (G.slowT <= 0) G.zoomT = 0;
         G.shake *= Math.pow(.02, rdt); G.flash *= Math.pow(.02, rdt); G.kick *= Math.pow(.004, rdt);
