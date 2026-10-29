@@ -912,6 +912,10 @@ body[data-screen=postgame] .pg-score, body[data-screen=postgame] .pg-result { fo
 .ab-wpn b { color: #facc15; } .ab-wpn.on b { color: #fde047; text-shadow: 0 0 8px #f59e0b; } .ab-wpn.cd b { color: #64748b; }
 .arc-pad { position: relative; }
 .arc-pad button.wpn { position: absolute; right: 0; top: -66px; width: 56px; height: 56px; background: #78350f; border-color: #000; opacity: .55; }
+.arc-pad button.jel { display: none; position: absolute; right: 62px; top: -66px; width: 56px; height: 56px; background: #a16207; box-shadow: 0 0 14px #facc15; animation: jelPulse 1s ease-in-out infinite alternate; }
+.arc-pad button.jel.on { display: flex; }
+@keyframes jelPulse { to { box-shadow: 0 0 22px #fde68a; filter: brightness(1.15); } }
+.arc-tag.fin { font-size: 1.15em; letter-spacing: .12em; text-shadow: 2px 2px 0 #000, 0 0 8px rgba(0, 0, 0, .8); }
 .arc-pad button.wpn.ready { opacity: 1; background: #b45309; box-shadow: 0 0 14px #f59e0b; } .arc-pad button.wpn.on { opacity: 1; background: #facc15; color: #111; }
 
 /* GREEN release flash */

@@ -37,7 +37,7 @@ const FEATURES = [
     what: ['Some teammates just get you.', 'Play with them and build a link — games, wins and how you treat them.', 'Max a link to unlock a duo move with that teammate.', 'Duo moves show up in matches and arcade play when he\'s on the floor.'] },
   { id: 'jelly', name: 'Jelly Layups', icon: '🍯', chapter: 'Youth National Team', tab: 'playbook', color: '#facc15', scene: 'usa:jelly_learned / jelly_cut_learned · college:cc_jelly_done / oo_jelly_done / gg_jelly_done',
     legacy: { flag: 'jelly' },
-    what: ['You can\'t go through him. Go around him.', 'After you beat your man, pick JELLY when help or a big is coming.', 'In the air: flick it AWAY from his arm (← / →), then tap at the glass.', 'Arcade: drive at the rim with a defender close, hold MOVE and shoot.'] },
+    what: ['You can\'t go through him. Go around him.', 'After you beat your man, pick JELLY when help or a big is coming.', 'In the air: flick it AWAY from his arm (← / →), then tap at the glass.', 'Arcade: in layup range, SHIFT + SPACE (phone: the JELLY button next to SHOOT).'] },
   { id: 'weapon_training', name: 'Weapon Training', icon: '🥋', chapter: 'Chapter 3', tab: 'mentor', color: '#f43f5e', scene: 'college:cc_wt / oo_wt / gg_wt',
     what: ['Scoop DeLuca is back. And he brought homework.', 'Mentor missions teach you new weapons and rank up the ones you have.', 'Level up the jelly: Reverse Jelly, then Under-the-Arm.', 'Find your missions in the Mentor tab.'] },
   { id: 'combine', name: 'Combine Leaderboard', icon: '⏱', chapter: 'Chapter 4', tab: 'combine', color: '#eab308', scene: 'draft:combine_intro (FEATURE_SCENES)',

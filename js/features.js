@@ -133,7 +133,7 @@ const Features = (() => {
         const jelly = on(s, 'jelly') ? `<div class="glass panel jelly-panel"><div class="up-head"><b>🍯 Jelly Layup</b><span class="muted">Taught by Scoop DeLuca.</span></div>
           <div class="jl-row">${JL.map((l, i) => `<div class="jl-lvl ${i <= J ? 'on' : ''}"><b>${esc(l.name)}</b><small>${i <= J ? (l.bonus ? `+${l.bonus}%` : 'Learned') : 'Weapon Training (Chapter 3)'}</small></div>`).join('')}</div>
           <p class="small">~<b>${pctOf('jelly', { contest: 'heavy' }) + JL[J].bonus}%</b> at a rim protector (a plain layup there: ~${pctOf('layup', { contest: 'heavy' })}%) · ~${pctOf('jelly', { contest: 'open' }) + JL[J].bonus}% wide open (layup ~${pctOf('layup', { contest: 'open' })}%).</p>
-          <p class="muted small"><b>Matches:</b> after you beat your man, pick JELLY when help is coming → flick to the side away from his arm (←/→), tap at the glass. <b>Arcade:</b> drive at the rim with a defender close, hold MOVE (L / Shift) and shoot. Career jellies: <b>${s.counters.jellies || 0}</b>.</p></div>` : '';
+          <p class="muted small"><b>Matches:</b> after you beat your man, pick JELLY when help is coming → flick to the side away from his arm (←/→), tap at the glass. <b>Arcade:</b> in layup range, Shift + Space (phone: the JELLY button). Career jellies: <b>${s.counters.jellies || 0}</b>.</p></div>` : '';
         return plays + jelly;
       }
       case 'mixtape': {

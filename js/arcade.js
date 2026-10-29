@@ -11,7 +11,8 @@
    real animation: idle, run, defensive slide, dribble, jump shot, layup, dunk, pass, steal, block,
    rebound, knocked down, ankle-broken, and the five dribble moves.
 
-   Controls: move WASD / arrows · SHOOT/BLOCK J or SPACE (hold, release at the top of the jump)
+   Controls: move WASD / arrows · SHOOT/BLOCK J or SPACE (hold, release at the top of the jump; in layup range:
+             tap = layup, double-tap and hold = dunk, SHIFT + SPACE = jelly — BALANCE.arcade.finish)
              PASS/STEAL K · DRIBBLE MOVE L or SHIFT (on defense: slide; slide + STEAL = shove)
    Touch:    joystick (left) + SHOOT / PASS / MOVE buttons (right).
    ===================================================================== */
@@ -112,18 +113,19 @@ const Arcade = (() => {
         </div>
         <div class="arc-stage" style="aspect-ratio:${VW} / ${A.H}"><canvas width="${VW}" height="${A.H}"></canvas><div class="arc-scan"></div><div class="arc-badges"></div><div class="arc-tags"></div><div class="arc-pop"></div><div class="arc-intro"></div><div class="arc-trans"><div class="at-stripes"></div><b></b></div></div>
         <div class="arc-bar"><div class="ab-stam"><span>STAMINA</span><div class="ab-meter"><i id="abStam"></i></div></div><div class="ab-move" id="abMove"><span>DRIBBLE MOVE</span><b>READY</b></div><div class="ab-move ab-wpn" id="abWpn"><span>⚔ WEAPON${touch ? '' : ' [E]'}</span><b>READY</b></div>
-          <div class="arc-keys"> ${touch ? '' : 'MOVE <kbd>WASD</kbd> · SHOOT/BLOCK <kbd>J</kbd>/<kbd>SPACE</kbd> hold &amp; release · PASS/STEAL <kbd>K</kbd> · DRIBBLE MOVE <kbd>L</kbd>/<kbd>SHIFT</kbd>'}</div></div>
-        <div class="arc-touch ${touch ? 'on' : ''}"><div class="arc-joy"><div class="arc-knob"></div></div><div class="arc-pad"><button data-b="wpn" id="tbWpn" class="wpn">⚔<small>WEAPON</small></button><button data-b="move" id="tbMove">MOVE<small>DRIBBLE</small></button><button data-b="pass">PASS<small>STEAL</small></button><button data-b="shoot" class="big">SHOOT<small>BLOCK</small></button></div></div>
+          <div class="arc-keys"> ${touch ? '' : 'MOVE <kbd>WASD</kbd> · SHOOT/BLOCK <kbd>J</kbd>/<kbd>SPACE</kbd> hold &amp; release · AT THE RIM tap: layup · 2× hold: dunk · <kbd>SHIFT</kbd>+<kbd>SPACE</kbd>: jelly · PASS/STEAL <kbd>K</kbd> · DRIBBLE MOVE <kbd>L</kbd>/<kbd>SHIFT</kbd>'}</div></div>
+        <div class="arc-touch ${touch ? 'on' : ''}"><div class="arc-joy"><div class="arc-knob"></div></div><div class="arc-pad"><button data-b="wpn" id="tbWpn" class="wpn">⚔<small>WEAPON</small></button><button data-b="move" id="tbMove">MOVE<small>DRIBBLE</small></button><button data-b="pass">PASS<small>STEAL</small></button><button data-b="jelly" id="tbJel" class="jel">🍯<small>JELLY</small></button><button data-b="shoot" class="big">SHOOT<small>BLOCK</small></button></div></div>
         <div class="arc-help"><div class="arc-help-card"><h3>ARCADE CONTROLS</h3>
           <p><b>Move</b> WASD / arrow keys · touch: joystick</p>
-          <p><b>Shoot</b> hold J / SPACE (or SHOOT), release at the top of your jump. Near the rim you lay it up or dunk. The farther out, the lower your chance and the smaller the green window: the <b>ring under you</b> shows how good your shot is from where you stand (green good → yellow → red bad).</p>
+          <p><b>Shoot</b> hold J / SPACE (or SHOOT), release at the top of your jump. The farther out, the lower your chance and the smaller the green window: the <b>ring under you</b> shows how good your shot is from where you stand (green good → yellow → red bad).</p>
           <p><b>Pass</b> K — toward the joystick direction, or to the open man. Without the ball, K calls for it.</p>
           <p><b>Dribble move</b> L / SHIFT (MOVE). Stick away from where you face = crossover-type move, no stick = hesitation, stick forward with a defender in front = spin. Each move gives a burst of speed and a chance to beat or freeze your man. There's a short cooldown — spamming it can cost you the ball.</p>
           <p><b>Loose balls</b> run to the yellow ◎ (where it comes down) and press J / SPACE (GRAB) to dive for it. Speed, Vertical and Strength decide close calls. Whoever comes up with it gets the rebound.</p>
           <p><b>Playmaker</b> time slows and every teammate gets a numbered badge. Press his number (or tap the badge) while it glows <b>green</b> and the pass goes. After the first pass: one more number, or SPACE to let him shoot. A <b style="color:#facc15">gold OOP</b> badge lobs it to a leaper at the rim: press SPACE (or tap) as he takes off.</p>
           <p><b>Alley-oops</b> cut hard to the rim with good Vertical + Dunking and a teammate may lob it up: press J / SPACE (JUMP) as you reach the gold mark.</p>
           <p><b>Defense — JUMP to contest</b> J / SPACE (JUMP button) near a shooter. Be close and jump as he lets it go: CONTESTED! / SMOTHERED! cut his chances (Perimeter D on jumpers, Interior D + Vertical at the rim), and a great jump at the rim is a block. Jump before he starts his shot and you get FAKED OUT; crash into him and it's a FOUL. · K = steal · L = slide (slide then K = shove)</p>
-          <p><b>🍯 Jelly</b> (once you've learned it) drive at the rim with a defender close, <b>hold L / SHIFT (MOVE)</b> and shoot. It flicks off the glass around shot blockers.</p>
+          <p><b>At the rim</b> (in layup range) you pick the finish: <b>tap</b> J / SPACE (SHOOT) for a <b>layup</b>; <b>double-tap and hold</b> the second tap for a <b>dunk</b> (you rise while you hold, let go early and it's a weaker slam). Not enough Dunking + Vertical yet? The double tap is a strong layup instead.</p>
+          <p><b>🍯 Jelly</b> (once you've learned it) <b>SHIFT + SPACE</b> in layup range (phone: the <b>JELLY</b> button that appears next to SHOOT). It flicks off the glass around shot blockers.</p>
           <p><b>⚔ Weapon</b> E (or ⚔) — fires the weapon that fits the moment (shot, drive, steal, block…). A short aura boosts that play. Teammates with an <b>OPEN</b> tag are calling for the ball.</p>
           <p class="arc-moves" id="arcMoves"></p>
           <button class="btn glow" data-a="gotit">Got it — let's play</button></div></div>
@@ -262,9 +264,9 @@ const Arcade = (() => {
       };
       const ftOf = p => { const r = Math.hypot((p.x - A.hoop.x) / A.three.rx, (p.y - A.hoop.y) / A.three.ry); return r * (Math.abs(p.y - A.hoop.y) < 26 && r > .85 ? 22 : 23.75); };
       const longRange = p => (p.weapons || []).some(w => BALANCE.distance.range.weapons.includes(w.id || w));
-      function shotChance(p) {
+      function shotChance(p, force) {   // force: 'layup' | 'dunk' (your finish at the rim is your choice, not the stats')
         const dh = toHoop(p), three = isThree(p), def = nearestDef(p), fresh = G.time - p.catchT < .9, ft = ftOf(p);
-        const action = dh < A.layupRange ? (canDunk(p) && dh < A.dunkRange && p.st.dunk >= 45 ? 'dunk' : 'layup') : three ? (fresh ? 'catch3' : 'pull3') : (fresh ? 'catchMid' : 'pullMid');
+        const action = force || (dh < A.layupRange ? (canDunk(p) && dh < A.dunkRange && p.st.dunk >= 45 ? 'dunk' : 'layup') : three ? (fresh ? 'catch3' : 'pull3') : (fresh ? 'catchMid' : 'pullMid'));
         const shotFt = action === 'layup' || action === 'dunk' ? Math.min(ft, 3) : ft;   // layups / dunks finish at the rim
         const ctx = { def: def ? def.st : null, diff: p.team === me.team ? diff : '_none', contest: contestFor(p) === 'open' ? 'open' : 'normal', dist: shotFt, longRange: longRange(p), fatigue: 100 - p.stamina, bonus: bonusOf(p, action) };
         return { action, three, dh, ft: shotFt, pct: Balance.pct(action, p.st, ctx).pct };
@@ -376,20 +378,47 @@ const Arcade = (() => {
 
       /* ---- shooting ---- */
       function pressShoot(p) {
+        if (p === me && dunkTap()) return;   // the second tap of your layup: the dunk
         if (ball.owner !== p || ball.state !== 'held' || !canAct(p) || p.z > 0) return;
         if (G.mustClear && !isThree(p)) { if (p === me) tag('TAKE IT BACK!', p, '#fca5a5'); return; }
         if (p.act && p.act.type === 'move') p.act = null;
         if (p !== me) aiWeapon(p, shotChance(p).action);
-        const sc = shotChance(p); spendWeapon(p, sc.action);
+        let sc = shotChance(p); if (p === me && sc.action === 'dunk') sc = shotChance(p, 'layup');   // you: one tap is a layup (double-tap and hold = dunk, CF().finish)
+        spendWeapon(p, sc.action);
         if (wantsJelly(p, sc)) return startJelly(p, sc);
         if (sc.action === 'dunk') return startDunk(p, sc);
-        if (sc.action === 'layup') return startLayup(p, sc);
+        if (sc.action === 'layup') { startLayup(p, sc); if (p === me) inLabel('LAYUP', '#e2e8f0'); return; }
         p.act = { type: 'shoot', t: 0, sc, air: false, released: false };
         p.vx *= .2; p.vy *= .2; p.face = A.hoop.x >= p.x ? 1 : -1;
         if (p !== me) p.act.aiRel = rnd(-.07, .07);
         armBlockers(p);
       }
-      function releaseShoot(p) { if (p.act && ['shoot', 'layup', 'dunk'].includes(p.act.type)) p.act.wantRelease = true; }
+      function releaseShoot(p) {
+        const a = p.act; if (!a || !['shoot', 'layup', 'dunk'].includes(a.type)) return; a.wantRelease = true;
+        if (p === me && a.type === 'dunk' && a.held && a.relT == null && !a.slammed && a.t < CF().finish.hold) tag('LET GO EARLY', me, '#fca5a5');   // a weaker dunk
+      }
+      /* a second tap while your layup is still on its way up (CF().finish.dbl): the dunk — or, without the bounce for it, a strong layup */
+      function dunkTap() {
+        const a = me.act, F = CF().finish;
+        if (!a || a.type !== 'layup' || a.jelly || a.released || a.strong || a.t > F.dbl || ball.owner !== me) return false;
+        if (!canDunk(me) || me.st.dunk < 45) {
+          a.strong = true; a.sc = Object.assign({}, a.sc, { pct: Math.min(95, a.sc.pct + F.strong) }); inLabel('STRONG LAYUP', '#fdba74');
+          let seen = false; try { seen = localStorage.getItem('hd_nobounce') === '1'; localStorage.setItem('hd_nobounce', '1'); } catch (e) { }
+          if (!seen) pop('Not enough bounce to dunk yet', '#94a3b8');
+          return true;
+        }
+        me.z = 0; me.vz = 0; startDunk(me, shotChance(me, 'dunk')); me.act.held = true; inLabel('DUNK', '#fb923c');
+        return true;
+      }
+      /* the finish you just chose, on your player the moment the game reads it (one label at a time) */
+      function inLabel(text, color) { if (G.inTag) G.inTag.remove(); tag(text, me, color); G.inTag = tagEl.lastElementChild; if (G.inTag) G.inTag.classList.add('fin'); }
+      const jellyRange = () => !!me.jelly && ball.owner === me && toHoop(me) < A.layupRange * 1.35;
+      function pressJelly() {   // phone: the JELLY button (next to SHOOT in layup range, once you've learned it)
+        if (!live() || G.oop || ball.owner !== me || ball.state !== 'held' || !canAct(me) || me.z > 0 || !jellyRange()) return;
+        if (G.mustClear && !isThree(me)) { tag('TAKE IT BACK!', me, '#fca5a5'); return; }
+        if (me.act && me.act.type === 'move') me.act = null;
+        const sc = shotChance(me, 'layup'); spendWeapon(me, 'layup'); startJelly(me, sc);
+      }
       const ringColor = pct => pct >= 50 ? '#4ade80' : pct >= 38 ? '#a3e635' : pct >= 28 ? '#facc15' : pct >= 15 ? '#fb923c' : '#ef4444';
       const greenFX = (heave) => { if (heave) { pop('HALFCOURT GREEN!!!', '#4ade80', true); RD.confetti(220); SFX.play('roar'); SFX.play('stinger'); G.slowT = 1.2; G.zoomT = 1; impact(.3, 14, .6, .12, '74,222,128'); logLine(`${me.name} hits a GREEN from halfcourt!`); }
         pop('GREEN!', '#4ade80', true); if (typeof Match !== 'undefined' && Match.green) Match.green(); else SFX.play('green'); G.flash = Math.max(G.flash, .25); G.flashCol = '74,222,128'; };
@@ -479,11 +508,11 @@ const Arcade = (() => {
       function wantsJelly(p, sc) {
         if (!p.jelly || (sc.action !== 'layup' && sc.action !== 'dunk') || sc.dh > A.layupRange * 1.35) return false;
         const d = nearestDef(p), close = d && dist(d, p) < 30;
-        if (p === me) { if (!moveHeld()) return false; if (!close) { tag('NOBODY THERE — JUST LAY IT IN', p, '#94a3b8'); return false; } return true; }
+        if (p === me) return moveHeld();   // SHIFT + SPACE: always the jelly, defender or not
         const ct = contestFor(p); return close && (ct === 'contested' || ct === 'heavy') && Math.random() < .6;   // the AI only jellies when a defender is really there
       }
       function startJelly(p, sc) {
-        const def = nearestDef(p), lv = BALANCE.jelly.levels[clamp(p.jellyLvl || 0, 0, BALANCE.jelly.levels.length - 1)];
+        const d0 = nearestDef(p), def = d0 && dist(d0, p) < 34 ? d0 : null, lv = BALANCE.jelly.levels[clamp(p.jellyLvl || 0, 0, BALANCE.jelly.levels.length - 1)];
         const bonus = bonusOf(p, 'jelly').concat(lv.bonus ? [{ label: lv.name, v: lv.bonus }] : []);
         const pct = Balance.pct('jelly', p.st, { def: def ? def.st : null, diff: p.team === me.team ? diff : '_none', contest: contestFor(p) === 'open' ? 'open' : 'normal', dist: 3, fatigue: 100 - p.stamina, bonus }).pct;   // like shotChance: the live contest (cut / block) is applied at release
         const side = p.x >= A.hoop.x ? 1 : -1; noteShot(p, sc, 'jelly');
@@ -495,7 +524,7 @@ const Arcade = (() => {
         G.jel = { p, def, lvl, drama, ts: 1, rate: drama ? 4 : 7, zoom: 1, t: 0, cam: pick(['ball', 'ball', 'rim', 'low']), tilt: (Math.random() < .5 ? -1 : 1) * rnd(.012, drama ? .05 : .035), mine: p.team === me.team };
         if (def) def.poseAct = { type: 'jellyD', u: 0, lift: 0 };
         p.burst = Math.max(p.burst, .2); p.bdx = (A.hoop.x + side * 14 - p.x) / (dist(p, { x: A.hoop.x + side * 14, y: A.hoop.y + 12 }) || 1); p.bdy = .4;   // the long, low last stride
-        RD.dust(p.x, p.y, 8); SFX.play('squeak'); if (p === me) tag('JELLY…', p, '#fde68a'); else tag(p.short.toUpperCase() + ' — JELLY!', p, '#fca5a5');
+        RD.dust(p.x, p.y, 8); SFX.play('squeak'); if (p === me) inLabel('JELLY', '#fde68a'); else tag(p.short.toUpperCase() + ' — JELLY!', p, '#fca5a5');
       }
       function startLayup(p, sc) {
         noteShot(p, sc, 'layup');
@@ -998,7 +1027,7 @@ const Arcade = (() => {
         if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(k)) e.preventDefault();
         if ((k === 'KeyJ' || k === 'Space') && !input.shoot) { input.shoot = true; pressShootBtn(); }
         if (k === 'KeyK') pressPassBtn();
-        if (k === 'KeyL' || k === 'ShiftLeft' || k === 'ShiftRight') pressMoveBtn();
+        if (k === 'KeyL' || ((k === 'ShiftLeft' || k === 'ShiftRight') && !jellyRange())) pressMoveBtn();   // (near the rim with the jelly, SHIFT waits for SPACE)
         if (k === 'KeyE') pressWeaponBtn();
       };
       const ku = e => { keys[e.code] = false; if ((e.code === 'KeyJ' || e.code === 'Space') && input.shoot) { input.shoot = false; releaseShoot(me); } };
@@ -1055,7 +1084,7 @@ const Arcade = (() => {
       joy.addEventListener('pointerup', endJoy); joy.addEventListener('pointercancel', endJoy);
       root.querySelectorAll('[data-b]').forEach(b => {
         const k = b.dataset.b;
-        b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('down'); if (k === 'move') { input.moveHeld = true; pressMoveBtn(); } if (k === 'wpn') pressWeaponBtn(); if (k === 'pass') pressPassBtn(); if (k === 'shoot' && !input.shoot) { input.shoot = true; pressShootBtn(); } });
+        b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('down'); if (k === 'move') { input.moveHeld = true; pressMoveBtn(); } if (k === 'wpn') pressWeaponBtn(); if (k === 'pass') pressPassBtn(); if (k === 'shoot' && !input.shoot) { input.shoot = true; pressShootBtn(); } if (k === 'jelly') pressJelly(); });
         const up = () => { b.classList.remove('down'); if (k === 'move') input.moveHeld = false; if (k === 'shoot' && input.shoot) { input.shoot = false; releaseShoot(me); } };
         b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
       });
@@ -1291,7 +1320,7 @@ const Arcade = (() => {
                 const h = p.hand || { x: p.x, y: p.y - p.z - 30 }; burst(h.x, h.y - 2, '#ffffff', 5, 40); burst(h.x, h.y - 2, '#fde68a', 7, 55); RD.ring(h.x, h.y - 2, '#ffffff', 40, .2, 1, 1);
                 if (J) { J.zoom = J.drama ? 1.62 : 1.46; }
               }
-              const q = p === me ? (a.relT != null ? releaseQuality(p, Math.abs(a.relT - relAt), p.st.finish, 1.6) : .5) : aiGreen(p, p.st.finish) ? 1 : clamp(aiFor(p).shotQ + rnd(-.2, .2), 0, .97);
+              const q = p === me ? CF().finish.tapQ : aiGreen(p, p.st.finish) ? 1 : clamp(aiFor(p).shotQ + rnd(-.2, .2), 0, .97);
               const cutJ = a.jelly ? 1 - (ct.C || 0) * CT().cut.layup * JB.contestFactor : cutBy(ct, 'layup');
               const made = Math.random() * 100 < Balance.apply(a.jelly ? 'jelly' : 'layup', a.sc.pct, q, 3) * perfCut(q, cutJ);
               ball.owner = null; ball.state = 'shot';
@@ -1320,7 +1349,7 @@ const Arcade = (() => {
               if (!a.chk && u > .4) { a.chk = true; const ct = a.ct = contest(p, 'dunk'); if (a.wall && WALL) { ct.block = true; ct.by = WALL; } if (ct.block) { p.box.fga++; G.lastShooter = p; a.stuffed = true; blocked(ct.by, p); p.act = { type: 'jump', t: 0 }; p.vz = 0; return; } showContest(p, ct); if (ct.foul) a.foul = true; }
             } else if (!a.slammed) {
               a.slammed = true; p.box.fga++; G.lastShooter = p;
-              const q = p === me ? (a.relT != null ? releaseQuality(p, Math.abs(a.relT - .6), p.st.dunk, 2) : .55) : aiGreen(p, p.st.dunk) ? 1 : clamp(aiFor(p).shotQ + .1 + rnd(-.15, .15), 0, .97);
+              const q = p === me ? (a.relT == null || a.relT >= CF().finish.hold ? CF().finish.q : CF().finish.qEarly) : aiGreen(p, p.st.dunk) ? 1 : clamp(aiFor(p).shotQ + .1 + rnd(-.15, .15), 0, .97);
               a.made = Math.random() * 100 < Balance.apply('dunk', a.sc.pct, q, 1) * perfCut(q, cutBy(a.ct || {}, 'dunk')); if (a.made && p === me && q >= 1) greenFX();
               G.slowT = 0; impact(a.big ? .2 : .14, a.big ? 11 : 8, .35, a.big ? .1 : .06); E.rim = 1; E.net.swish = 1; RD.sweat(p.x, p.y - p.z - 26, 6);
               if (a.made) {
@@ -1562,7 +1591,8 @@ const Arcade = (() => {
         $('abStam').style.width = me.stamina + '%'; $('abStam').classList.toggle('low', me.stamina < 25);
         const mv = $('abMove'), ready = me.cool <= 0; mv.classList.toggle('cd', !ready); mv.querySelector('b').textContent = ready ? (ball.owner === me ? 'READY' : G.off === me.team ? 'CUT' : 'SLIDE') : '…';
         const wb = $('abWpn'), wr = wReady(me), wa = me.wpn && me.wpn.t > 0; wb.classList.toggle('cd', !wr && !wa); wb.classList.toggle('on', wa); wb.querySelector('b').textContent = !me.weapons.length ? '—' : wa ? WEAPONS[me.wpn.id].name.toUpperCase() : wr ? 'READY' : 'USED'; $('tbWpn').classList.toggle('ready', wr); $('tbWpn').classList.toggle('on', wa);
-        const sb = root.querySelector('[data-b=shoot]'), grab = ball.state === 'loose', sl = grab ? ['GRAB', 'DIVE'] : ball.owner === me ? ['SHOOT', 'LAYUP'] : ['JUMP', 'CONTEST · BLOCK']; if (sb.firstChild.textContent !== sl[0]) { sb.firstChild.textContent = sl[0]; sb.querySelector('small').textContent = sl[1]; } sb.classList.toggle('grab', grab);
+        const sb = root.querySelector('[data-b=shoot]'), grab = ball.state === 'loose', sl = grab ? ['GRAB', 'DIVE'] : ball.owner === me ? (toHoop(me) < A.layupRange ? ['LAYUP', '2× HOLD: DUNK'] : ['SHOOT', 'HOLD · LET GO']) : ['JUMP', 'CONTEST · BLOCK']; if (sb.firstChild.textContent !== sl[0]) { sb.firstChild.textContent = sl[0]; sb.querySelector('small').textContent = sl[1]; } sb.classList.toggle('grab', grab);
+        const jb = $('tbJel'); if (jb) jb.classList.toggle('on', jellyRange() && canAct(me) && !G.oop);   // the JELLY button: only in layup range
         const tb = $('tbMove'); tb.style.setProperty('--cd', ready ? 0 : me.cool / CF().moves.cooldown); const ctxt = ball.owner === me ? ['MOVE', 'DRIBBLE'] : G.off === me.team ? ['CUT', 'OFF BALL'] : ['SLIDE', 'DEFENSE']; if (tb.firstChild.textContent !== ctxt[0]) { tb.firstChild.textContent = ctxt[0]; tb.querySelector('small').textContent = ctxt[1]; }
         const clk = $('ahClock'); clk.textContent = G.pending ? '' : SEGM ? (G.off < 0 ? 'LOOSE BALL' : `${SEG.clockLabel || 'CLOCK'} ${Math.max(0, G.clock).toFixed(1)}`) : `TO ${target} · ${Math.max(0, Math.ceil(G.clock))}`; clk.classList.toggle('low', G.clock < 3);
       }

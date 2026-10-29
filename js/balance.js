@@ -325,6 +325,13 @@ const BALANCE = {
        lane defender with this Interior D (or Vertical + 4) gets a bounce pass under his arms, a smaller one a lob over his hands
        maxPasses: passes in one chain · shootAt: the % the final shooter needs to let it fly from where he caught it (below it he
        attacks the rim instead) */
+    /* FINISHING AT THE RIM (you, in layup range): tap SPACE / SHOOT = layup, double-tap and hold the second tap = dunk,
+       SHIFT + SPACE / JELLY = jelly. Away from the rim SPACE is still a jump shot (hold, release at the top).
+       dbl: s after the first tap that a second tap still turns the layup into a dunk · hold: s to hold the second tap for the
+       full slam (let go sooner = a weaker dunk) · q / qEarly: your dunk's release quality on a full hold / an early let-go ·
+       tapQ: your layup and jelly release quality (a tap, no timing) · strong: % added to the strong layup you get when your
+       Dunking and Vertical are too low to dunk */
+    finish: { dbl: .3, hold: .3, q: .86, qEarly: .45, tapQ: .62, strong: 6 },
     playmaker: { maxPasses: 2, slow: .16, read: [3.4, 6.5], period: [1.6, 2.6], open: [.46, .7], defK: .35,
       base: 90, k: .45, closed: 42, perfect: 25, steal: .5,
       movement: { look: 8, shot: 8, open: 14 }, duo: 12, farX: 150, bigAt: 62, shootAt: 40 },

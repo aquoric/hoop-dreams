@@ -19,7 +19,7 @@ Your first game, against Kai at Halsey Park, is the tutorial (`js/tutorial.js`).
 | **Story** | Click or <kbd>Space</kbd> to advance · choices: click or <kbd>1</kbd>–<kbd>5</kbd> | Tap to advance · tap a choice |
 | **Decisions in games** | Click an option or press <kbd>1</kbd>–<kbd>4</kbd> · hover to see what affects the % | Tap an option · long-press to see what affects the % |
 | **Minigames** | <kbd>Space</kbd> / click to time it · arrows or <kbd>WASD</kbd> for dribble combos and defense | Tap to time it · swipe or tap the on-screen arrows |
-| **Arcade play** | Move <kbd>WASD</kbd> / arrows · shoot or block <kbd>J</kbd> / <kbd>Space</kbd> (hold, release at the top of the jump) · pass or steal <kbd>K</kbd> · dribble move <kbd>L</kbd> / <kbd>Shift</kbd> · loose balls: run to the yellow ◎ and press <kbd>J</kbd> / <kbd>Space</kbd> to dive | Joystick (left) · **SHOOT**, **PASS**, **MOVE** and **⚔ WEAPON** buttons (right). Turning your phone sideways gives a bigger court. |
+| **Arcade play** | Move <kbd>WASD</kbd> / arrows · shoot or block <kbd>J</kbd> / <kbd>Space</kbd> (hold, release at the top of the jump) · at the rim: tap <kbd>Space</kbd> = layup, double-tap and hold = dunk, <kbd>Shift</kbd> + <kbd>Space</kbd> = jelly · pass or steal <kbd>K</kbd> · dribble move <kbd>L</kbd> / <kbd>Shift</kbd> · loose balls: run to the yellow ◎ and press <kbd>J</kbd> / <kbd>Space</kbd> to dive | Joystick (left) · **SHOOT**, **PASS**, **MOVE** and **⚔ WEAPON** buttons (right). At the rim: tap SHOOT = layup, double tap and hold = dunk, and a **JELLY** button appears next to SHOOT once you've learned it. Turning your phone sideways gives a bigger court. |
 
 ## Your saves
 
