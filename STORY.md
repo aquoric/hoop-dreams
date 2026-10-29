@@ -203,8 +203,12 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
    - **Below the cutoff:** the open tryout (played).
    - **Failing the tryout:** the alternate road. A summer pro-am against grown men, a smaller rank boost, and Kai's gold on your TV.
 2. **Camp:** drills ranked against 17 campers, the dorm, Dre's give-and-go (chemistry), Big Ike's blocks, Scoop's jelly lesson (as now), and King of the Court vs Kai.
-3. **Cut days (fully animated board reveal):** at camp you always make the roster.
-   - Your place on the board decides your role: rotation, or **the end of the bench**.
+   - **Near the bottom all week:** you sit in the last few spots on the board, surrounded by better, more established players like Kai. How you play moves you a little within that group, never into the safe spots (*"You were great today. So was everyone else."*).
+   - **Cam Rivers,** the other kid at the bottom of the board, becomes your friend.
+   - **A big step up:** every camp minigame and drill is harder than in high school, and the campers are better (BALANCE.camp).
+3. **Cut days (fully animated board reveal):** you survive the first cut on the bubble.
+   - **The final cut:** Reyes reads the twelve one by one from the top. Your name is missing until the very last spot: silence, a heartbeat, close-ups. You're the **12th man**, and Cam is the first name under the line.
+   - That makes you **the end of the bench**.
 4. **Next time…** Riga, flags in the rafters, and you in a warmup jacket, sitting.
 
 ### Arc 2: THE WORLD YOUTH ARC (climax)

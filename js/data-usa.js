@@ -3,7 +3,7 @@
    Always the summer after high school: Chapter 2 → this interlude → Chapter 3 (where you pick college, overseas or
    the Grind League — so the results here move your offers). Ends with its own chapter-complete screen (usa_end).
    Two arcs (js/data-arcs.js): THE SELECTION CAMP ARC — the top-100 invite (or the open tryout, or the pro-am road),
-   camp, and the final board (everyone invited makes the twelve; your place decides rotation or the end of the bench);
+   camp (you're near the bottom of the board all week) and the final board (you make it as the twelfth man, the end of the bench);
    THE WORLD YOUTH ARC — the bench montages, Kai's call with Silk, the final (one moment, played live) and gold.
    Same node format as data-story.js. Extra node types (js/usa.js):
      type:'drill'  — a drill session in the gym: runs minigames (drills:[...]), scores each 0–100 and ranks you
@@ -11,7 +11,7 @@
      type:'board'  — the staff's ranking board ("on the bubble"). mode:'status' just shows it;
                      mode:'cut' reads the cuts out loud, then goes to `made` or `cut`. keep: how many survive;
                      safe:true — you always survive (on the bubble, you squeak in).
-                     mode:'roster' — the final twelve (always with you); place ≤ rotation → flag usa_rotation, else usa_bench.
+                     mode:'roster' — the final twelve, read one by one from the top: yours is the last name (flag usa_bench).
      type:'talk'   — a conversation with a gauge outside a game (same cutscene as in-game talks).
                      { who: TALK personality, script: TALK.scripts key, look: STORY character, win, lose, winFx, loseFx }
    Match nodes here also use: ratingRel / mateRel (ratings relative to your Overall), camp:true (the grade counts
@@ -35,6 +35,8 @@ Object.assign(STORY.characters, {
             look: { skin: '#eac4a6', hair: 'curly', hairColor: '#1c1917', outfit: 'tee', jersey: '#1e3a8a', trim: '#f8fafc', num: 11, sleeve: '#f8fafc' } },
   dre:    { name: 'Andre "Dre" Castillo', short: 'Dre', role: 'Chicago · floor general', color: '#eab308',
             look: { skin: '#a86b43', hair: 'braids', hairColor: '#0f0d0c', outfit: 'jersey', jersey: '#1e3a8a', trim: '#dc2626', num: 5 } },
+  cam:    { name: 'Cam Rivers', short: 'Cam', role: 'Mobile, Alabama · the other kid nobody expected', color: '#f87171',
+            look: { skin: '#7a4a2c', hair: 'afro', hairColor: '#0f0d0c', outfit: 'jersey', jersey: '#dc2626', trim: '#f8fafc', num: 23, headband: '#f8fafc' } },
   mbaye:  { name: 'Bastien Mbaye', short: 'Mbaye', role: 'France U19 · 6\'10" wing, "Le Prodige"', color: '#60a5fa',
             look: { skin: '#4a2a19', hair: 'dreads', hairColor: '#0f0d0c', outfit: 'jersey', jersey: '#1d4ed8', trim: '#f8fafc', num: 7, build: 'lean' } },
 });
@@ -82,12 +84,13 @@ Object.assign(VENUES, {
   wyhc_arena: { name: 'Riga Youth Arena', group: 'Overseas', desc: 'World Youth Championship. Drums in the upper deck, flags from forty countries.', style: 'arena', floor: 'wood_pro', theme: 'tournament', team: 'usa', crowd: .9, lights: 'spots', backboard: 'glass', net: 'nylon', ambient: 'chant' },
 });
 
-/* ---------- the selection camp field (offsets from your Overall when the camp starts; the board adds daily form) ---------- */
+/* ---------- the selection camp field (offsets from your Overall when the camp starts; the board adds daily form).
+   Where YOU sit on the board: BALANCE.camp.board (always near the bottom; Cam Rivers, the camper you bond with, beside you) ---------- */
 const USA_CAMP = {
   campers: [
     { name: 'Kai Sterling', off: 9 }, { name: 'Jalen "Jet" Brooks', off: 7 }, { name: 'Darius "D-Train" Holt', off: 6 }, { name: 'Malik Okafor', off: 5 },
-    { name: 'Andre "Dre" Castillo', off: 4 }, { name: 'Milo Park', off: 3 }, { name: 'Tyrese Whitlock', off: 2 }, { name: 'Cam Rivers', off: 1 },
-    { name: 'Isaiah "Big Ike" Grant', off: 0 }, { name: 'Nate Holloway', off: -1 }, { name: 'Brandon Vale', off: -2 }, { name: 'Zeke Monroe', off: -3 },
+    { name: 'Andre "Dre" Castillo', off: 4 }, { name: 'Milo Park', off: 3 }, { name: 'Tyrese Whitlock', off: 2 }, { name: 'Zeke Monroe', off: 1 },
+    { name: 'Isaiah "Big Ike" Grant', off: 0 }, { name: 'Nate Holloway', off: -1 }, { name: 'Brandon Vale', off: -2 }, { name: 'Cam Rivers', off: -3 },
     { name: 'Luis Ortega', off: -4 }, { name: 'Devin Shaw', off: -5 }, { name: 'Corey Banks', off: -6 }, { name: 'Rashad Price', off: -7 }, { name: 'Ty Morales', off: -8 },
   ],
   scale: 2,           // camp points per rating point of offset
@@ -116,6 +119,9 @@ Object.assign(TALK.scripts, {
     { say: 'Last one. What would you change about your camp?', opts: [['honest', 'Day one. I forced too much.'], ['excuse', 'The refs in the scrimmage were rough.'], ['respect', 'Nothing. I listened and I competed.']] },
   ],
 });
+
+/* the final sheet: Cam Rivers (bonded with at camp) was the first name under the line, right below yours */
+STORY.tests = Object.assign(STORY.tests || {}, { usa_cam_cut: s => !!(s.flags.cam_bond && s.usa && s.usa.bond === 'Cam Rivers') });
 
 /* ---------- national-team jersey (unlocked when you make the team) ---------- */
 SHOP.push({ id: 'usa_jersey', cat: 'Jerseys', slot: 'jersey', name: 'National Team Jersey', price: 0, unlock: true, look: { jersey: '#1e3a8a', trim: '#dc2626', outfit: 'jersey' }, desc: 'Unlocked: you made the national team' });
@@ -200,31 +206,40 @@ const USA4 = (() => {
   const S = () => Game.state, look = id => (typeof UI !== 'undefined' && UI.charLook ? UI.charLook(id) : null);
   const SP = (id, x, y, team, lk) => Object.assign({ id, kind: 'sprite', x, y }, team ? { team } : {}, lk ? { look: lk } : {});
   const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
-  const last = s => s.player.last.toUpperCase(), rotation = s => !!s.flags.usa_rotation;
-  const surname = n => n.replace(/"[^"]*"\s*/, '').split(' ').slice(-1)[0].toUpperCase();
+  const rotation = s => !!s.flags.usa_rotation;   // (older saves: the old board could put you in the eight)
   const vs = (ctx, team) => { ctx.venue = 'wyhc_arena'; ctx.usAbbr = 'USA'; ctx.team = { colors: LOCAL_TEAMS.usa.colors }; if (team && LOCAL_TEAMS[team]) { ctx.them = { colors: LOCAL_TEAMS[team].colors }; ctx.themAbbr = LOCAL_TEAMS[team].abbr; } return ctx; };
-  /* the twelve, best first (you always make it: on the bubble, you squeak in) */
-  function twelve(s) { const L = USA.field(s), i = L.findIndex(x => x.me); if (i >= 12) L.splice(11, 0, L.splice(i, 1)[0]); return L.slice(0, 12); }
-
-  /* the final cut: the sheet on the board, your finger down the names, your number */
+  /* the final cut, before the board (js/usa.js reveal): seven a.m., fourteen of you on the baseline */
   function roster(s) {
-    const L = twelve(s), me = L.findIndex(x => x.me), rot = me < 8, w0 = Math.max(0, me - 6);   // seven names on the paper, yours among them
-    const names = L.slice(w0, w0 + 7).map((x, i) => `${String(w0 + i + 1).padStart(2, ' ')}. ${x.me ? last(s) : surname(x.name)}`);
+    const bond = !!s.flags.cam_bond;
     CUTSCENES._usa_roster = { name: 'Twelve Names', chapter: 'Interlude', shots: [
       { d: 2800, scene: 'locker', grade: 'dark', music: null, tr: 'fade', cam: [[0, 0, 0, 1.1], [1, 0, 0, 1.2]], cast: [{ id: 'you', kind: 'bust', x: 0, expr: 'sad', rim: '#93c5fd' }],
-        say: ['narrator', 'Final cut, 7 a.m. Reyes tapes one sheet to the board.'], ev: [[0, 'sfx', 'heartbeat'], [1400, 'sfx', 'heartbeat']] },
+        say: ['narrator', 'Final cut, 7 a.m. No sheet on the door this time. Reyes reads it out loud.'], ev: [[0, 'sfx', 'heartbeat'], [1400, 'sfx', 'heartbeat']] },
       { d: 3200, scene: 'gym', music: 'story', cam: [[0, -40, 10, 1.1], [1, 0, 6, 1.2]],
-        cast: [{ id: 'milo', kind: 'actor', x: -.12, y: 70, s: 2.5, face: 1 }, { id: 'dre', kind: 'actor', x: .06, y: 72, s: 2.5, face: 1 }, { id: 'kai', kind: 'actor', x: .28, y: 70, s: 2.5, face: -1, acts: [[1600, 'flex', 99]] }, { id: 'you', kind: 'actor', y: 76, s: 2.6, path: [[0, -1.1], [1600, -.42]] }],
-        say: ['narrator', 'Eighteen came. Twelve names on one sheet of paper.'] },
-      { d: 5200, scene: 'cutlist', music: null, listTitle: 'USA · FINAL ROSTER', listNames: names, listMe: me - w0, cam: [[0, 0, -30, 1.3], [1, 0, 16, 1.3, 'io']],
-        cast: [{ id: 'you', kind: 'hand', x: .44, y: 40, s: 2.4, curl: .15, yMove: [[400, 0], [3800, 22 + (me - w0) * 16]] }],
-        ev: [[0, 'sfx', 'heartbeat'], [1100, 'sfx', 'heartbeat'], [2200, 'sfx', 'heartbeat'], [3300, 'sfx', 'heartbeat'], [4300, 'sfx', 'stinger']] },
-      { d: 2600, scene: 'gym', grade: rot ? 'gold' : 'blue', cam: [[0, 0, 8, 1.3], [1, 0, 14, 1.5, 'snap']], speed: 'radial', music: 'clutch', cast: [{ id: 'you', kind: 'face', x: 0, expr: rot ? 'smile' : 'determined', rim: rot ? '#facc15' : '#93c5fd' }],
-        title: { text: `#${me + 1} OF 12`, sub: rot ? 'In the rotation' : 'The end of the bench', style: 'slam', at: 300 }, ev: [[300, 'flash', '#ffffff', .5], [300, 'sfx', 'impact'], [300, 'shake', 5]] },
-      { d: 3000, scene: 'gym', grade: 'blue', cam: [[0, 20, -2, 1.18], [1, 24, 2, 1.26]], cast: [{ id: 'reyes', kind: 'bust', x: .3, expr: 'neutral', rim: '#93c5fd' }, { id: 'you', kind: 'bust', x: -.7, y: 130, sil: true, rim: '#93c5fd', d: 1.2 }],
-        say: rot ? ['reyes', 'You\'re in my eight. Don\'t make me regret it.'] : ['reyes', 'Twelfth man. Stay ready anyway, finals get weird.'] },
+        cast: [{ id: 'milo', kind: 'actor', x: -.32, y: 70, s: 2.5, face: 1 }, { id: 'dre', kind: 'actor', x: -.12, y: 72, s: 2.5, face: 1 }, { id: 'kai', kind: 'actor', x: .3, y: 70, s: 2.5, face: -1, acts: [[1600, 'flex', 99]] },
+          { id: 'cam', kind: 'actor', x: .1, y: 74, s: 2.6, face: -1 }, { id: 'you', kind: 'actor', y: 76, s: 2.6, path: [[0, -1.1], [1600, -.06]] }],
+        say: bond ? ['narrator', 'Fourteen of you on the baseline. Cam stands next to you, like he has all week.'] : ['narrator', 'Fourteen of you on the baseline. Twelve names on her clipboard.'] },
+      { d: 2600, scene: 'gym', grade: 'blue', cam: [[0, 20, -2, 1.18], [1, 24, 2, 1.28]], cast: [{ id: 'reyes', kind: 'bust', x: .3, expr: 'neutral', rim: '#93c5fd' }, { id: 'you', kind: 'bust', x: -.7, y: 130, sil: true, rim: '#93c5fd', d: 1.2 }],
+        say: ['reyes', 'Top of the sheet first. Nobody leaves till I\'m done.'] },
     ] };
     return '_usa_roster';
+  }
+  /* one jersey left (js/usa.js reveal plays it before the twelfth name): silence, a heartbeat, close-ups */
+  function twelfth(s, bondName) {
+    const cam = bondName === 'Cam Rivers' && s.flags.cam_bond;
+    CUTSCENES._usa_twelfth = { name: 'One Jersey Left', chapter: 'Interlude', shots: [
+      { d: 2300, scene: 'void', grade: 'dark', music: null, bars: 40, cam: [[0, 0, 6, 1.3], [1, 0, 10, 1.44, 'lin']], cast: [{ id: 'you', kind: 'face', x: 0, expr: 'sad', rim: '#93c5fd' }],
+        title: { text: 'Eleven names. None of them yours.', style: 'line', at: 500 }, ev: [[0, 'sfx', 'heartbeat'], [900, 'sfx', 'heartbeat'], [1800, 'sfx', 'heartbeat']] },
+      cam ? { d: 2100, scene: 'void', grade: 'dark', bars: 40, cam: [[0, 0, 6, 1.32], [1, 0, 9, 1.4, 'lin']], cast: [{ id: 'cam', kind: 'face', x: 0, expr: 'sad', rim: '#fca5a5' }],
+        title: { text: 'Cam isn\'t breathing either.', style: 'line', at: 400 }, ev: [[300, 'sfx', 'heartbeat'], [1200, 'sfx', 'heartbeat']] }
+        : { d: 1800, scene: 'void', grade: 'dark', bars: 40, cam: [[0, 0, 6, 1.32], [1, 0, 9, 1.4, 'lin']], cast: [{ id: 'kai', kind: 'face', x: 0, expr: 'neutral', rim: '#93c5fd' }], ev: [[300, 'sfx', 'heartbeat'], [1100, 'sfx', 'heartbeat']] },
+      { d: 2000, scene: 'void', grade: 'dark', bars: 40, cam: [[0, 0, 20, 1.2], [1, 0, 22, 1.3]], cast: [{ id: 'you', kind: 'hand', x: 0, y: 112, s: 3.2, curlTo: [[0, .35], [1400, .95]], shake: 1.2 }],
+        ev: [[200, 'sfx', 'heartbeat'], [1000, 'sfx', 'heartbeat']] },
+      { d: 2400, scene: 'gym', grade: 'blue', bars: 40, cam: [[0, 24, -2, 1.24], [1, 24, 4, 1.42, 'in']], cast: [{ id: 'reyes', kind: 'bust', x: .3, expr: 'neutral', rim: '#93c5fd' }],
+        say: ['reyes', 'Twelve…'], ev: [[600, 'sfx', 'heartbeat'], [1500, 'sfx', 'heartbeat']] },
+      { d: 1500, scene: 'void', grade: 'dark', bars: 40, cam: [[0, 0, 8, 1.42], [1, 0, 10, 1.55, 'snap']], cast: [{ id: 'you', kind: 'face', x: 0, expr: 'shocked', rim: '#facc15' }],
+        ev: [[700, 'flash', '#ffffff', .35], [700, 'sfx', 'impact'], [700, 'shake', 4]] },
+    ] };
+    return '_usa_twelfth';
   }
 
   /* riding the bench: each knockout stage as a montage (Kai starring, towels, DNP) with one 30-second cameo */
@@ -237,10 +252,10 @@ const USA4 = (() => {
       qte: { kind: 'mash', label: 'HUSTLE', id: 'cameo', n: 10, time: 5500 }, pts: 0, ok: 'You dive on a loose ball. The whole bench loses it.', miss: 'Loose ball. Radenko gets there first.' },
   };
   function bench(s, ctx, stage) {
-    const D = BENCH[stage], K = look('kai'), rot = rotation(s); vs(ctx, D.opp);
+    const D = BENCH[stage], K = look('kai'), rot = rotation(s), good = rot || !!s.flags.usa_camp_good; vs(ctx, D.opp);
     const benchRow = [{ id: 'bench', kind: 'bench', x: -.05, y: 74, s: 2.8, w: 46, d: 1 }, { id: 'milo', kind: 'actor', x: -.36, y: 74, s: 2.8, acts: [[0, 'bench', 99]] }, { id: 'you', kind: 'actor', x: -.08, y: 74, s: 2.8, acts: [[0, 'bench', 99]] },
       { id: 'jet', kind: 'actor', x: .2, y: 74, s: 2.8, acts: [[0, 'bench', 99]] }, { id: 'tw1', kind: 'towel', x: -.32, y: 2, s: 2.2 }, { id: 'tw2', kind: 'towel', x: -.04, y: 2, s: 2.2, ph: 1.7, col: '#1e3a8a' }];
-    const line = stage === 'group' ? (rot ? 'Reyes trusts you. She just doesn\'t need you yet.' : 'You\'re here to watch and learn.')
+    const line = stage === 'group' ? (good ? 'Reyes trusts you. She just doesn\'t need you yet.' : 'You\'re here to watch and learn.')
       : stage === 'qf' ? (rot ? 'Knockout rounds: Reyes shortens the bench to seven. You were eighth.' : 'Knockout rounds. Reyes shortens the bench to eight.')
       : 'One more win and it\'s the final. Your warmup jacket hasn\'t come off.';
     CUTSCENES['_wy_' + stage] = { name: D.title, chapter: 'Interlude', shots: [
@@ -550,7 +565,7 @@ const USA4 = (() => {
     ] };
     return '_usa_ike_payoff';
   }
-  return { roster, bench, finalOpen, awaken, scripts, podium, kaiTv, giveGo, ikeDeny, ikeMock, scoopIntro, courtTwo, ikePayoff };
+  return { roster, twelfth, bench, finalOpen, awaken, scripts, podium, kaiTv, giveGo, ikeDeny, ikeMock, scoopIntro, courtTwo, ikePayoff };
 })();
 if (typeof JAM_SCRIPTS !== 'undefined') Object.assign(JAM_SCRIPTS, USA4.scripts);
 
@@ -665,7 +680,17 @@ STORY.chapters.usa = {
         { t: '"Save me a seat next to you."', fx: { rel: { kai: -2 }, morale: 2 }, next: 'board_intro' },
         { t: '"Or we both make it and win something."', fx: { rel: { kai: 4 }, chem: 3 }, next: 'board_intro' },
       ] },
-    board_intro: { type: 'board', mode: 'status', title: 'THE BOARD · DAY 1', note: 'Where the staff has you before a single drill.', next: 'day1_drills' },
+    board_intro: { type: 'board', mode: 'status', title: 'THE BOARD · DAY 1', note: 'Where the staff has you before a single drill. Near the bottom.', next: 'board_cam' },
+    /* Cam Rivers: the other kid at the bottom of the board (the camper cut right below you on the final sheet) */
+    board_cam: { scene: 'locker', fx: { flag: 'cam_bond' },
+      lines: [
+        ['cam', 'Cam Rivers, Mobile, Alabama. That\'s me right under you on the board.', 'smile'],
+        ['cam', 'Everybody else here has a shoe deal. We\'re the bottom-feeder club.'],
+      ],
+      choices: [
+        { t: '"Club meets at 6 a.m. Extra shots."', fx: { rel: { cam: 5 }, morale: 2 }, next: 'day1_drills' },
+        { t: '"Don\'t get comfortable down there."', fx: { rel: { cam: 3 }, camp: 1 }, next: 'day1_drills' },
+      ] },
     day1_drills: { type: 'drill', title: 'DAY 1 · SKILLS TESTING', drills: ['shotMeter', 'dribbleCombo', 'freeThrow'], next: 'day1_dorm' },
     day1_dorm: { scene: 'dorm',
       lines: [
@@ -698,6 +723,7 @@ STORY.chapters.usa = {
     cut1_safe: { scene: 'locker', fx: { morale: 4, log: 'Survived the first cut.' },
       lines: [
         ['narrator', 'Your name\'s still on the door. Ty Morales is packing his bag two lockers down.'],
+        ['cam', '(fist bump) Bottom-feeder club survives. Barely, but it counts.', 'smile', { flag: 'cam_bond' }],
         ['milo', 'Hey, we\'re still here. Don\'t look at the board, look at the next drill.'],
       ], next: 'day3_drills' },
     day3_drills: { type: 'drill', title: 'DAY 3 · GAME SKILLS', drills: ['drive', 'passLane', 'defenseReact'], next: 'day3_dorm' },
@@ -725,14 +751,27 @@ STORY.chapters.usa = {
     final_cut_pre: { scene: 'dorm',
       lines: [
         ['milo', 'Fourteen of us, twelve jerseys. I keep doing the math and it doesn\'t get better.', 'sad'],
+        ['cam', '(at the door) Whatever she reads tomorrow, this was the best week of my life.', 'sad', { flag: 'cam_bond' }],
         ['narrator', 'You stare at the ceiling. Down the hall, somebody is already packing.'],
       ], next: 'final_cut' },
-    /* the final cut: always on the roster now; your place on the board decides your role (rotation or the end of the bench) */
-    final_cut: { type: 'board', mode: 'roster', keep: 12, rotation: 8, cutscene: (s, ctx) => USA4.roster(s, ctx), seenId: 'usa_roster', title: 'FINAL ROSTER · 12 JERSEYS', made: 'made_team', cut: 'made_team' },
+    /* the final cut: Reyes reads the twelve from the top (js/usa.js reveal). You're the last name; Cam is the first one under the line */
+    final_cut: { type: 'board', mode: 'roster', keep: 12, cutscene: (s, ctx) => USA4.roster(s, ctx), seenId: 'usa_final_cut', title: 'FINAL ROSTER · 12 JERSEYS', made: 'final_cut_after', cut: 'final_cut_after' },
+    final_cut_after: { type: 'branch', branches: [{ if: { test: 'usa_cam_cut' }, next: 'cam_bye' }], else: 'made_team' },
+    cam_bye: { scene: 'locker', fx: { log: 'Made the twelve as the last name on the sheet. Cam Rivers was the first one cut.' },
+      lines: [
+        ['narrator', 'Cam\'s bag is packed before you get back to the locker room.'],
+        ['cam', 'Don\'t look at me like that. Thirteenth is thirteenth.', 'sad'],
+        ['cam', 'Win it for the bottom-feeder club.', 'smile'],
+      ],
+      choices: [
+        { t: 'Give him your camp shirt. "You were on this team."', fx: { rel: { cam: 6 }, morale: 2 }, next: 'made_team' },
+        { t: '"See you at the next one. Both of us."', fx: { rel: { cam: 4 }, flag: 'usa_motivated' }, next: 'made_team' },
+      ] },
     made_team: { scene: 'gym', fx: { flag: 'usa_made', rep: 6, fans: 4000, morale: 8, xp: 200, recruit: true, offers: true, draftStock: 4, overseas: 3, log: 'Made the U.S. Youth National Team.',
         post: { by: 'usab', text: '🇺🇸 Your U.S. Youth National Team roster is set. Welcome, {first} {last}.' } },
       lines: [
         ['reyes', 'You earned it. Every drill, every film session.', 'smile', { flag: 'usa_rotation' }],
+        ['reyes', 'You were great this week. So was everyone else, that\'s this level.', null, { flag: 'usa_camp_good', notFlag: 'usa_rotation' }],
         ['reyes', 'You made it by a hair. The twelfth man still gets a jersey.', null, { notFlag: 'usa_rotation' }],
         ['narrator', 'Kai\'s name is at the top of the sheet. Of course it is.'],
       ], next: 'kai_teammates' },

@@ -211,6 +211,33 @@ const BALANCE = {
            arcadeEase: { ovr: [45, 66], ai: .45, shot: 5 } },
   },
 
+  /* ---------- NATIONAL TEAM SELECTION CAMP (js/usa.js, js/match.js, js/arcade.js) ----------
+     A big step up from high school: applies to every drill and every camp game (match nodes with camp:true).
+     board: where you sit on the staff's board. You're always in the bottom `band` spots (never the safe ones):
+       camp points from `perf[0]` (worst) to `perf[1]` (best) move you from the last spot up to just above the next
+       cut line. The final board always has you 12th, with `bond` (the camper you bonded with) cut right below you.
+       great: a day's camp points at or above this get "You were great today. So was everyone else."
+     drills: the other campers' drill scores = base + offset × off ± spread.
+     mg: every minigame (× size, × speed): green / perfect = shot meter + layup windows and the perfect slice,
+       speed = how fast meters and beats move, zone / wobble = free-throw make zone and reticle drift,
+       combo = time per dribble move (+comboLen moves), window = reaction windows (blow-by, shell defense, finish
+       pick), tell = how readable the blow-by tell is (+ = easier), fake = extra fake chance, lanes = passing-lane
+       window, tol = gather / dunk tolerance, push = their strength in post-ups, flick = jelly window (not the lesson).
+     opp: + opponent rating in camp games. weapons: × how often opponents use weapons, cap = uses per weapon,
+       charge = their makes before their star's weapon is ready.
+     arcade: react × (lower = quicker AI), steal / block / shotQ / moves / help added to the AI, shootAt added,
+       speed × for opponents' feet, window × your shot greens; pm: Playmaker lanes (open × how long a lane stays
+       open, period × how fast it breathes, read × time to read). */
+  camp: {
+    board: { band: 5, perf: [-6, 24], bond: 'Cam Rivers', great: 4 },
+    drills: { base: 62, off: 2.5, spread: 12 },
+    mg: { green: .8, perfect: .78, speed: 1.1, zone: .85, wobble: 1.2, combo: .8, comboLen: 1, window: .8, tell: -.2, fake: .15, lanes: .76, tol: .78, push: 6, flick: .88 },
+    opp: 3,
+    weapons: { use: 1.7, cap: 3, charge: 1 },
+    arcade: { react: .78, steal: .07, block: .1, shotQ: .06, moves: .16, help: .16, shootAt: -2, speed: 1.07, window: .84,
+              pm: { open: .8, period: .82, read: .8 } },
+  },
+
   /* ---------- ARCADE (fast breaks + pickup games) ----------
      All speeds are in canvas pixels (the arcade court is 384×216; the floor is ~350 px wide). */
   arcade: {

@@ -294,7 +294,8 @@ const Game = {
     cfg.jellyMoment = node.jellyMoment || this.jellyPayoff(cfg.importance);
     if (node.coach) cfg.coach = node.coach;   // whose voice in the huddles (the national team: Coach Reyes)
     if (node.lateEntry) cfg.lateEntry = node.lateEntry;   // you check in late (the World Youth final)
-    if (node.wall) cfg.wall = node.wall;   // a rim protector who blocks everything you take at the rim (the national team camp: Big Ike)
+    if (node.wall) cfg.wall = node.wall;
+    if (node.camp && BALANCE.camp) { cfg.camp = true; cfg.oppRating = (cfg.oppRating || 45) + BALANCE.camp.opp; }   // the national team camp: a big step up (BALANCE.camp)   // a rim protector who blocks everything you take at the rim (the national team camp: Big Ike)
     if (node.tutorial && !s.flags.tutorial_done) Object.assign(cfg, { tutorial: true, size: node.pickup.size || 3, target: node.pickup.target || 15, moments: (node.moments || 8) + 3,   // the first Kai game: choices + minigames + arcade segments, taught step by step
       sub: `${cfg.sub ? cfg.sub + ' · ' : ''}Tutorial · first to ${node.pickup.target || 15}` });
     if (node.jam) {   // the Summer Jam: live arcade with choice moments (js/match.js jamBreak); your crew and game plan

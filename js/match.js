@@ -604,16 +604,16 @@ const Match = (() => {
   const MG = {
     /* 1. SHOOTING METER — stop the rising bar in the green zone */
     shotMeter(layer, o = {}) {
-      const green = clamp(o.green || .14, .05, .4), dur = o.dur || 1.05, center = .8;
+      const green = clamp(o.green || .14, .05, .4), dur = o.dur || 1.05, center = .8, pk = .28 * (o.perfK || 1);   // pk: the perfect slice of the green
       const sh = mgShell(layer, o.title || 'SHOT METER', 'Tap / click / SPACE to release at the top', 'mg-shot');
-      sh.body.innerHTML = `<div class="meter"><div class="meter-green" style="bottom:${(center - green / 2) * 100}%;height:${green * 100}%"><div class="meter-perfect"></div></div><div class="meter-fill"></div><div class="meter-line"></div></div><div class="mg-sub">${o.sub || ''}</div>`;
+      sh.body.innerHTML = `<div class="meter"><div class="meter-green" style="bottom:${(center - green / 2) * 100}%;height:${green * 100}%"><div class="meter-perfect" style="top:${(1 - pk) * 50}%;bottom:${(1 - pk) * 50}%"></div></div><div class="meter-fill"></div><div class="meter-line"></div></div><div class="mg-sub">${o.sub || ''}</div>`;
       const fill = sh.body.querySelector('.meter-fill'), line = sh.body.querySelector('.meter-line');
       return new Promise(res => {
         let t0 = performance.now(), done = false, v = 0;
         const finish = async () => {
           if (done) return; done = true; off();
           const dist = Math.abs(v - center) / (green / 2);
-          let r; if (dist <= .28) r = 'perfect'; else if (dist <= 1) r = 'good'; else r = v < center ? 'early' : 'late';
+          let r; if (dist <= pk) r = 'perfect'; else if (dist <= 1) r = 'good'; else r = v < center ? 'early' : 'late';
           const q = clamp(1 - Math.max(0, dist - 1) / 2.5, 0, 1);
           SFX.play(r === 'bad' || r === 'early' || r === 'late' ? 'bad' : 'good');
           await sh.close(r === 'perfect' ? 'PERFECT RELEASE' : r === 'good' ? 'GOOD RELEASE' : (r === 'early' ? 'TOO EARLY' : 'TOO LATE'), r === 'perfect' || r === 'good');
@@ -638,7 +638,7 @@ const Match = (() => {
           o: { shots, base (% from Balance), stat, zone (make-zone size × rim radius), wobble (drift × rim radius),
                pressure, shooter:{num,name,color,trim,skin,hair}, lane:{us,them}, onShot(made) } */
     freeThrow(layer, o = {}) {
-      const shots = o.shots || 2, zoneMul = clamp(o.zone || 1.2, .45, 2.4), ampMul = clamp(o.wobble || 1.6, .8, 3.4), base = o.base != null ? o.base : 65;
+      const shots = o.shots || 2, zoneMul = clamp(o.zone || 1.2, .45, 2.4), ampMul = clamp(o.wobble || 1.6, .8, 3.4), base = o.base != null ? o.base : 65, pk = o.perfK || 1;   // pk: perfect ring size
       const sh = o.shooter || { num: 0, name: '', color: '#f97316', trim: '#111', skin: '#a86b43', hair: '#111' }, lane = o.lane || { us: '#f97316', them: '#2563eb' };
       const el = document.createElement('div'); el.className = 'mg mg-ftview';
       el.innerHTML = `<div class="ftv-top"><b>${o.title || 'FREE THROWS'}</b><span class="ftv-dots">${'<i></i>'.repeat(shots)}</span><span class="ftv-score"></span><span class="ftv-res"></span></div>
@@ -692,7 +692,7 @@ const Match = (() => {
           // make zone (green) + perfect ring
           c.fillStyle = inside && !busy ? 'rgba(34,197,94,.38)' : 'rgba(34,197,94,.16)'; c.strokeStyle = '#4ade80'; c.lineWidth = 2;
           c.beginPath(); c.arc(RX, RY, g.zone, 0, 7); c.fill(); c.stroke();
-          c.setLineDash([4, 4]); c.beginPath(); c.arc(RX, RY, g.zone * .35, 0, 7); c.stroke(); c.setLineDash([]);
+          c.setLineDash([4, 4]); c.beginPath(); c.arc(RX, RY, g.zone * .35 * pk, 0, 7); c.stroke(); c.setLineDash([]);
           c.strokeStyle = '#f97316'; c.lineWidth = 4; c.beginPath(); c.ellipse(RX, RY, rr, rr * .3, 0, 0, 7); c.stroke();
           // shooter (from behind)
           const sx = W / 2, sy = H * 1.06, sc = Math.min(W, H) / 150;
@@ -727,13 +727,13 @@ const Match = (() => {
           if (busy || k >= shots) return; busy = true;
           const g = G(), d = Math.hypot(ret.x - g.RX, ret.y - g.RY);
           const q = d <= g.zone ? 1 - (d / g.zone) * .45 : clamp(.5 - (d - g.zone) / (g.zone * 2.2), 0, .5);
-          const fin = Balance.apply('ft', base, q, null, { perfect: q > .9 }), ok = Math.random() * 100 < fin;   // a perfect free throw almost never misses
+          const pf = d <= g.zone * .222 * pk, fin = Balance.apply('ft', base, q, null, { perfect: pf }), ok = Math.random() * 100 < fin;   // a perfect free throw almost never misses
           const kind = ok ? (q > .8 ? 'swish' : 'rimin') : (d > g.zone * 2.6 ? 'airball' : 'rimout');
           ball = { t: performance.now(), dur: 1050, kind, tx: kind === 'airball' ? ret.x : kind === 'swish' ? g.RX : g.RX + (ret.x >= g.RX ? 1 : -1) * g.rr * .8, ty: kind === 'airball' ? g.RY + g.rr * 1.4 : g.RY };
           await sleep(650);
-          if (kind === 'swish' || kind === 'rimin') { net = 1; SFX.play(kind === 'swish' ? 'swish' : 'rim'); if (kind === 'rimin') setTimeout(() => SFX.play('swish'), 180); if (q > .9) setTimeout(() => green(), kind === 'rimin' ? 180 : 0); } else if (kind === 'rimout') SFX.play('rim');   // green only when a perfect release drops
+          if (kind === 'swish' || kind === 'rimin') { net = 1; SFX.play(kind === 'swish' ? 'swish' : 'rim'); if (kind === 'rimin') setTimeout(() => SFX.play('swish'), 180); if (pf) setTimeout(() => green(), kind === 'rimin' ? 180 : 0); } else if (kind === 'rimout') SFX.play('rim');   // green only when a perfect release drops
           await sleep(420);
-          if (ok) { made++; if (q > .9) perfect++; }
+          if (ok) { made++; if (pf) perfect++; }
           dots[k].className = ok ? 'make' : 'miss';
           resEl.textContent = { swish: 'SWISH!', rimin: 'RIM IN!', rimout: 'RIM OUT', airball: 'AIRBALL' }[kind]; resEl.className = 'ftv-res ' + (ok ? 'good' : 'bad');
           o.onShot && o.onShot(ok); showScore();
@@ -1210,8 +1210,32 @@ const Match = (() => {
       try { Promise.resolve(fn(layer, o)).then(v => end(v), e => end(null, 'error: ' + (e && e.message))); } catch (e) { end(null, 'error: ' + e.message); }
     });
   }
-  for (const k of Object.keys(MG)) { const fn = MG[k]; MG[k] = (layer, o = {}) => guardMG(k, fn, layer, o); }
+  /* the national team camp (BALANCE.camp.mg): every minigame there is tighter and faster than in high school.
+     On during camp games (Match.play with cfg.camp) and camp drills (js/usa.js); never on the jelly lesson. */
+  let CAMP = null;
+  function campMg(k, o) {
+    const K = CAMP && CAMP.mg; if (!K || o.lesson) return o;
+    o = Object.assign({}, o); const mul = (key, f, d) => { o[key] = (o[key] != null ? o[key] : d) * f; };
+    switch (k) {
+      case 'shotMeter': mul('green', K.green, .14); mul('dur', 1 / K.speed, 1.05); o.perfK = K.perfect; break;
+      case 'freeThrow': mul('zone', K.zone, 1.2); mul('wobble', K.wobble, 1.6); o.perfK = K.perfect; break;
+      case 'dribbleCombo': mul('time', K.combo, 1); o.len = (o.len || 5) + K.comboLen; break;
+      case 'dunkChain': mul('tol', K.tol, 10); break;
+      case 'layupStep': mul('win', K.green, .06); mul('beat', 1 / K.speed, .34); break;
+      case 'gatherStep': mul('tol', K.tol, .12); mul('beat', 1 / K.speed, .34); break;
+      case 'blowBy': mul('window', K.window, .8); o.tell = clamp((o.tell == null ? .7 : o.tell) + K.tell, 0, 1); o.fake = Math.min(.6, (o.fake || 0) + K.fake); break;
+      case 'finishPick': mul('time', K.window, 2.6); break;
+      case 'defenseReact': mul('window', K.window, 600); break;
+      case 'rebound': mul('zone', K.zone, .14); mul('dur', 1 / K.speed, 1.3); break;
+      case 'passLane': mul('window', K.lanes, 800); break;
+      case 'strengthPush': o.theirs = (o.theirs || 50) + K.push; break;
+      case 'flick': mul('window', K.flick, .9); mul('tol', K.flick, .11); break;
+    }
+    return o;
+  }
+  for (const k of Object.keys(MG)) { const fn = MG[k]; MG[k] = (layer, o = {}) => guardMG(k, fn, layer, campMg(k, o)); }
   MG.close = layer => closeDrive(layer);   // close the drive card (not a minigame)
+  MG.camp = on => { CAMP = on ? BALANCE.camp : null; };   // camp difficulty on / off (js/usa.js drills)
 
   const STYLE_EXPR = { ego: 'fierce', brag: 'fierce', needle: 'fierce', joke: 'smile', calm: 'determined', respect: 'determined', honest: 'determined', effort: 'determined', team: 'smile', specific: 'determined', humble: 'neutral', excuse: 'sad', argue: 'angry', insult: 'angry', sarcasm: 'smile' };
   function zoomCourt(court, to, ms) { return new Promise(res => { if (!court) return res(); const z0 = court.zoom, t0 = performance.now(); const f = now => { const k = Math.min(1, (now - t0) / ms); court.zoom = z0 + (to - z0) * EASE.io(k); if (k < 1 && court.alive) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); }); }
@@ -1333,6 +1357,7 @@ const Match = (() => {
   async function play(cfg) {
     const s = Game.state, D = DIFFICULTY[s.difficulty];
     kits(cfg);
+    CAMP = cfg.camp ? BALANCE.camp : null; const CK = CAMP;   // the national team camp: harder minigames, sharper opponents (BALANCE.camp)
     /* cfg.target = "first to N" pickup game (normal mode); cfg.size = players per side (3 = 3v3, 1 = 1v1) */
     const L = cfg.target ? Object.assign({}, LEVELS[cfg.level] || LEVELS.street, { pts: cfg.target * 1.7, bg: 0 }) : (LEVELS[cfg.level] || LEVELS.street);
     const size = Math.max(1, Math.min(5, cfg.size || 5));
@@ -2024,7 +2049,8 @@ const Match = (() => {
     const roleAction = p => { const st2 = p.stats || MATE, r = p.role; if (r === 'shooter') return Math.random() < .6 ? 'catch3' : 'pullMid'; if (r === 'big') return Balance.available('dunk', st2) && Math.random() < .45 ? 'dunk' : 'hook'; if (r === 'slasher') return Math.random() < .7 ? 'layup' : 'pullMid'; if (r === 'playmaker') return pick(['pullMid', 'layup', 'catch3']); return pick(['layup', 'catchMid']); };
     const ACT_LABEL = { catch3: 'catch-and-shoot three', pull3: 'pull-up three', catchMid: 'open jumper', pullMid: 'pull-up jumper', layup: 'drive and finish', dunk: 'throw it down', hook: 'post hook', fade: 'post fadeaway' };
     /* one of our offensive weapons is usable for this action? (NPCs: each weapon twice per game) */
-    const npcWeapon = (p, action) => { const id = (p.weapons || []).find(w => Weapons.fits(w, action)); return id && (st.wUses[p.name + id] || 0) < 2 ? id : null; };
+    const WCAP = CK ? CK.weapons.cap : 2, WUSE = CK ? CK.weapons.use : 1;   // camp: opponents lean on their weapons more
+    const npcWeapon = (p, action) => { const id = (p.weapons || []).find(w => Weapons.fits(w, action)); return id && (st.wUses[p.name + id] || 0) < WCAP ? id : null; };
     async function weaponFlash(p, id, side) {
       const w = WEAPONS[id]; st.wUses[p.name + id] = (st.wUses[p.name + id] || 0) + 1; cnt(side === 'us' && p.isUser ? 'weaponUses' : 'npcWeapons');
       court.aura(p, side === 'us' ? '#facc15' : '#ef4444', 2.4); court.impact(.28, 6, .4, .06, side === 'us' ? '250,204,21' : '239,68,68'); SFX.play('sig');
@@ -2088,7 +2114,7 @@ const Match = (() => {
       const others = TH.filter(p => p !== STAR); if (!others.length || !MATES().length) return defPossession();
       const a = pick(others), g = opp(a), gd = g.stats || MATE;
       formation('them'); court.ball.holder = a;
-      let action = roleAction(a); const wid = Math.random() < OB.weaponUse ? (a.weapons || []).map(id => [id, ACT_OF[WEAPONS[id] && WEAPONS[id].type]]).find(([id, x]) => x && npcWeapon(a, x)) : null;
+      let action = roleAction(a); const wid = Math.random() < OB.weaponUse * WUSE ? (a.weapons || []).map(id => [id, ACT_OF[WEAPONS[id] && WEAPONS[id].type]]).find(([id, x]) => x && npcWeapon(a, x)) : null;
       if (wid) action = wid[1];
       const their = wid ? Weapons.pct(wid[0], a.stats, { def: gd, npc: true, bonus: diffBonus() }).pct : Balance.pct(action, a.stats, { def: gd, contest: 'normal', bonus: diffBonus() }).pct;
       const blk = calc('block', { def: a.stats }), stl = calc('steal', { def: a.stats });
@@ -2143,7 +2169,7 @@ const Match = (() => {
       if (made) { pbp(`<b>${escH(w.name)}</b> — ${escH(att.short)} gets you. <i class="pct-note">${stopP}% stop</i>`, 'bad'); fail(); return false; }
       cnt('stops'); pbp(`${myName} stays with it — ${escH(att.short)}'s <b>${escH(w.name)}</b> misses! <i class="pct-note">${stopP}% stop</i>`, 'good hot'); st.highlights.push(`Stopped ${att.short}'s ${w.name}`); if (att === STAR) cnt('starStops'); success(true); await boardAfterMiss(false); return true;
     }
-    const starWeapon = () => { const id = (STAR.weapons || []).find(x => WEAPONS[x] && WEAPONS[x].type !== 'stop' && WEAPONS[x].type !== 'steal' && WEAPONS[x].type !== 'block'); return id && (st.oppSig || 0) >= WB.npc.charge && (st.wUses[STAR.name + id] || 0) < 3 ? id : null; };
+    const starWeapon = () => { const id = (STAR.weapons || []).find(x => WEAPONS[x] && WEAPONS[x].type !== 'stop' && WEAPONS[x].type !== 'steal' && WEAPONS[x].type !== 'block'); return id && (st.oppSig || 0) >= WB.npc.charge - (CK ? CK.weapons.charge : 0) && (st.wUses[STAR.name + id] || 0) < 3 + (CK ? 1 : 0) ? id : null; };
     /* the star is hot: the coach asks if you can guard him */
     async function guardStar() {
       st.takeover--; const g = MATES().length ? opp(STAR) === U ? MATES()[0] : opp(STAR) : U;
@@ -2644,7 +2670,7 @@ const Match = (() => {
       const hd = no > 1 ? (o.handler || 'me') : 'me';
       let r = null; try { r = await Arcade.segment({ kind, setup, offense, clock, clockLabel, untilClock, title: kind === 'fastbreak' && no > nd ? `FAST BREAK! ${no} ON ${nd}` : K.title,
         us: cfg.us, them: cfg.them, star, oppRating: oppR - (tutOn() ? 8 : 0), forceHelp: !!o.forceHelp, mateRating: cfg.mateRating || 45, numbers: [no, nd], backD, handler: hd, lastTeam: o.lastTeam,
-        score: [st.us, st.them], venue: court.venueId, bonus: a => bonuses(a), stats: Object.assign({}, ME), stamina: 100 - st.fatigue, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank })), level: s.player.level, wall: WALLC ? WALLC.by : null }); } catch (e) { console.error('arcade segment', e); }
+        score: [st.us, st.them], venue: court.venueId, bonus: a => bonuses(a), stats: Object.assign({}, ME), stamina: 100 - st.fatigue, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank })), level: s.player.level, wall: WALLC ? WALLC.by : null, camp: CK }); } catch (e) { console.error('arcade segment', e); }
       document.querySelectorAll('.arc').forEach(el => el.remove()); document.body.classList.remove('arc-open');   // nothing left on top of the match
       if (!r || typeof r !== 'object') r = { ptsUs: 0, ptsThem: 0, end: 'set', me: {}, all: [], log: [], weapons: [] };
       st.inSeg = false; beat();
@@ -2854,7 +2880,7 @@ const Match = (() => {
         : { name: p.full || p.name, stats: p.stats, look: p.look, num: p.num, weapons: (p.weapons || []).filter(id => WEAPONS[id]).map(id => ({ id, rank: 1 })), star: p === STAR };
       let r = null;
       try { r = await Arcade.play({ teams: [{ name: cfg.us.name, abbr: cfg.us.abbr, colors: cfg.us.colors, players: US.map(toPl) }, { name: cfg.them.name, abbr: cfg.them.abbr, colors: cfg.them.colors, players: TH.map(toPl), style: cfg.them.style }],
-        target: cfg.target || 21, venue: court.venueId, title: cfg.title || 'PICKUP', sub: cfg.sub || '', difficulty: s.difficulty, mods: cfg.mods, onBreak: cfg.jam ? jamBreak : null }); } catch (e) { console.error('arcade game', e); }
+        target: cfg.target || 21, venue: court.venueId, title: cfg.title || 'PICKUP', sub: cfg.sub || '', difficulty: s.difficulty, mods: cfg.mods, onBreak: cfg.jam ? jamBreak : null, camp: CK }); } catch (e) { console.error('arcade game', e); }
       document.querySelectorAll('.arc').forEach(el => el.remove()); document.body.classList.remove('arc-open'); st.inSeg = false;
       if (!r || !r.score) { const w = Math.random() < .5; r = { score: w ? [cfg.target || 21, (cfg.target || 21) - 4] : [(cfg.target || 21) - 4, cfg.target || 21], box: {}, all: [] }; }   // the game couldn't run: neutral result
       st.us = r.score[0]; st.them = r.score[1]; st.done = r.forfeit ? 'them' : st.us > st.them ? 'us' : 'them';
@@ -3018,7 +3044,7 @@ const Match = (() => {
     const rate = st.att ? st.succ / st.att : .5;
     const gs = 18 + rate * 66 + (win ? 12 : 0) + st.clutchW * 6 + st.perfects * 2 + Math.min(8, st.box.pts / 3) - st.box.to * 3;
     const grade = gs >= 92 ? 'A+' : gs >= 85 ? 'A' : gs >= 80 ? 'A-' : gs >= 75 ? 'B+' : gs >= 68 ? 'B' : gs >= 62 ? 'B-' : gs >= 56 ? 'C+' : gs >= 50 ? 'C' : gs >= 44 ? 'C-' : gs >= 36 ? 'D' : 'F';
-    court.destroy();
+    court.destroy(); CAMP = null;
     return {
       win, us: st.us, them: st.them, box: st.box, grade, gradeScore: gs, script: st.script || null, successes: st.succ, attempts: st.att, clutchMoments: st.clutchN, clutchWins: st.clutchW,
       gameWinner: st.gameWinner, highlights: st.highlights, counters: st.counters, perfects: st.perfects, posterizers: st.posterizers, segments: st.seg, segKinds: st.segKinds, segMoments: st.segMoments || [], moments: n, venueId: court.venueId,

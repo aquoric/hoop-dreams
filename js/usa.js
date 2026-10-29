@@ -2,7 +2,9 @@
    USA.JS — the national team selection camp: drill sessions, the staff's ranking board ("on the bubble"),
    cut days, and story talks with a gauge. Story + numbers: js/data-usa.js (USA_CAMP, STORY.chapters.usa).
    Camp points: every camper's score = offset × USA_CAMP.scale + daily form; yours = what you earn in camp
-   (drills, scrimmage grades, film sessions, off-court choices). Cut days keep the top `keep` on the board.
+   (drills, scrimmage grades, film sessions, off-court choices). You're always near the bottom of the board
+   (BALANCE.camp.board): your camp points move you around the last few spots, never into the safe ones, and the
+   camper you bonded with sits right beside you. Cut days keep the top `keep`; the final board has you 12th.
    ===================================================================== */
 const USA = (() => {
   const $ = id => document.getElementById(id), esc = UI.esc, sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -11,15 +13,31 @@ const USA = (() => {
   function camp(s) { return s.usa || (s.usa = { pts: 0, start: Engine.ovr(s), day: 1, cut: [], prev: {} }); }
   const youName = s => `${s.player.first} ${s.player.last}`;
 
-  /* everyone still in camp, best first */
-  function field(s) {
-    const u = camp(s);
+  /* everyone still in camp, best first. o.cutAt: a cut is being made (you stay at or above it); o.final: the final
+     sheet (you 12th, the camper you bonded with 13th) */
+  function field(s, o = {}) {
+    const u = camp(s), B = BALANCE.camp.board;
     const list = C().campers.filter(c => !u.cut.includes(c.name)).map(c => {
       const R = Art.seeded(c.name + '|' + u.day + '|' + (s.id || '')), form = (R() * 2 - 1) * C().form;
       return { name: c.name, score: Math.round((c.off * C().scale + form) * 10) / 10 };
-    });
-    list.push({ name: youName(s), me: true, score: Math.round(u.pts * 10) / 10 });
-    return list.sort((a, b) => b.score - a.score);
+    }).sort((a, b) => b.score - a.score);
+    const bi = list.findIndex(x => x.name === B.bond), bond = bi >= 0 ? list.splice(bi, 1)[0] : null;
+    // your spot: the last one at your worst, one above the next cut line at your best
+    const n = list.length + 1 + (bond ? 1 : 0), line = n > 14 ? 14 : 12, top = line - (B.above || 1), k = clamp((u.pts - B.perf[0]) / (B.perf[1] - B.perf[0]), 0, 1);
+    let pos = o.final ? Math.min(12, n) : Math.round(n - k * (n - top)); if (o.cutAt) pos = Math.min(pos, o.cutAt);
+    const me = { name: youName(s), me: true, v: true };
+    const above = bond && !o.final && (pos === n || (o.cutAt && pos + 1 > o.cutAt));   // he's next to you: below, unless that's past a cut being made now
+    if (bond) bond.v = true;
+    if (above) list.splice(Math.max(0, pos - 2), 0, bond, me); else { list.splice(pos - 1, 0, me); if (bond) list.splice(pos, 0, bond); }
+    // you (and he) get board scores between your neighbours'
+    for (let i = 0; i < list.length; i++) {
+      if (!list[i].v) continue; let j = i; while (j < list.length && list[j].v) j++;
+      const a = i > 0 ? list[i - 1].score : (j < list.length ? list[j].score + 3 : 10), b = j < list.length ? list[j].score : a - 3;
+      for (let q = i; q < j; q++) list[q].score = Math.round((a - (a - b) * (q - i + 1) / (j - i + 1)) * 10) / 10;
+      i = j - 1;
+    }
+    list.forEach(x => delete x.v);
+    return list;
   }
   const rankOf = s => field(s).findIndex(x => x.me) + 1;
 
@@ -33,16 +51,18 @@ const USA = (() => {
         <span class="ub-mv ${mv > 0 ? 'up' : mv < 0 ? 'down' : ''}">${mv > 0 ? '▲' + mv : mv < 0 ? '▼' + (-mv) : '–'}</span><span class="ub-sc">${x.score.toFixed(1)}</span></div>${i + 1 === line ? '<div class="ub-line">ROSTER LINE</div>' : ''}`;
     }).join('');
   }
-  function snapshot(s, list) { const u = camp(s); u.prev = {}; list.forEach((x, i) => u.prev[x.name] = i + 1); }
+  function snapshot(s, list) { const u = camp(s); u.prev = {}; list.forEach((x, i) => u.prev[x.name] = i + 1); u.snap = u.pts; }
+  /* how today went (camp points since the last board): the story notices a great day, even when the board barely does */
+  const today = s => { const u = camp(s); return u.snap == null ? 0 : u.pts - u.snap; };
+  const greatDay = s => today(s) >= BALANCE.camp.board.great;
   async function board(G, node) {
-    const s = G.state, u = camp(s), list = field(s), keep = node.keep || 12, roster = node.mode === 'roster';
-    if (node.safe || roster) { const i = list.findIndex(x => x.me); if (i >= keep) {   // at camp you always make it: on the bubble, you squeak in (just ahead of the first one out)
-      const me0 = list.splice(i, 1)[0], next = list[keep - 1], above = list[keep - 2]; if (next) me0.score = u.pts = Math.min(above ? above.score : 99, Math.round((next.score + .1) * 10) / 10); list.splice(keep - 1, 0, me0); } }
-    const me = list.findIndex(x => x.me) + 1, rot = node.rotation || 8;
+    if (node.mode === 'roster') return reveal(G, node);
+    const s = G.state, u = camp(s), keep = node.keep || 12, cutting = node.mode === 'cut', list = field(s, cutting && node.safe ? { cutAt: keep } : {});   // safe: you squeak in on the bubble
+    const me = list.findIndex(x => x.me) + 1;
     UI.setBg('locker');
-    const cutting = node.mode === 'cut' || roster, cutNames = cutting ? list.slice(keep).map(x => x.name) : [];
+    const cutNames = cutting ? list.slice(keep).map(x => x.name) : [];
     UI.showScreen(`<div class="usa-board glass">
-      <div class="ub-head"><b>${esc(node.title || 'THE BOARD')}</b><small>${esc(node.note || (cutting ? 'Coach Reyes reads the list.' : `Top ${keep} make the roster. You're #${me} of ${list.length}.`))}</small></div>
+      <div class="ub-head"><b>${esc(node.title || 'THE BOARD')}</b><small>${esc(node.note || (cutting ? 'Coach Reyes reads the list.' : `${greatDay(s) ? 'You were great today. So was everyone else. ' : ''}Top ${keep} make the roster. You're #${me} of ${list.length}.`))}</small></div>
       <div class="ub-list" id="ubList">${boardRows(s, list, keep)}</div>
       <div class="ub-foot" id="ubFoot">${cutting ? '<div class="ub-read" id="ubRead">…</div>' : ''}<button class="btn primary" id="ubGo" ${cutting ? 'hidden' : ''}>Continue ›</button></div></div>`, 'usaboard');
     SFX.music('build');
@@ -58,9 +78,7 @@ const USA = (() => {
         if (row) { row.classList.add('cut'); row.scrollIntoView({ block: 'nearest' }); } SFX.play(n === youName(s) ? 'bad' : 'whistle'); await sleep(n === youName(s) ? 1200 : 750);
       }
       document.querySelectorAll('.ub-row:not(.cut)').forEach(r => r.classList.add('safe'));
-      if (roster) { s.flags[me <= rot ? 'usa_rotation' : 'usa_bench'] = true; u.place = me; }   // your place on the board decides your role
-      read.innerHTML = roster ? `<b class="ok">YOU MADE THE TWELVE.</b> #${me} on the board · ${me <= rot ? 'Rotation player' : 'End of the bench'}`
-        : made ? `<b class="ok">YOU'RE STILL HERE.</b> ${keep === 12 ? 'Twelve jerseys — one has your name on it.' : `${keep} stay.`}` : `<b class="no">CUT.</b> Your camp ends here.`;
+      read.innerHTML = made ? `<b class="ok">YOU'RE STILL HERE.</b> ${me >= keep - 1 ? `#${me} of ${keep}. Barely.` : `${keep} stay.`}` : `<b class="no">CUT.</b> Your camp ends here.`;
       SFX.play(made ? 'levelup' : 'groan'); if (made) UI.confetti && UI.confetti();
       u.cut.push(...cutNames.filter(n => n !== youName(s))); u.made = made;
       if (C().campers.some(c => c.name === 'Kai Sterling') && !u.cut.includes('Kai Sterling')) u.kai = 'made';
@@ -69,6 +87,46 @@ const USA = (() => {
     snapshot(s, list); u.day++; G.save();
     await new Promise(r => $('ubGo').onclick = r); SFX.play('click');
     return G.goto(s.story.chapter, cutting ? (made ? node.made : node.cut) : node.next);
+  }
+
+  /* ---------- the final cut: Reyes reads the twelve from the top. Yours is the last name (BALANCE.camp.board) ---------- */
+  async function reveal(G, node) {
+    const s = G.state, u = camp(s), keep = node.keep || 12, list = field(s, { final: true }), mine = youName(s), me = list.findIndex(x => x.me) + 1;
+    const short = n => n.replace(/"[^"]*"\s*/, '').split(' ').slice(-1)[0].toUpperCase(), bond = list[me] && !list[me].me ? list[me] : null;
+    UI.setBg('locker');
+    const rows = list.map((x, i) => `<div class="ub-row hid" data-i="${i}"><span class="ub-rank">${i + 1}</span><span class="ub-name">· · · · · · ·</span><span class="ub-mv"></span><span class="ub-sc"></span></div>${i + 1 === keep ? '<div class="ub-line">ROSTER LINE</div>' : ''}`).join('');
+    UI.showScreen(`<div class="usa-board glass ub-rv">
+      <div class="ub-head"><b>${esc(node.title || 'FINAL ROSTER')}</b><small>Coach Reyes reads the twelve. Top of the sheet first.</small></div>
+      <div class="ub-list" id="ubList">${rows}</div>
+      <div class="ub-foot"><div class="ub-read" id="ubRead">…</div><button class="btn primary" id="ubGo" hidden>Continue ›</button></div></div>`, 'usaboard');
+    const read = $('ubRead'), rowAt = i => document.querySelector(`.ub-row[data-i="${i}"]`);
+    const show = (i, cls) => { const x = list[i], r = rowAt(i); if (!r) return; r.querySelector('.ub-name').textContent = x.me ? 'YOU · ' + x.name : x.name; r.querySelector('.ub-sc').textContent = x.score.toFixed(1); r.classList.remove('hid'); r.classList.add('in', cls); if (x.me) r.classList.add('me'); r.scrollIntoView({ block: 'nearest' }); };
+    SFX.music('clutch'); await sleep(1300);
+    for (let i = 0; i < keep - 1; i++) {   // one by one from the top; yours isn't among them
+      read.textContent = `${i + 1}. ${short(list[i].name)}.`; show(i, 'safe'); SFX.play(i < 3 ? 'whistle' : 'tick');
+      await sleep(i < 3 ? 900 : i < 8 ? 720 : 1050);
+      if (i === 7) { read.textContent = 'Four jerseys left.'; await sleep(1100); }
+    }
+    // one jersey left: the music cuts out, a heartbeat, close-ups
+    SFX.music(null); read.textContent = 'One jersey left.'; document.querySelector('.ub-rv').classList.add('hush');
+    SFX.play('heartbeat'); await sleep(950); SFX.play('heartbeat'); await sleep(950);
+    if (typeof Story !== 'undefined' && typeof USA4 !== 'undefined') { const ctx = (() => { try { return G.csCtx(s.story.node); } catch (e) { return {}; } })(); await Story.cut(USA4.twelfth(s, bond && bond.name), ctx, { seenId: 'usa_twelfth' }); }
+    read.textContent = 'Twelve…'; SFX.play('heartbeat'); await sleep(1500);
+    show(me - 1, 'safe'); rowAt(me - 1).classList.add('pop'); document.querySelector('.ub-rv').classList.remove('hush');
+    read.innerHTML = `<b class="ok">TWELVE: ${esc(short(mine))}.</b> The last jersey.`; SFX.play('stinger'); UI.confetti && UI.confetti(); SFX.music('build');
+    await sleep(2200);
+    // under the line: the camper you bonded with first
+    read.textContent = 'These players have been released from camp…'; await sleep(1200);
+    for (let i = keep; i < list.length; i++) { show(i, 'cut'); read.textContent = short(list[i].name) + '.'; SFX.play(i === keep ? 'bad' : 'whistle'); await sleep(i === keep ? 1600 : 900); }
+    if (bond) read.innerHTML = `<b class="ok">YOU MADE THE TWELVE.</b> ${esc(short(bond.name))} is the first name under the line.`;
+    else read.innerHTML = '<b class="ok">YOU MADE THE TWELVE.</b> The last jersey on the sheet.';
+    s.flags.usa_bench = true; delete s.flags.usa_rotation; if (u.pts >= BALANCE.camp.board.perf[1] * .55) s.flags.usa_camp_good = true;   // the twelfth man rides the bench; a strong camp still earns Reyes' trust
+    u.place = me; u.made = true; u.cut.push(...list.slice(keep).map(x => x.name).filter(n => n !== mine)); if (bond) u.bond = bond.name;
+    if (C().campers.some(c => c.name === 'Kai Sterling') && !u.cut.includes('Kai Sterling')) u.kai = 'made';
+    snapshot(s, list); u.day++; G.save();
+    $('ubGo').hidden = false;
+    await new Promise(r => $('ubGo').onclick = r); SFX.play('click');
+    return G.goto(s.story.chapter, node.made);
   }
 
   /* ---------- drills (the match minigames, scored 0–100 and ranked) ---------- */
@@ -97,9 +155,10 @@ const USA = (() => {
       card.innerHTML = `<small>DRILL ${i + 1} / ${list.length}</small><b>${D.name}</b><span>${esc(D.desc)}</span><button class="btn primary" id="udGo">Start ›</button>`; card.hidden = false;
       await new Promise(r => { $('udGo').onclick = r; const k = e => { if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); removeEventListener('keydown', k); r(); } }; addEventListener('keydown', k); });
       card.hidden = true; await sleep(200);
-      let sc = 50; try { sc = Math.round(clamp(await D.run($('mg'), ME, W, s), 0, 100)); } catch (e) { console.error('drill', e); }
-      // the field's scores for this drill → your place
-      const others = C().campers.filter(c => !u.cut.includes(c.name)).map(c => { const R = Art.seeded(c.name + list[i] + u.day); return { name: c.name, sc: Math.round(clamp(55 + c.off * 3 + (R() * 2 - 1) * 15, 15, 99)) }; });
+      let sc = 50; Match.MG.camp(true);   // camp drills: tighter windows, faster meters (BALANCE.camp.mg)
+      try { sc = Math.round(clamp(await D.run($('mg'), ME, W, s), 0, 100)); } catch (e) { console.error('drill', e); } finally { Match.MG.camp(false); }
+      // the field's scores for this drill → your place (everybody here is good: BALANCE.camp.drills)
+      const DS = BALANCE.camp.drills, others = C().campers.filter(c => !u.cut.includes(c.name)).map(c => { const R = Art.seeded(c.name + list[i] + u.day); return { name: c.name, sc: Math.round(clamp(DS.base + c.off * DS.off + (R() * 2 - 1) * DS.spread, 15, 99)) }; });
       const all = others.concat([{ name: 'YOU', sc, me: true }]).sort((a, b) => b.sc - a.sc), place = all.findIndex(x => x.me) + 1, pts = (sc - 55) / C().drillScale;
       total += pts;
       res.insertAdjacentHTML('beforeend', `<div class="ud-r"><b>${D.name}</b><span><i class="${sc >= 70 ? 'g' : sc < 45 ? 'b' : ''}">${sc}</i> · #${place} of ${all.length} · <em class="${pts >= 0 ? 'g' : 'b'}">${pts >= 0 ? '+' : ''}${pts.toFixed(1)}</em></span>
@@ -108,7 +167,8 @@ const USA = (() => {
     }
     u.pts += total; G.save();
     const card = $('udCard'); card.hidden = false;
-    card.innerHTML = `<small>SESSION OVER</small><b class="${total >= 0 ? 'g' : 'b'}">${total >= 0 ? '+' : ''}${total.toFixed(1)} CAMP POINTS</b><span>You're #${rankOf(s)} on the board right now.</span><button class="btn primary" id="udGo">Continue ›</button>`;
+    const rk = rankOf(s), n = field(s).length, msg = total >= BALANCE.camp.board.great * .75 ? `You were great today. So was everyone else. Still #${rk} of ${n}.` : total < 0 ? `Everybody here can do this. You're #${rk} of ${n}.` : `You're #${rk} of ${n} on the board right now.`;
+    card.innerHTML = `<small>SESSION OVER</small><b class="${total >= 0 ? 'g' : 'b'}">${total >= 0 ? '+' : ''}${total.toFixed(1)} CAMP POINTS</b><span>${msg}</span><button class="btn primary" id="udGo">Continue ›</button>`;
     await new Promise(r => $('udGo').onclick = r); SFX.play('click');
     return G.goto(s.story.chapter, node.next);
   }

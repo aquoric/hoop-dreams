@@ -85,11 +85,13 @@ const Arcade = (() => {
       if (document.activeElement && document.activeElement.blur) document.activeElement.blur();   // keys belong to the game, not a focused button
       const PACE = CF().pace, MV = CF().moves;
       const diff = DIFFICULTY[cfg.difficulty] ? cfg.difficulty : (Game.state && DIFFICULTY[Game.state.difficulty] ? Game.state.difficulty : 'pro');
-      const AIP = BALANCE.difficulty.pro.arcade, WINDOW = DIFFICULTY[diff].window;
+      const CK = cfg.camp ? cfg.camp.arcade : null;   // the national team camp (BALANCE.camp.arcade): quicker, smarter opponents, tighter windows and lanes
+      const AIP = BALANCE.difficulty.pro.arcade, WINDOW = DIFFICULTY[diff].window * (CK ? CK.window : 1);
       // Hall of Fame eases off for low-Overall players (hard, not hopeless, early in a career)
       const EZ = BALANCE.difficulty[diff].arcadeEase, ovr = Game.state && Game.state.player ? Engine.ovr(Game.state) : 70;
       const ease = EZ ? clamp((ovr - EZ.ovr[0]) / (EZ.ovr[1] - EZ.ovr[0]), 0, 1) : 1;
       const AIO = blendAI(AIP, BALANCE.difficulty[diff].arcade, EZ ? EZ.ai + (1 - EZ.ai) * ease : 1), easeShot = EZ ? Math.round(EZ.shot * (1 - ease)) : 0;
+      if (CK) { AIO.react *= CK.react; AIO.shootAt += CK.shootAt; ['steal', 'block', 'shotQ', 'moves', 'help'].forEach(k => AIO[k] = Math.min(.95, AIO[k] + CK[k])); }
       const mode = cfg.mode === 'break' ? 'seg' : (cfg.mode || 'game'), SEGM = mode !== 'game', target = cfg.target || 21;
       const SEG = SEGM ? Object.assign({ kind: 'fastbreak', setup: 'break', offense: 0, clock: PACE.breakClock, clockLabel: 'BREAK' }, cfg.seg || {}) : null;
       const BREAK = SEGM && SEG.setup === 'break';
@@ -296,7 +298,7 @@ const Arcade = (() => {
       }
       /* the weapon that fits what p is doing right now */
       function fitWeapon(p, action) { return (p.weapons.find(x => Weapons.fits(x.id, action)) || {}).id; }
-      const aiWeapon = (p, action) => { if (p === me || !wReady(p) || Math.random() > WA.aiUse * (p.isStar ? 1.5 : 1)) return; const id = fitWeapon(p, action); if (id) activateWeapon(p, id); };
+      const aiWeapon = (p, action) => { if (p === me || !wReady(p) || Math.random() > WA.aiUse * (p.isStar ? 1.5 : 1) * (CK && p.team !== me.team ? cfg.camp.weapons.use : 1)) return; const id = fitWeapon(p, action); if (id) activateWeapon(p, id); };
       const spendWeapon = (p, action) => { if (p.wpn && Weapons.fits(p.wpn.id, action)) p.wpn.t = Math.min(p.wpn.t, .5); };
       function pressWeaponBtn() {
         if (!live()) return;
@@ -601,14 +603,14 @@ const Arcade = (() => {
           const pd = d ? clamp((Balance.eff(d.st.perD || 50) - 50) / 50, 0, 1) : 0;
           const lt = rnd(.4, .62), inP = { x: lerp(h.x, q.x, lt), y: lerp(h.y, q.y, lt) }, nx = -(q.y - h.y) * 1.3, ny = q.x - h.x, nl = Math.hypot(nx, ny) || 1, side = d && (d.x - inP.x) * nx + (d.y - inP.y) * ny < 0 ? -1 : 1;
           const outP = { x: clamp(inP.x + nx / nl * 24 * side, A.court.x0, A.court.x1), y: clamp(inP.y + ny / nl * 17 * side, A.court.y0 + 8, A.court.y1) };
-          const open = clamp(lerp(C.open[0], C.open[1], sk) - C.defK * .3 * pd, .25, .85);
-          return { to: q, idx: i + 1, d, inP, outP, period: lerp(C.period[0], C.period[1], sk) * (1 - C.defK * pd), thr: (1 - Math.cos(Math.PI * open)) / 2, ph: rnd(0, 1), u: 0, open: true, duo: !!(q.duo && h === me && q.team === me.team) };
+          const open = clamp((lerp(C.open[0], C.open[1], sk) - C.defK * .3 * pd) * (CK ? CK.pm.open : 1), .2, .85);   // (camp: the lanes close sooner and faster)
+          return { to: q, idx: i + 1, d, inP, outP, period: lerp(C.period[0], C.period[1], sk) * (1 - C.defK * pd) * (CK ? CK.pm.period : 1), thr: (1 - Math.cos(Math.PI * open)) / 2, ph: rnd(0, 1), u: 0, open: true, duo: !!(q.duo && h === me && q.team === me.team) };
         });
         // ALLEY-OOP: the best leaper who can get up there (or a duo lob partner) gets a golden lane of his own number
         const duoOf = q => q.duo && q.duo.arcade === 'alleyoop' && h === me ? q.duo : null;
         const cut = mates.filter(q => oopOpen(q, duoOf(q))).sort((a, b) => (duoOf(b) ? 99 : oopSkill(b)) - (duoOf(a) ? 99 : oopSkill(a)))[0];
         if (cut) lanes.push({ to: cut, idx: lanes.length + 1, oop: true, duo: duoOf(cut), d: rimProt(cut.team), open: true });
-        const T = lerp(C.read[0], C.read[1], sk);
+        const T = lerp(C.read[0], C.read[1], sk) * (CK ? CK.pm.read : 1);
         G.pm = Object.assign(G.pm || { n: 0, chain: [] }, { reading: true, holder: h, lanes, t: T, T });
         if (h.act && h.act.type !== 'catch') h.act = null; h.vx = h.vy = 0; mates.forEach(q => { q.vx = q.vy = 0; q.face = h.x >= q.x ? 1 : -1; });
         pmUI(); SFX.play('whoosh', .6);
@@ -1214,7 +1216,7 @@ const Arcade = (() => {
           else if (p.burst > 0 || p.slide > 0) { if (l < .3) { ix = p.bdx; iy = p.bdy; l = 1; } }
           const hasBall = ball.owner === p && ball.state === 'held';
           const fat = .82 + .18 * p.stamina / 100;
-          let sp = (p.diveT > 0 ? BALANCE.arcade.scramble.diveSpeed : 1) * (a && a.type === 'oop' ? a.O.runK : 1) * PACE.run(p.st.speed) * fat * (hasBall ? PACE.withBall : 1) * (p.burst > 0 && !(a && a.type === 'move' && a.t < a.T * .45) ? CF().moves.burst : 1) * (p.slide > 0 ? 1.45 : 1) * (BREAK && p.role === 'trail' ? 1.12 : 1) * (p.z > 0 ? .55 : 1);
+          let sp = (p.diveT > 0 ? BALANCE.arcade.scramble.diveSpeed : 1) * (a && a.type === 'oop' ? a.O.runK : 1) * PACE.run(p.st.speed) * fat * (hasBall ? PACE.withBall : 1) * (p.burst > 0 && !(a && a.type === 'move' && a.t < a.T * .45) ? CF().moves.burst : 1) * (p.slide > 0 ? 1.45 : 1) * (BREAK && p.role === 'trail' ? 1.12 : 1) * (p.z > 0 ? .55 : 1) * (CK && p.team !== me.team ? CK.speed : 1);
           if (locked) sp = 0;
           if (a && a.type === 'layup' && a.t <= .2) sp *= .7;
           const k = Math.min(1, dt * PACE.accel * (p.burst > 0 || p.slide > 0 ? 2 : 1));
@@ -1698,7 +1700,7 @@ const Arcade = (() => {
     const pace = BALANCE.arcade.pace;
     return run({ mode: 'seg', teams: [{ name: m.us.name, abbr: m.us.abbr, colors: m.us.colors, players: usPl }, { name: m.them.name, abbr: m.them.abbr, colors: m.them.colors, players: thPl }],
       seg: { kind: m.kind || 'fastbreak', setup: m.setup || 'break', offense: m.offense != null ? m.offense : 0, clock: m.clock || pace.breakClock, clockLabel: m.clockLabel || 'BREAK', untilClock: !!m.untilClock, handler: m.handler, lastTeam: m.lastTeam },
-      backD: m.backD, score: m.score, venue: m.venue || 'rec_center', title: m.title || 'FAST BREAK!', forceHelp: m.forceHelp, wall: m.wall || null });
+      backD: m.backD, score: m.score, venue: m.venue || 'rec_center', title: m.title || 'FAST BREAK!', forceHelp: m.forceHelp, wall: m.wall || null, camp: m.camp || null });
   }
   function fastBreak(m) { const [no, nd] = m.numbers || [2, 1]; return segment(Object.assign({ kind: 'fastbreak', setup: 'break', offense: 0, title: no > nd ? `FAST BREAK! ${no} ON ${nd}` : 'FAST BREAK!' }, m)); }
   return { play, segment, fastBreak, userPlayer, crew, movesFor };
