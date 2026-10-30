@@ -1254,7 +1254,7 @@ const Match = (() => {
   }
   for (const k of Object.keys(MG)) { const fn = MG[k]; MG[k] = (layer, o = {}) => guardMG(k, fn, layer, campMg(k, o)); }
   MG.close = layer => closeDrive(layer);   // close the drive card (not a minigame)
-  MG.camp = on => { CAMP = on ? BALANCE.camp : null; };   // camp difficulty on / off (js/usa.js drills)
+  MG.camp = on => { CAMP = on ? (on === true ? BALANCE.camp : on) : null; };   // camp difficulty on / off (js/usa.js drills; the combine passes BALANCE.pro)
 
   const STYLE_EXPR = { ego: 'fierce', brag: 'fierce', needle: 'fierce', joke: 'smile', calm: 'determined', respect: 'determined', honest: 'determined', effort: 'determined', team: 'smile', specific: 'determined', humble: 'neutral', excuse: 'sad', argue: 'angry', insult: 'angry', sarcasm: 'smile' };
   function zoomCourt(court, to, ms) { return new Promise(res => { if (!court) return res(); const z0 = court.zoom, t0 = performance.now(); const f = now => { const k = Math.min(1, (now - t0) / ms); court.zoom = z0 + (to - z0) * EASE.io(k); if (k < 1 && court.alive) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); }); }
@@ -1376,7 +1376,8 @@ const Match = (() => {
   async function play(cfg) {
     const s = Game.state, D = DIFFICULTY[s.difficulty];
     kits(cfg);
-    CAMP = cfg.camp ? BALANCE.camp : null; const CK = CAMP;   // the national team camp: harder minigames, sharper opponents (BALANCE.camp)
+    CAMP = cfg.camp ? (cfg.camp === true ? BALANCE.camp : cfg.camp) : null; const CK = CAMP;
+    if (typeof Draft !== 'undefined') Draft.setOpp(cfg.them);   // Chip on the Shoulder: vs every team that passed on you   // the national team camp / the pros: harder minigames, sharper opponents (BALANCE.camp / BALANCE.pro)
     /* cfg.target = "first to N" pickup game (normal mode); cfg.size = players per side (3 = 3v3, 1 = 1v1) */
     const L = cfg.target ? Object.assign({}, LEVELS[cfg.level] || LEVELS.street, { pts: cfg.target * 1.7, bg: 0 }) : (LEVELS[cfg.level] || LEVELS.street);
     const size = Math.max(1, Math.min(5, cfg.size || 5));
@@ -1568,6 +1569,7 @@ const Match = (() => {
       if (Engine.hasSpecial(s, 'misdirection') && st.i < 3 && action !== 'ft') out.push({ label: 'Misdirection', v: 12 });
       if (Engine.hasSpecial(s, 'mirror') && st.mirror && ['three', 'mid', 'finish', 'dunk', 'str', 'pass'].includes(key)) out.push({ label: 'Perfect Copy', v: st.mirror });
       if (st.zone) out.push({ label: 'The Zone', v: 12 });
+      const chip = typeof Draft !== 'undefined' ? Draft.chipNow(s) : 0; if (chip && action !== 'ft') out.push({ label: 'Chip on the Shoulder', v: chip });
       if (tutOn()) out.push({ label: 'Warm-up', v: 6 });
       if (st.nextBonus && action !== 'ft') out.push(st.nextBonus);
       if (st.shaken > 0) out.push({ label: 'Shaken', v: -4 });

@@ -277,7 +277,7 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
 
 ---
 
-## Chapter 4: The Draft (to build later; outline only)
+## Chapter 4: The Draft (built: `js/data-story-ch4*.js`, `js/draft.js`, `js/data-nbl.js`)
 
 *Theme: you did everything right, and the phone still doesn't ring.*
 

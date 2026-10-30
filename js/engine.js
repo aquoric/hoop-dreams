@@ -274,6 +274,7 @@ const Engine = (() => {
       clubCityUp: (s.career.club && OVERSEAS_CLUBS[s.career.club] ? OVERSEAS_CLUBS[s.career.club].city : 'Europe').toUpperCase(), seed: s.career.marchSeed || 8, draft: s.meta.draftStock || 0,
       nick: s.career.college && COLLEGES[s.career.college] ? COLLEGES[s.career.college].nick : 'team', conf: s.career.college && COLLEGES[s.career.college] ? COLLEGES[s.career.college].conf : 'conference',
     };
+    if (typeof Draft !== 'undefined' && /\{/.test(str)) Object.assign(map, Draft.tokens(s));   // Chapter 4: {mock} {believer} {kaiTeam} {pick}…
     return str.replace(/\{(\w+)\}/g, (m, k) => (k in map ? map[k] : m));
   }
   function starStr(n) { return '★'.repeat(n) + '☆'.repeat(5 - n); }

@@ -71,8 +71,8 @@ Object.assign(LOCAL_TEAMS, {
   gl_cruisers: { name: 'Motor City Cruisers', abbr: 'MCC', colors: ['#1d4ed8', '#e5e7eb', '#dc2626'], logo: { shape: 'roundel', icon: 'gear' }, rating: 61, roster: ['Terrell Banks', 'Ivan Petrov', 'Sammy Ford', 'Leon Pratt'], star: { name: 'Terrell Banks', perD: 58, intD: 56 }, gl: true },
   world_select: { name: 'World Select', abbr: 'WLD', colors: ['#0f172a', '#facc15', '#38bdf8'], logo: { shape: 'roundel', icon: 'stars' }, rating: 68, roster: ['Bastien Mbaye', 'Vuk Radenko', 'Ren Takeda', 'Rokas Valaitis'], star: { name: 'Bastien Mbaye', perD: 70, intD: 64 } },
   // the call-up: a 10-day contract in the NBL
-  nbl_okc_cu: { name: 'Oklahoma Twisters', abbr: 'OKC', colors: NBL_TEAMS.okc.colors, logo: NBL_TEAMS.okc.logo, rating: 76, roster: ['Shea Gilmore', 'Lu Dort-Ray', 'Chet Holloway', 'Jalen Wills'], star: { name: 'Shea Gilmore', perD: 74, intD: 66 } },
-  nbl_den_cu: { name: 'Denver Summit', abbr: 'DEN', colors: NBL_TEAMS.den.colors, logo: NBL_TEAMS.den.logo, rating: 78, roster: ['Nikola Jovan', 'Jamal Murrow', 'Mike Porterfield', 'Aaron Gordy'], star: { name: 'Nikola Jovan', perD: 64, intD: 76 } },
+  nbl_okc_cu: { name: NBL_TEAMS.okc.name, abbr: 'OKC', colors: NBL_TEAMS.okc.colors, logo: NBL_TEAMS.okc.logo, rating: 76, roster: ['Shea Gilmore', 'Lu Dort-Ray', 'Chet Holloway', 'Jalen Wills'], star: { name: 'Shea Gilmore', perD: 74, intD: 66 } },
+  nbl_den_cu: { name: NBL_TEAMS.den.name, abbr: 'DEN', colors: NBL_TEAMS.den.colors, logo: NBL_TEAMS.den.logo, rating: 78, roster: ['Nikola Jovan', 'Jamal Murrow', 'Mike Porterfield', 'Aaron Gordy'], star: { name: 'Nikola Jovan', perD: 64, intD: 76 } },
   // Kai at Blue Ridge (the routes where he goes to college)
   blueridge_kai: { name: 'Blue Ridge University Devils', abbr: 'BRU', colors: COLLEGES.blueridge.colors, logo: COLLEGES.blueridge.logo, rating: 70, roster: ['Kai Sterling', 'Theo "Tank" Marsh', 'Jules Okafor', 'Preston Ames'], star: { name: 'Kai Sterling', perD: 66, intD: 54 }, college: true },
   // pickup crews for each route
@@ -171,7 +171,7 @@ window.EXTRA_CUTSCENES = Object.assign(window.EXTRA_CUTSCENES || {}, {
       say: ['narrator', 'Dez has done this for eight years. He still checks his phone for the call every morning.'] },
   ] },
   c3_callup: { name: 'The Call-Up', chapter: 'Chapter 3', shots: [
-    { d: 2400, scene: 'sky', cam: [[0, -20, 0, 1.1], [1, 20, 0, 1.18]], music: 'build', tr: 'fade', cast: [{ id: 'plane', kind: 'plane', x: 0, y: 10, d: 1 }], title: { text: 'TEN-DAY CONTRACT', sub: 'Oklahoma Twisters', style: 'loc', at: 300 }, ev: [[0, 'sfx', 'engine']] },
+    { d: 2400, scene: 'sky', cam: [[0, -20, 0, 1.1], [1, 20, 0, 1.18]], music: 'build', tr: 'fade', cast: [{ id: 'plane', kind: 'plane', x: 0, y: 10, d: 1 }], title: { text: 'TEN-DAY CONTRACT', sub: NBL_TEAMS.okc.name, style: 'loc', at: 300 }, ev: [[0, 'sfx', 'engine']] },
     { d: 2400, scene: 'arena_ext', grade: 'night', cam: [[0, 30, -16, 1.08], [1, 0, -10, 1.16]], say: ['narrator', 'An NBL arena. Your name is taped above a locker, spelled right.'], ev: [[0, 'cheer']] },
     { d: 2200, scene: 'tunnel', cam: [[0, 0, 0, 1], [1, 0, -6, 1.25, 'in']], cast: [{ id: 'you', kind: 'full', x: 0, y: 104, sil: true, rim: '#fde68a', d: 1 }], ev: [[0, 'sfx', 'crowd', 1.4], [1200, 'riser', 1]] },
   ] },

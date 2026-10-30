@@ -178,7 +178,7 @@ const USA = (() => {
     const s = G.state, ch = node.look && STORY.characters[node.look];
     UI.setBg(node.scene || 'locker'); UI.showScreen('<div class="usa-talkbg"></div>', 'usatalk');
     let r = { win: true };
-    try { r = await Match.talk({ who: node.who, script: node.script, look: ch ? UI.charLook(node.look) : null, name: ch ? ch.name : '', title: node.title, colors: ['#1e3a8a', '#dc2626'] }); } catch (e) { console.error('talk', e); document.querySelectorAll('.tkc').forEach(e2 => e2.remove()); }
+    try { r = await Match.talk({ who: node.who, script: node.script, look: ch ? UI.charLook(node.look) : null, name: ch ? ch.name : '', title: Engine.text(node.title, s), colors: ['#1e3a8a', '#dc2626'] }); } catch (e) { console.error('talk', e); document.querySelectorAll('.tkc').forEach(e2 => e2.remove()); }
     const changes = G.applyFx(r.win ? node.winFx : node.loseFx);
     UI.toast(r.win ? '💬 That went well.' : '💬 That didn\'t land.', r.win ? 'good' : 'bad'); UI.fxToasts(changes);
     return G.goto(s.story.chapter, r.win ? (node.win || node.next) : (node.lose || node.next));

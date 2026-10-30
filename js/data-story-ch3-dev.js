@@ -207,16 +207,16 @@ Object.assign(STORY.chapters.college.nodes, {
   gg_out: { scene: 'locker', fx: { morale: -2 }, lines: [['narrator', 'The season\'s over. Your phone isn\'t.']], next: 'gg_callup_check' },
   /* the fixed high: the call-up, earned back, and your first NBL win */
   gg_callup_check: { type: 'branch', branches: [{ if: { flag: 'gl_waived' }, next: 'gg_callup' }, { if: { minDraft: 7 }, next: 'gg_callup' }, { if: { minOvr: 63 }, next: 'gg_callup' }, { if: { flag: 'gl_champ' }, next: 'gg_callup' }], else: 'gg_no_callup' },
-  gg_callup: { scene: 'airport', cutscene: 'c3_callup', fx: { flag: 'called_up', money: 15000, draftStock: 2, post: { by: 'ehn', text: '📞 CALL-UP: {name} signs a 10-day contract with the Oklahoma Twisters.' } },
+  gg_callup: { scene: 'airport', cutscene: 'c3_callup', fx: { flag: 'called_up', money: 15000, draftStock: 2, post: { by: 'ehn', text: '📞 CALL-UP: {name} signs a 10-day contract with the Oklahoma City Blunder.' } },
     lines: [
-      ['priya', 'Ten-day contract with the Oklahoma Twisters. Your flight is in four hours, GO.', 'smile'],
+      ['priya', 'Ten-day contract with the Oklahoma City Blunder. Your flight is in four hours, GO.', 'smile'],
       ['dez', '(text) Don\'t come back, rook. That\'s the nicest thing I\'ll ever say.', 'smile', { flag: 'gl_waived' }],
     ], next: 'gg_callup_pre' },
   gg_callup_pre: { scene: 'locker',
     lines: [['narrator', 'An NBL locker room. Your name above a locker, spelled right.'], ['narrator', 'Coach looks at you once: "Defend. Don\'t shoot first. Welcome."']], next: 'gg_callup_game' },
   gg_callup_game: { type: 'match', us: 'nbl_okc_cu', them: 'nbl_den_cu', ratingRel: 9, mateRel: 8, moments: 10, level: 'pro', importance: 3, venue: 'nbl_okc', script: 'c3_nbl',
-    title: 'NBL Debut', sub: 'Ten-day contract · vs Denver Summit', win: 'gg_callup_win', lose: 'gg_callup_win' },
-  gg_callup_win: { scene: 'arena', fx: { flag: 'nbl_win', draftStock: 3, rep: 8, fans: 20000, xp: 200, rankAt: { to: 12, better: true, why: 'First NBL win' }, post: { by: 'courtvision', text: '👀 Waived in January, an NBL winner in April: {name} helps the Twisters beat Denver.' } },
+    title: 'NBL Debut', sub: 'Ten-day contract · vs the Denver Nougats', win: 'gg_callup_win', lose: 'gg_callup_win' },
+  gg_callup_win: { scene: 'arena', fx: { flag: 'nbl_win', draftStock: 3, rep: 8, fans: 20000, xp: 200, rankAt: { to: 12, better: true, why: 'First NBL win' }, post: { by: 'courtvision', text: '👀 Waived in January, an NBL winner in April: {name} helps the Blunder beat Denver.' } },
     lines: [['narrator', 'Your first NBL win. A veteran hands you the game ball without a word.'], ['narrator', 'You text a photo of it to one person first: Big Ike.']], next: 'c3_mend_check' },
   gg_callup_loss: { scene: 'arena', fx: { draftStock: 1, xp: 120 }, lines: [['narrator', 'A loss, but you didn\'t look out of place.']], next: 'gg_back' },   // older saves
   gg_back: { scene: 'home', lines: [['priya', 'The ten days are up. They want you in the Draft first.', 'smile']], next: 'gg_decide' },

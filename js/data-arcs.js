@@ -114,6 +114,23 @@
       return ['you', 'sal', 'kai', 'tariq', 'mom', 'nia', 'lou'].concat(p === 'overseas' ? ['marko', 'lena', 'ocoach', 'priya'] : p === 'grind' ? ['dez', 'ike', 'gcoach', 'priya'] : ['ccoach', 'vance', 'rook', 'advisor']); } });
     C.college.postCredits = 'pc_lottery'; }
 
+  /* ---------------- CHAPTER 4: The Draft ---------------- */
+  const mockAt = n => s => typeof Draft !== 'undefined' && Draft.mock(s) <= n;
+  A('draft', [
+    { id: 'combine', name: 'The Combine Arc', goal: 'Climb the Combine Leaderboard. Pass the interviews and the medicals.',
+      nodes: 'start c4_open combine_intro c4_measure c4_whisper c4_drills c4_scrim_pre c4_scrim c4_scrim_win c4_scrim_loss c4_int_pre c4_int1 c4_int2 c4_int3 c4_medicals c4_med_honest c4_med_flag c4_med_clear c4_med_hide c4_med_caught c4_combine_end',
+      goals: [{ t: 'Run the combine', test: s => !!(s.draft && Object.keys(s.draft.combine || {}).length >= 5) }, { t: 'Win the combine scrimmage', done: { flag: 'c4_scrim_won' } }, { t: 'Win over two GMs in interviews', test: s => ['dt_1', 'dt_2', 'dt_3'].filter(f => s.flags[f]).length >= 2 }],
+      next: { who: 'priya', line: 'Three teams, three gyms, three chances. And one of them is lying to us.', scene: 'gym', grade: 'blue', cast: [{ id: 'priya', kind: 'bust', x: .3, expr: 'smile', rim: '#22d3ee' }] } },
+    { id: 'workout', name: 'The Workout Arc', goal: 'Win your workouts. Climb the mock draft.',
+      nodes: 'c4_workouts c4_wk1_pre c4_wk1 c4_wk1_post c4_priya c4_priya_burn c4_wk2_pre c4_wk2 c4_wk2_post c4_kai_pov c4_wk3_pre c4_wk3 c4_wk3_post c4_hub c4_mock c4_eve',
+      goals: [{ t: 'Play three team workouts', test: s => !!(s.draft && Object.keys(s.draft.workouts || {}).length >= 3) }, { t: 'Crack the first round of the mock draft', test: mockAt(30) }, { t: 'Crack the lottery', test: mockAt(14) }],
+      next: { who: 'narrator', line: 'A green room. A dress Mom bought for one night. And a phone that won\'t ring.', scene: 'arena', grade: 'dark', cast: [{ id: 'ph', kind: 'phone', x: 0, y: 70, s: 4 }] } },
+    { id: 'night', name: 'The Draft Night Arc', goal: 'Hear your name called.', climax: true,
+      nodes: 'c4_draft c4_drafted c4_undrafted c4_twoway c4_overseas c4_awaken c4_revenge c4_summer_pre c4_summer c4_summer_win c4_end_pre c4_end',
+      goals: [{ t: 'Get drafted (or find another road)', test: s => !!(s.flags.drafted || s.flags.two_way || s.flags.overseas_road) }, { t: 'Beat Kai\'s team in Summer League', done: { flag: 'summer_league_win' } }] },
+  ]);
+  if (C.draft) { C.draft.cast = ['you', 'priya', 'kai', 'silk', 'mom', 'nia', 'gm_cole', 'gm_park', 'gm_ruiz', 'doc', 'commish', 'lou', 'dee']; C.draft.postCredits = s => CH4S.postCredits(s); }
+
   /* ---------------- CHAPTER OPENINGS (20–30s: theme, the cast as silhouettes, Kai turning, your number, your silhouette) ----------------
      you: how much of your silhouette is still shadow (1 = all shadow; it sharpens chapter by chapter) */
   STORY.openings = {
@@ -122,6 +139,7 @@
     highschool: { scene: 'gym', grade: 'blue', place: '{hs}', sub: 'Sophomore year', cast: ['mom', 'nia', 'tariq', 'lou', 'dee'], rivals: ['vale', 'holt', 'silk'], you: .62, rim: '#93c5fd', night: true, court: '@venue' },
     usa: { scene: 'arena', grade: 'gold', place: 'USA Basketball', sub: 'Selection camp', cast: ['mom', 'lou', 'dee', 'tariq'], rivals: ['mbaye', 'ike', 'jet'], you: .32, rim: '#fde68a', night: true, court: 'college_arena' },
     college: { scene: 'arena', grade: 'red', place: 'The Next Level', sub: 'One year to prove it', cast: ['mom', 'nia', 'lou', 'tariq', 'dee'], rivals: ['dez', 'vance'], you: .1, rim: '#fca5a5', night: true, court: 'college_arena' },
+    draft: { scene: 'arena', grade: 'gold', place: 'The NBL Draft', sub: 'Sixty names', cast: ['mom', 'nia', 'priya', 'lou', 'tariq'], rivals: ['vance', 'silk'], you: .04, rim: '#fde68a', night: true, court: 'combine' },
   };
 
   /* ---------------- "PREVIOUSLY…" narrator lines for the big cutscenes ---------------- */
@@ -152,6 +170,8 @@
     pc_kai_gym: 'Kai Sterling, alone in a gym at 2 a.m.',
     c3_fired: 'Your coach got fired on live TV. The new one benched you.', c3_unpaid: 'The club stopped paying. The heat went off.', c3_waived: 'The call-up went to Dez. Then they waived you.',
     c3_scoop: 'Scoop found you at midnight and handed you homework.', _c3_kai_benched: 'Kai Sterling sat a whole half for the first time.', c3_tariq_rain: 'Tariq walked away in the rain.',
+    _c4_combine: 'The combine. Four hundred scouts and one leaderboard.', _c4_kai: 'Silk told Kai: number one, or don\'t report.', _c4_green: 'Draft night. Table nine.', _c4_dn_slide: 'The phone never rang. Pick after pick.',
+    _c4_dn_call: 'Then it did.', _c4_dn_undrafted: 'Sixty names. None of them yours.', _c4_summer: 'Summer League. Kai, and every team that passed.', pc_kai_practice: 'Kai\'s first practice. Rebounds and water.',
     c3_tariq_hug: 'You made it right with Tariq.', _upset: 'You knocked off No. 1.', _derby: 'You won the derby in front of 15,000.', _nbl: 'Your first NBL win.', pc_lottery: 'A GM at the lottery said your name. Then Kai\'s.',
   };
 

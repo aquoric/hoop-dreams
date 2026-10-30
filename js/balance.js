@@ -243,6 +243,24 @@ const BALANCE = {
               pm: { open: .8, period: .82, read: .8 } },
   },
 
+  /* ---------- THE PROS (Chapter 4: the combine, team workouts, Summer League; match nodes with camp:'pro') ----------
+     A step up from the national team camp: same fields as `camp` (mg, opp, weapons, arcade) — see its notes above. */
+  pro: {
+    mg: { green: .72, perfect: .74, speed: 1.18, zone: .78, wobble: 1.3, combo: .74, comboLen: 1, window: .74, tell: -.28, fake: .2, lanes: .7, tol: .72, push: 9, flick: .82 },
+    opp: 4,
+    weapons: { use: 2, cap: 3, charge: 1 },
+    arcade: { react: .7, steal: .1, block: .14, shotQ: .09, moves: .2, help: .2, shootAt: -3, speed: 1.1, window: .8,
+              pm: { open: .76, period: .78, read: .76 } },
+  },
+  /* ---------- THE DRAFT (Chapter 4, js/draft.js) ----------
+     mock: your mock-draft pick from your Big Board rank (rank × mock[0] + mock[1]; not every prospect on the board enters).
+     form (0..1, how well you played) = combine × w.combine + team workouts × w.workouts + interviews × w.talks + your
+       draft stock × w.stock (stock[0] → 0, stock[1] → 1) − the ankle at the medicals (ankle).
+     slide: picks you fall on draft night = lerp(slide[1], slide[0], form) + 0..jitter → about 5–10 for a great career,
+       out of the first round for a weak one; past pick `picks` you go undrafted (a road, not an ending).
+     chip: Chip on the Shoulder (the awakening) — % on everything vs every team that passed on you. */
+  draft: { mock: [.8, 0], slide: [5, 36], jitter: 4, w: { combine: .3, workouts: .3, talks: .15, stock: .25 }, stock: [4, 16], ankle: .06, picks: 60, chip: 8 },
+
   /* ---------- ARCADE (fast breaks + pickup games) ----------
      All speeds are in canvas pixels (the arcade court is 384×216; the floor is ~350 px wide). */
   arcade: {

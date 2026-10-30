@@ -1710,7 +1710,7 @@ const Arcade = (() => {
   const KEYMAP = { catch3: 'three', pull3: 'three', catchMid: 'mid', pullMid: 'mid', layup: 'finish', jelly: 'finish', dunk: 'dunk', steal: 'steal', block: 'intD', rebound: 'reb', move: 'handle' };
   function userPlayer() {
     const s = Game.state, arch = Engine.archOf(s);
-    const bonus = action => { const k = KEYMAP[action], m = arch.passive.mods || {}, out = []; const v = (m[k] || 0) + (m.all || 0); if (v) out.push({ label: arch.passive.name, v }); const bb = Engine.badgeBonus(s, k); if (bb) out.push({ label: 'Badges', v: bb }); return out; };
+    const bonus = action => { const k = KEYMAP[action], m = arch.passive.mods || {}, out = []; const v = (m[k] || 0) + (m.all || 0); if (v) out.push({ label: arch.passive.name, v }); const bb = Engine.badgeBonus(s, k); if (bb) out.push({ label: 'Badges', v: bb }); const chip = typeof Draft !== 'undefined' ? Draft.chipNow(s) : 0; if (chip) out.push({ label: 'Chip on the Shoulder', v: chip }); return out; };
     const F = typeof Features !== 'undefined';
     return { name: `${s.player.first} ${s.player.last}`, stats: Balance.userStats(s), look: Engine.look(s), num: s.player.num, arch: s.player.arch, isUser: true, bonus, weapons: Engine.weapons(s).map(x => ({ id: x.id, rank: x.rank, evo: x.evo })),
       jelly: F && Features.jellyOn(s), jellyLvl: F ? Features.jellyLevel(s) : 0, celeb: F ? Features.celebPose(s) : null };

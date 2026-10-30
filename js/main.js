@@ -92,6 +92,8 @@ const Game = {
       case 'drill': return USA.drill(this, node);      // national team camp (js/usa.js)
       case 'board': return USA.board(this, node);
       case 'talk': return USA.talk(this, node);
+      case 'combine': return Draft.combine(this, node);   // Chapter 4: the draft combine (js/draft.js)
+      case 'draft': return Draft.night(this, node);       // Chapter 4: draft night
       case 'flick': return Features.lesson(this, node);   // the jelly lesson (js/features.js)
       case 'branch': {
         const b = node.branches.find(x => Engine.check(s, x.if));
@@ -171,6 +173,7 @@ const Game = {
     if (fx.evolve && typeof Story !== 'undefined') { const e = Story.evolve(s, fx.evolve); if (e) changes.push({ label: `⚔ ${e.name}`, v: e.bonus, special: 'grow' }); }
     if (fx.mark && typeof Story !== 'undefined') Story.mark(s, fx.mark);
     if (fx.rankBump && Rankings.on(s)) { const res = Rankings.bump(s, fx.rankBump, fx.rankWhy || 'Story'); if (res && res.to !== res.from) UI.toast(`${res.to < res.from ? '📈' : '📉'} Prospect rank <b>#${res.from} → #${res.to}</b>`, res.to < res.from ? 'ach' : 'bad', 4000); }
+    if (fx.weapon && WEAPONS[fx.weapon] && !Engine.weapons(s).some(w => w.id === fx.weapon)) { s.player.weapons.push({ id: fx.weapon, rank: 1 }); s.pendingWeapon = fx.weapon; changes.push({ label: `⚔ New weapon: ${WEAPONS[fx.weapon].name}`, v: 1, special: 'grow' }); }   // a weapon the story gives you (the awakening plays next)
     if (fx.giftWeapon && typeof Story !== 'undefined') { const w = Story.giftWeapon(s); if (w) changes.push({ label: `⚔ New weapon: ${WEAPONS[w].name}`, v: 1, special: 'grow' }); }
     if (fx.rankAt && Rankings.on(s)) {   // the story moves you on the list: { to, better } or by flag { good_final: 280, else: 295 }
       const R = fx.rankAt, k = R.to == null && Object.keys(R).find(f => f !== 'else' && f !== 'why' && s.flags[f]), n = R.to != null ? R.to : k ? R[k] : R.else;
@@ -284,7 +287,7 @@ const Game = {
     const s = this.state;
     const cfg = {
       us: this.team(node.us), them: this.team(node.them), oppRating: node.rating, mateRating: node.mateRating, moments: node.moments,
-      level: node.level, importance: node.importance || 1, title: node.title, sub: node.sub,
+      level: node.level, importance: node.importance || 1, title: Engine.text(node.title, s), sub: Engine.text(node.sub, s),
     };
     cfg.venueId = Venues.forMatch(cfg, node);
     const o0 = Engine.ovr(s);   // ratings relative to you (national team arc) + home / away
@@ -295,7 +298,7 @@ const Game = {
     if (node.coach) cfg.coach = node.coach;   // whose voice in the huddles (the national team: Coach Reyes)
     if (node.lateEntry) cfg.lateEntry = node.lateEntry;   // you check in late (the World Youth final)
     if (node.wall) cfg.wall = node.wall;
-    if (node.camp && BALANCE.camp) { cfg.camp = true; cfg.oppRating = (cfg.oppRating || 45) + BALANCE.camp.opp; }   // the national team camp: a big step up (BALANCE.camp)   // a rim protector who blocks everything you take at the rim (the national team camp: Big Ike)
+    if (node.camp) { const K = node.camp === 'pro' ? BALANCE.pro : BALANCE.camp; cfg.camp = K; cfg.oppRating = (cfg.oppRating || 45) + K.opp; }   // the national team camp / the pros: a big step up (BALANCE.camp / BALANCE.pro)   // a rim protector who blocks everything you take at the rim (the national team camp: Big Ike)
     if (node.tutorial && !s.flags.tutorial_done) Object.assign(cfg, { tutorial: true, size: node.pickup.size || 3, target: node.pickup.target || 15, moments: (node.moments || 8) + 3,   // the first Kai game: choices + minigames + arcade segments, taught step by step
       sub: `${cfg.sub ? cfg.sub + ' · ' : ''}Tutorial · first to ${node.pickup.target || 15}` });
     if (node.jam) {   // the Summer Jam: live arcade with choice moments (js/match.js jamBreak); your crew and game plan
@@ -316,9 +319,10 @@ const Game = {
     const summary = this.applyMatch(r, node);
     this.afterStoryGame(r, cfg, node.title);
     if (r.wall) { (s.usa || (s.usa = { pts: 0, day: 1, cut: [], prev: {} })).ike = r.wall; s.flags.ike_wall = true; if (r.wall.pts >= 8) s.flags.ike_scored = true; }   // how the wall game went: the story remembers
+    if (typeof node.onResult === 'function') node.onResult(s, r);   // the story keeps score (Chapter 4: how a team workout went)
     if (node.gradeFlag && r.gradeScore >= node.gradeFlag.min) s.flags[node.gradeFlag.flag] = true;
     if (node.leadFlag && r.script && r.script.at[0] - r.script.at[1] >= node.leadFlag.min) s.flags[node.leadFlag.flag] = true;   // a scripted game: how far ahead you were when the story took over
-    if (node.camp && s.usa) { const cp = (USA_CAMP.grade[r.grade[0]] || 0) + (r.win ? USA_CAMP.win : 0); s.usa.pts += cp; UI.toast(`🇺🇸 Camp points <b>${cp >= 0 ? '+' : ''}${cp}</b> (grade ${r.grade})`, cp >= 0 ? 'good' : 'bad', 3200); }
+    if (node.camp === true && s.usa) { const cp = (USA_CAMP.grade[r.grade[0]] || 0) + (r.win ? USA_CAMP.win : 0); s.usa.pts += cp; UI.toast(`🇺🇸 Camp points <b>${cp >= 0 ? '+' : ''}${cp}</b> (grade ${r.grade})`, cp >= 0 ? 'good' : 'bad', 3200); }
     const rfx = r.win ? node.winFx : node.loseFx; if (rfx) UI.fxToasts(this.applyFx(rfx));
     this.checkAch();
     // move the story pointer now so a reload never replays the game
