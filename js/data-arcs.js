@@ -131,6 +131,19 @@
   ]);
   if (C.draft) { C.draft.cast = ['you', 'priya', 'kai', 'silk', 'mom', 'nia', 'gm_cole', 'gm_park', 'gm_ruiz', 'doc', 'commish', 'lou', 'dee']; C.draft.postCredits = s => CH4S.postCredits(s); }
 
+  /* ---------------- CHAPTER 5: The League (first half: the Rookie Wall and the Breakout; the Injury and First Finals arcs come later) ---------------- */
+  const role = s => typeof Season !== 'undefined' ? Season.role(s) : 'Bench';
+  A('pro', [
+    { id: 'wall', name: 'The Rookie Wall Arc', goal: 'Earn your minutes behind the star. Win the rookie revenge games.',
+      nodes: 'start c5_overseas_year c5_open c5_camp c5_pre_pre c5_preseason c5_pre_post c5_season1 c5_dnp c5_mentor c5_star_hurt c5_awaken c5_deadline1 c5_deadline1_no c5_rookie_kai c5_s1_end c5_awards1 c5_off1 c5_fa1',
+      goals: [{ t: 'Earn rotation minutes', test: s => role(s) !== 'Bench' || !!s.flags.starter }, { t: 'Win two rookie revenge games', test: s => !!(s.pro && s.pro.revW >= 2) }, { t: 'Your first start', done: { flag: 'starter' } }],
+      next: { who: 'narrator', line: 'A sneaker brand forty floors up. A sister who stops texting. And Kai, in the tunnel.', scene: 'tunnel', grade: 'red', cast: [{ id: 'kai', kind: 'bust', x: .35, sil: true, rim: '#ef4444' }] } },
+    { id: 'breakout', name: 'The Breakout Arc', goal: 'Become a star. Win your first playoff series.',
+      nodes: 'c5_s2_start c5_season2 c5_rival c5_shoe c5_nia1 c5_nia1_after c5_nia1_mend c5_votes c5_deadline2 c5_trade_offer c5_trade_forced c5_traded c5_allstar c5_asg_check c5_asg_pre c5_asg c5_asg_post c5_asg_watch c5_knee c5_knee_told c5_nia2 c5_nia_mend c5_nia_mended c5_nia_text c5_nia_ok c5_lou_warn c5_po_pre c5_series_won c5_s2_end c5_awards2 c5_off2 c5_fa2 c5a_next c5a_hold',
+      goals: [{ t: 'Make the All-Star team', done: { flag: 'allstar_sel' } }, { t: 'Launch your signature shoe', done: { flag: 'shoe_launched' } }, { t: 'Make it right with Nia', done: { flag: 'nia_mended' } }, { t: 'Win a playoff series', done: { flag: 'first_series_win' } }] },
+  ]);
+  if (C.pro) { C.pro.cast = ['you', 'vetstar', 'pcoach', 'gm_cole', 'kai', 'nia', 'mom', 'lou', 'priya', 'brand', 'trainer']; }
+
   /* ---------------- CHAPTER OPENINGS (20–30s: theme, the cast as silhouettes, Kai turning, your number, your silhouette) ----------------
      you: how much of your silhouette is still shadow (1 = all shadow; it sharpens chapter by chapter) */
   STORY.openings = {
@@ -139,6 +152,7 @@
     highschool: { scene: 'gym', grade: 'blue', place: '{hs}', sub: 'Sophomore year', cast: ['mom', 'nia', 'tariq', 'lou', 'dee'], rivals: ['vale', 'holt', 'silk'], you: .62, rim: '#93c5fd', night: true, court: '@venue' },
     usa: { scene: 'arena', grade: 'gold', place: 'USA Basketball', sub: 'Selection camp', cast: ['mom', 'lou', 'dee', 'tariq'], rivals: ['mbaye', 'ike', 'jet'], you: .32, rim: '#fde68a', night: true, court: 'college_arena' },
     college: { scene: 'arena', grade: 'red', place: 'The Next Level', sub: 'One year to prove it', cast: ['mom', 'nia', 'lou', 'tariq', 'dee'], rivals: ['dez', 'vance'], you: .1, rim: '#fca5a5', night: true, court: 'college_arena' },
+    pro: { scene: 'arena', grade: 'blue', place: 'The NBL', sub: 'Rookie season', cast: ['mom', 'nia', 'lou', 'priya', 'tariq'], rivals: ['vetstar', 'silk'], you: 0, rim: '#93c5fd', night: true, court: '@venue' },
     draft: { scene: 'arena', grade: 'gold', place: 'The NBL Draft', sub: 'Sixty names', cast: ['mom', 'nia', 'priya', 'lou', 'tariq'], rivals: ['vance', 'silk'], you: .04, rim: '#fde68a', night: true, court: 'combine' },
   };
 
@@ -172,6 +186,8 @@
     c3_scoop: 'Scoop found you at midnight and handed you homework.', _c3_kai_benched: 'Kai Sterling sat a whole half for the first time.', c3_tariq_rain: 'Tariq walked away in the rain.',
     _c4_combine: 'The combine. Four hundred scouts and one leaderboard.', _c4_kai: 'Silk told Kai: number one, or don\'t report.', _c4_green: 'Draft night. Table nine.', _c4_dn_slide: 'The phone never rang. Pick after pick.',
     _c4_dn_call: 'Then it did.', _c4_dn_undrafted: 'Sixty names. None of them yours.', _c4_summer: 'Summer League. Kai, and every team that passed.', pc_kai_practice: 'Kai\'s first practice. Rebounds and water.',
+    _c5_arrival: 'The NBL. Your name above a locker.', _c5_dnp: 'DNP: Coach\'s decision. Over and over.', _c5_vethurt: 'Then the star went down.', _c5_thirty: 'Thirty points in your first start.',
+    _c5_confront: 'Kai found you in the tunnel. Every camera got it.', _c5_shoe: 'Your name, on a shoe.', _c5_nia: 'Nia saw the billboard on Halsey Street.', _c5_series: 'Your first playoff series win.',
     c3_tariq_hug: 'You made it right with Tariq.', _upset: 'You knocked off No. 1.', _derby: 'You won the derby in front of 15,000.', _nbl: 'Your first NBL win.', pc_lottery: 'A GM at the lottery said your name. Then Kai\'s.',
   };
 

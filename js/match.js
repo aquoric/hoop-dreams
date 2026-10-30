@@ -2215,8 +2215,9 @@ const Match = (() => {
     const MATE_LOOK = () => Object.assign({}, TMATE().look, { jersey: cfg.us.colors[0], trim: cfg.us.colors[1], outfit: 'jersey' });   // your teammate wears your colors in talks
     const TMATE = () => US.filter(p => !p.isUser).sort((a, b) => (b.rating || 0) - (a.rating || 0))[0], mateId = US.some(p => /Tariq/.test(p.full || p.name || '')) ? 'tariq' : ['mate_vet', 'mate_hype'][Weapons.hash(cfg.us.name || 'x') % 2];
     /* prospect rankings: the star's rank (face-off card, talk lines, cinematic name plates) */
-    const RK = typeof Rankings !== 'undefined' && Rankings.on(s), myRank = RK ? Rankings.rankOf(s) : null, starRank = RK ? Rankings.infoFor(s, star.name) : null;
-    if (!cfg.starSub && starRank) cfg.starSub = `#${starRank.rank} in the class · ${cfg.them.name}`;
+    const PRO = !!(s.pro && typeof Pro !== 'undefined'), IN = PRO ? 'in the NBL' : 'in the class';   // the pros: the NBL player rankings
+    const RK = PRO || (typeof Rankings !== 'undefined' && Rankings.on(s)), myRank = PRO ? Pro.rankOf(s) : RK ? Rankings.rankOf(s) : null, starRank = PRO ? (r => r ? { rank: r } : null)(Pro.rankOf(s, star.name)) : RK ? Rankings.infoFor(s, star.name) : null;
+    if (!cfg.starSub && starRank) cfg.starSub = `#${starRank.rank} ${IN} · ${cfg.them.name}`;
     /* CINEMATIC CONVERSATIONS (Cutscene.cine): rival face-offs (Kai, big stars, higher-ranked prospects), halftime speeches,
        clutch huddles and heated refs in big games — about one every few games (BALANCE.cine), more in rivalry games and playoffs.
        They replace a regular talk; they never add one. */
@@ -2232,12 +2233,12 @@ const Match = (() => {
     const venueScene = () => { const V = court.V.def || {}; return V.rain || V.weather === 'rain' ? 'rain_night' : V.style === 'arena' ? 'arena' : V.style === 'gym' ? 'gym' : V.sky === 'night' ? 'street_night' : 'street_sunset'; };
     function rankRows() { if (!RK) return null; const L = Rankings.list(s), i = L.findIndex(r => r.me); return L.slice(Math.max(0, i - 8), i + 6).map(r => ({ rank: r.rank, name: r.p.name, me: !!r.me })); }
     async function cineScene(o, ck, id, P) {
-      const sub = id === rivalId && starRank ? `#${starRank.rank} in the class` : P.kind === 'ref' ? 'Referee' : P.kind === 'coach' ? 'Coach' : P.trait ? P.trait.split('.')[0] : '';
+      const sub = id === rivalId && starRank ? `#${starRank.rank} ${IN}` : P.kind === 'ref' ? 'Referee' : P.kind === 'coach' ? 'Coach' : P.trait ? P.trait.split('.')[0] : '';
       const d = st.us - st.them, scoreTxt = d === 0 ? `TIED ${st.us}-${st.them}` : d > 0 ? `UP ${d} · ${st.us}-${st.them}` : `DOWN ${-d} · ${st.us}-${st.them}`;
       const C = await Cutscene.cine({ kind: ck, scene: ck === 'halftime' ? 'locker' : venueScene(), rain: /rain/.test(venueScene()),
         ctx: { team: cfg.us, them: cfg.them, usAbbr: cfg.us.abbr, themAbbr: cfg.them.abbr, score: `${st.us}-${st.them}`, venue: court.venueId, night: true },
         cast: { you: Object.assign({}, U.look || {}, { num: s.player.num, jersey: cfg.us.colors[0], trim: cfg.us.colors[1], outfit: 'jersey' }), them: o.look },
-        names: { them: o.name }, subs: { you: myRank ? `#${myRank} in the class · ${s.player.pos}` : s.player.pos, them: sub }, rim: { you: '#93c5fd', them: ck === 'faceoff' ? '#fca5a5' : '#fde68a' },
+        names: { them: o.name }, subs: { you: myRank ? `#${myRank} ${IN} · ${s.player.pos}` : s.player.pos, them: sub }, rim: { you: '#93c5fd', them: ck === 'faceoff' ? '#fca5a5' : '#fde68a' },
         title: ck === 'faceoff' ? 'FACE-OFF' : ck === 'halftime' ? 'HALFTIME' : ck === 'huddle' ? 'TIMEOUT' : 'DEAD BALL', sub: ck === 'faceoff' && starRank && myRank ? `#${myRank} vs #${starRank.rank}` : scoreTxt,
         gauge: { label: o.gaugeLabel, g: o.g, ego: o.ego }, rankRows: rankRows() });
       if (!C) return null;
@@ -2920,7 +2921,8 @@ const Match = (() => {
 
     /* ---------- GAME LOOP ---------- */
     updBug(); formation('us');
-    if (LATE) { const L0 = cfg.lateEntry, c0 = clockFor(-1); st.us = (L0.score || [0, 0])[0]; st.them = (L0.score || [0, 0])[1]; updBug();
+    if (LATE) { const L0 = cfg.lateEntry, c0 = clockFor(-1), dflt = () => { const p = Math.round(L.pts * LATE), d = Math.round(rnd(-14, 14)); return [p + Math.max(0, d), p + Math.max(0, -d)]; };   // no score given: a believable one (garbage time is rarely close)
+      const sc0 = L0.score || (L0._sc = L0._sc || dflt()); st.us = sc0[0]; st.them = sc0[1]; updBug();
       await banner(`<div class="tip">${logoUs}<span>${st.us}–${st.them}</span>${logoThem}</div><small>${escH(L0.sub || `Q${c0.per} · ${Math.floor(c0.rem / 60)}:${String(Math.floor(c0.rem % 60)).padStart(2, '0')} left`)}</small>${escH(L0.title || 'CHECKING IN')}`, 'tip', 2000);
       SFX.play('whistle'); pbp(L0.text || `You check in. ${escH(cfg.us.name)} ${st.us}, ${escH(cfg.them.name)} ${st.them}.`, 'hot'); }
     else if (!FULL) await banner(`<div class="tip">${logoUs}<span>VS</span>${logoThem}</div><small>${escH(cfg.us.name)} vs ${escH(cfg.them.name)}</small>TIP-OFF`, 'tip', 1800);
@@ -2948,7 +2950,9 @@ const Match = (() => {
       }
       if (st.bench > 0 && !(cfg.script && !st.scripted && i >= n - (cfg.script.moments || 2))) { st.bench--; pbp(`🪑 You watch from the bench as ${escH(cfg.us.name)} play on.`, 'bad'); simSegment((1 - LATE) / (n + 1)); updBug(); st.lastType = 'bench'; await sleep(600); continue; }
       if (cfg.script && !st.scripted && !FULL && i >= n - (cfg.script.moments || 2)) {   // a scripted ending (js/data-story-ch2-scenes.js): its cinematic, then the final score
-        st.scripted = true; const r = await runScript({ score: [st.us, st.them], next: 0 }); if (r && r.final) { st.us = r.final[0]; st.them = r.final[1]; clk.rem = 0; updBug(); pbp(`🎬 <b>${st.us}–${st.them}.</b> ${st.us > st.them ? 'What a finish.' : 'It slips away.'}`, st.us > st.them ? 'good hot' : 'bad'); break; } }
+        st.scripted = true;
+        if (st.them - st.us > 5) { const g = st.them - st.us - 5; st.us += g; updBug(); pbp(`📈 <b>A ${g}-${Math.max(0, Math.round(g / 4))} run</b> pulls ${escH(cfg.us.abbr)} back within five.`, 'good hot'); await sleep(900); }   // the story's fixed high always starts within reach
+        const r = await runScript({ score: [st.us, st.them], next: 0 }); if (r && r.final) { st.us = r.final[0]; st.them = r.final[1]; clk.rem = 0; updBug(); pbp(`🎬 <b>${st.us}–${st.them}.</b> ${st.us > st.them ? 'What a finish.' : 'It slips away.'}`, st.us > st.them ? 'good hot' : 'bad'); break; } }
       const diff = st.us - st.them;
       st.clutch = clk.per === L.periods && (i >= n - 2) && Math.abs(diff) <= 6; st.last = last;
       $('vig').classList.toggle('on', st.clutch); court.clutch = st.clutch;

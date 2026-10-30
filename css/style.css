@@ -1617,3 +1617,19 @@ body.paused *:not(#pz):not(#pz *) { animation-play-state: paused !important; }
 .dn-phone { font-family: var(--px); font-size: .55rem; color: #64748b; } .dn-phone b { color: #4ade80; animation: ubThump 1s ease-in-out infinite; display: inline-block; }
 .dn-read { flex: 1; min-width: 180px; font-family: var(--px); font-size: clamp(.6rem, 1.6vw, .85rem); color: #f8fafc; min-height: 1.4em; } .dn-read .ok { color: #4ade80; }
 .dn-foot .btn[hidden] { display: none !important; }
+
+/* ---------- Chapter 5: the NBL career (js/pro.js) ---------- */
+.fa-offer { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 12px; padding: 10px 12px; background: #0b0f1c; border: 2px solid #1e293b; color: #e2e8f0; text-align: left; cursor: pointer; font-family: var(--pxb); font-size: 1.05rem; }
+.fa-offer:hover, .fa-offer:focus-visible { border-color: #facc15; background: #1c1708; }
+.fa-offer b { font-family: var(--px); font-size: .62rem; color: #f8fafc; display: block; } .fa-offer small { display: block; color: #94a3b8; }
+.fa-offer span { text-align: right; } .fa-offer span b { color: #4ade80; font-size: .7rem; }
+.trophy-room .tro-shelf { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px; background: linear-gradient(#1c1408, #0b0f1c); border-bottom: 6px solid #78350f; }
+.tro { width: 92px; text-align: center; } .tro canvas { width: 48px; height: 56px; image-rendering: pixelated; display: block; margin: 0 auto; }
+.tro b { display: block; font-family: var(--px); font-size: .42rem; color: #fde68a; line-height: 1.4; margin-top: 4px; } .tro small { font-size: .7rem; color: #94a3b8; }
+.pro-ranks { max-height: 54vh; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.pr-row { display: grid; grid-template-columns: 40px 26px 1fr auto; align-items: center; gap: 8px; padding: 3px 8px; background: #0b0f1c; border: 1px solid #1e293b; font-size: .85rem; }
+.pr-row span { font-family: var(--px); font-size: .5rem; color: #94a3b8; } .pr-row.me { border-color: #facc15; background: #1c1708; } .pr-row.me b { color: #fde68a; }
+.shoe-show { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; } .shoe-show canvas { width: 192px; height: 96px; image-rendering: pixelated; background: #0b0f1c; border: 2px solid #1e293b; }
+.shoe-show small { display: block; color: #94a3b8; } .shoe-panel .sw { width: 22px; height: 22px; border: 2px solid #0b0f1c; margin: 0 2px; vertical-align: middle; cursor: pointer; } .shoe-panel .sw.on { outline: 2px solid #facc15; }
+.shoe-name { background: #0b0f1c; color: #f8fafc; border: 2px solid #334155; padding: 4px 8px; font-family: inherit; }
+.ub-read i { font-style: normal; font-size: 1.2rem; }

@@ -304,7 +304,7 @@ Dialogue samples follow the house rule: 1–2 punchy sentences per line.
 
 ---
 
-## Chapter 5: The League (rookie to prime; to build later)
+## Chapter 5: The League (rookie to prime; first half built: Arcs 1–2 in `js/data-story-ch5*.js`, `js/pro.js`; Arcs 3–4 to build later)
 
 *Theme: the top is lonelier, and it can all be taken in one play.*
 

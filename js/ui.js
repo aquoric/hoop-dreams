@@ -540,7 +540,7 @@ const UI = (() => {
     setBg('rec', 'hub'); SFX.music('hub');
     showScreen(`<div class="hub">
       <header class="hub-top glass" id="hubTop"></header>
-      <nav class="hub-tabs" id="hubTabs">${[['home', 'Home'], (s.season || (s.career.seasons || []).length) && ['season', 'Season'], (s.flags.done_highschool ? ['recruit', 'Draft Stock'] : s.recruit && ['recruit', 'Recruiting']), ['train', 'Train'], ['upgrade', 'Upgrade'], ['badges', 'Badges'], ['shop', 'Shop'], ['social', 'Social'], ['career', 'Career'], ['trophies', 'Achievements'], ['courts', 'Courts']].concat(typeof Features !== 'undefined' ? Features.tabs(s) : []).filter(Boolean).map(([k, n, f]) => `<button data-tab="${k}" class="${f ? 'feat' : ''} ${f === 'new' ? 'new' : ''}">${n}${k === 'upgrade' ? '<i class="dot" id="spDot"></i>' : ''}</button>`).join('')}</nav>
+      <nav class="hub-tabs" id="hubTabs">${[['home', 'Home'], (s.season || (s.career.seasons || []).length) && ['season', 'Season'], (s.pro ? ['recruit', 'Contract'] : s.flags.done_highschool ? ['recruit', 'Draft Stock'] : s.recruit && ['recruit', 'Recruiting']), ['train', 'Train'], ['upgrade', 'Upgrade'], ['badges', 'Badges'], ['shop', 'Shop'], ['social', 'Social'], ['career', 'Career'], ['trophies', 'Achievements'], ['courts', 'Courts']].concat(typeof Features !== 'undefined' ? Features.tabs(s) : []).filter(Boolean).map(([k, n, f]) => `<button data-tab="${k}" class="${f ? 'feat' : ''} ${f === 'new' ? 'new' : ''}">${n}${k === 'upgrade' ? '<i class="dot" id="spDot"></i>' : ''}</button>`).join('')}</nav>
       <section class="hub-body" id="hubBody"></section>
       <footer class="hub-cta"><div class="hub-cta-info"><b>${esc(ctx.title || 'Free Time')}</b><span id="apInfo"></span></div><div class="cta-btns">${ctx.cta2 ? `<button class="btn big ghost" id="cta2Btn">${ctx.cta2.label}</button>` : ''}<button class="btn big glow" id="ctaBtn" ${ctx.cta.disabled ? 'disabled' : ''}>${ctx.cta.label}</button></div></footer>
     </div>`, 'hubscreen');
@@ -606,6 +606,7 @@ const UI = (() => {
         </div>`;
       },
       recruit: () => {
+        if (s.pro && typeof Pro !== 'undefined') return Pro.contractHtml(s);   // Chapter 5+: your contract, role, team chemistry
         if (s.flags.done_highschool) {   // after high school the tab becomes your draft stock (Chapter 3+)
           const d = s.meta.draftStock || 0, ov = s.meta.overseas || 0, tier = d >= 14 ? ['Lottery pick', 'good'] : d >= 10 ? ['First round', 'good'] : d >= 6 ? ['Second round', 'xp'] : ['On the bubble', 'bad'];
           const team = LOCAL_TEAMS[s.career.path === 'overseas' ? s.career.club : s.career.path === 'grind' ? 'gl_ignition' : s.career.college];
@@ -682,7 +683,7 @@ const UI = (() => {
           ${Object.entries(G).map(([g, ids]) => `<h4 class="courts-h">${esc(g)}</h4><div class="courts">${ids.map(id => { const v = VENUES[id], ok = un.includes(id);
             return `<div class="court-card glass ${ok ? '' : 'locked'} ${id === cur ? 'sel' : ''}"><canvas class="ccv" data-venue="${ok ? id : ''}" width="192" height="108"></canvas><div><b>${ok ? esc(v.name) : '???'}</b><small>${ok ? esc(v.desc || '') : 'Play here to unlock'}</small>${ok ? `<button class="btn sm ${id === cur ? 'ghost' : ''}" data-court="${id}" ${id === cur ? 'disabled' : ''}>${id === cur ? '✓ Pickup court' : 'Use for pickup'}</button>` : ''}</div></div>`; }).join('')}</div>`).join('')}`;
       },
-      trophies: () => `${(s.career.medals || []).length ? `<div class="medals glass panel"><b>MEDALS</b>${s.career.medals.map(m => `<span class="medal ${m.medal}"><i>${{ gold: '🥇', silver: '🥈', bronze: '🥉' }[m.medal]}</i>${esc(m.event)}<small>age ${m.age || '—'}</small></span>`).join('')}</div>` : ''}<div class="ach-grid">${ACHIEVEMENTS.map(a => `<div class="ach glass ${s.achievements[a.id] ? 'got' : ''}"><div class="ach-ico">${s.achievements[a.id] ? '🏆' : '🔒'}</div><div><b>${a.name}</b><span>${a.desc}</span></div></div>`).join('')}</div>`,
+      trophies: () => `${s.pro && typeof Pro !== 'undefined' ? Pro.trophyRoom(s) : ''}${(s.career.medals || []).length ? `<div class="medals glass panel"><b>MEDALS</b>${s.career.medals.map(m => `<span class="medal ${m.medal}"><i>${{ gold: '🥇', silver: '🥈', bronze: '🥉' }[m.medal]}</i>${esc(m.event)}<small>age ${m.age || '—'}</small></span>`).join('')}</div>` : ''}<div class="ach-grid">${ACHIEVEMENTS.map(a => `<div class="ach glass ${s.achievements[a.id] ? 'got' : ''}"><div class="ach-ico">${s.achievements[a.id] ? '🏆' : '🔒'}</div><div><b>${a.name}</b><span>${a.desc}</span></div></div>`).join('')}</div>`,
     };
     body.innerHTML = T[hubTab] ? T[hubTab]() : Features.render(hubTab, s);
     if (!T[hubTab]) Features.bind(hubTab, body, s, () => renderHub(ctx));
@@ -801,14 +802,15 @@ const UI = (() => {
      ================================================================= */
   const tname = id => (LOCAL_TEAMS[id] || {}).name || id;
   function standingsHTML(se) {
-    const n = se.def.playoff ? se.def.playoff.teams : 0;
-    return `<table class="tbl standings"><thead><tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>+/−</th><th>Last</th></tr></thead><tbody>${Season.table(se).map((t, i) => `<tr class="${t.id === se.user ? 'me' : ''} ${i === n - 1 ? 'cutline' : ''}"><td>${i + 1}</td><td class="tm">${Art.logo(LOCAL_TEAMS[t.id], 24)}<span>${esc(tname(t.id))}</span></td><td>${t.w}</td><td>${t.l}</td><td>${t.pf - t.pa > 0 ? '+' : ''}${t.pf - t.pa}</td><td class="last">${t.last.map(x => `<i class="${x}">${x}</i>`).join('')}</td></tr>`).join('')}</tbody></table>${n ? `<p class="muted small">Top ${n} make the ${esc(se.def.playoff.name)}.</p>` : ''}`;
+    const conf = se.def.confs ? se.def.confs[se.user] : null, n = se.def.playoff ? (conf ? se.def.playoff.teams / 2 : se.def.playoff.teams) : 0;   // the pros: your conference, 8 seeds
+    return `${conf ? `<p class="muted small"><b>${esc(conf)}ern Conference</b></p>` : ''}<table class="tbl standings"><thead><tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>+/−</th><th>Last</th></tr></thead><tbody>${Season.table(se, conf).map((t, i) => `<tr class="${t.id === se.user ? 'me' : ''} ${i === n - 1 ? 'cutline' : ''}"><td>${i + 1}</td><td class="tm">${Art.logo(LOCAL_TEAMS[t.id], 24)}<span>${esc(tname(t.id))}</span></td><td>${t.w}</td><td>${t.l}</td><td>${t.pf - t.pa > 0 ? '+' : ''}${t.pf - t.pa}</td><td class="last">${t.last.map(x => `<i class="${x}">${x}</i>`).join('')}</td></tr>`).join('')}</tbody></table>${n ? `<p class="muted small">Top ${n} make the ${esc(se.def.playoff.name)}.</p>` : ''}`;
   }
   function scheduleHTML(se) {
-    return `<ul class="sched">${se.def.schedule.map((g, i) => {
+    const L = se.def.schedule.length, from = L > 30 ? Math.max(0, Math.min(L - 14, se.week - 5)) : 0, to = L > 30 ? from + 14 : L;   // an 82-game season: the games around now
+    return `<ul class="sched">${se.def.schedule.slice(from, to).map((g, j) => { const i = from + j;
       const r = se.results.find(x => x.user && x.week === i);
       const res = r ? (r.sa > r.sb ? `<b class="w">W ${r.sa}-${r.sb}</b>` : `<b class="l">L ${r.sa}-${r.sb}</b>`) : i === se.week && se.phase === 'regular' ? '<b class="nxt">NEXT</b>' : '';
-      return `<li class="${i === se.week && se.phase === 'regular' ? 'cur' : ''}"><span class="wk">W${i + 1}</span>${Art.logo(LOCAL_TEAMS[g.opp], 22)}<span class="op">${esc(tname(g.opp))}${g.key ? ' <em class="keytag sm">KEY</em>' : ''}</span>${res}</li>`;
+      return `<li class="${i === se.week && se.phase === 'regular' ? 'cur' : ''}"><span class="wk">${L > 30 ? 'G' : 'W'}${i + 1}</span>${Art.logo(LOCAL_TEAMS[g.opp], 22)}<span class="op">${esc(tname(g.opp))}${g.key ? ' <em class="keytag sm">KEY</em>' : ''}</span>${res}</li>`;
     }).join('')}</ul>`;
   }
   function bracketHTML(se) {

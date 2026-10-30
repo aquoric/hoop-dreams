@@ -113,7 +113,7 @@ const Features = (() => {
   function tabs(s) {
     if (!s.features) return [];
     const seen = new Set(), out = [];
-    FEATURES.forEach(f => { if (f.tab && on(s, f.id) && !seen.has(f.tab)) { seen.add(f.tab); out.push([f.tab, f.tab === 'ranks' && Rankings.bigBoard(s) ? 'Big Board' : f.tab === 'playbook' && !on(s, 'playbook') ? 'Jelly' : TAB_NAMES[f.tab] || f.name, s.features.newTabs && s.features.newTabs[f.tab] ? 'new' : true]); } });
+    FEATURES.forEach(f => { if (f.tab && on(s, f.id) && !seen.has(f.tab)) { seen.add(f.tab); out.push([f.tab, f.tab === 'ranks' && s.pro ? 'NBL Rankings' : f.tab === 'ranks' && Rankings.bigBoard(s) ? 'Big Board' : f.tab === 'playbook' && !on(s, 'playbook') ? 'Jelly' : TAB_NAMES[f.tab] || f.name, s.features.newTabs && s.features.newTabs[f.tab] ? 'new' : true]); } });
     return out;
   }
   const hub = () => Game.hubCtx, ap = s => s.hub ? s.hub.ap : 0;
@@ -156,7 +156,13 @@ const Features = (() => {
           return `<div class="pb-play ${done ? 'got' : ok ? '' : 'locked'}"><i>🥋</i><div><b>${esc(m.name)}</b><small>${esc(m.desc)}</small></div>${done ? '<em>✓</em>' : `<button class="btn sm" data-mission="${m.id}" ${ok && ap(s) > 0 ? '' : 'disabled'}>Start</button>`}</div>`; }).join('')}</div>`;
       case 'combine': return `<div class="glass panel"><h4>Combine Leaderboard</h4><table class="tbl"><thead><tr><th>Event</th><th>You</th><th>Class rank</th><th>All-time record</th></tr></thead><tbody>${COMBINE.events.map(e => { const r = F.combine[e.id];
           return `<tr><td>${esc(e.name)}</td><td>${r ? r.v + e.unit : '—'}</td><td>${r ? '#' + r.rank + ' / ' + COMBINE.draftClass : '—'}</td><td>${e.record.v}${e.unit} · ${esc(e.record.by)}</td></tr>`; }).join('')}</tbody></table></div>`;
-      case 'shoe': { const sh = s.shoe || {}; return `<div class="glass panel"><h4>Signature Shoe</h4>${sh.name ? `<p><b>${esc(sh.name)}</b> · ${esc(sh.sil || '')} · pairs sold: ${Engine.fmtFans(sh.sold || 0)}</p>` : '<p class="muted">Your designer is waiting on you. (Chapter 5)</p>'}</div>`; }
+      case 'shoe': { const sh = s.shoe || {}, d = F.shoeDraft || (F.shoeDraft = { sil: 'mid', color: '#dc2626', color2: '#f8fafc', logo: 'bolt', name: `${s.player.last} 1` }), COLS = ['#dc2626', '#111827', '#f8fafc', '#2563eb', '#facc15', '#16a34a', '#a855f7', '#f97316'];
+        return `<div class="glass panel shoe-panel"><h4>Signature Shoe</h4>${sh.name ? `<div class="shoe-show"><canvas class="shoe-cv" width="96" height="48" data-sil="${esc(sh.sil)}" data-c="${sh.color}" data-c2="${sh.color2}"></canvas><div><b>${esc(sh.name)}</b><small>${esc(SHOE.silhouettes.find(x => x.id === sh.sil).name)} · logo: ${esc(sh.logo)} · pairs sold: ${Engine.fmtFans(sh.sold || 0)}</small><small>Sales come in every offseason: more fans and a higher Overall sell more pairs.</small></div></div>` : `
+          <div class="shoe-show"><canvas class="shoe-cv" width="96" height="48" data-sil="${d.sil}" data-c="${d.color}" data-c2="${d.color2}"></canvas><div><b>${esc(d.name)}</b><small>Design it. You'll wear it, and so will half of Halsey Street.</small></div></div>
+          <p class="small"><b>Silhouette</b> ${SHOE.silhouettes.map(x => `<button class="btn sm ${d.sil === x.id ? '' : 'ghost'}" data-shoe="sil:${x.id}">${esc(x.name)}</button>`).join(' ')}</p>
+          <p class="small"><b>Color</b> ${COLS.map(c => `<button class="sw ${d.color === c ? 'on' : ''}" style="background:${c}" data-shoe="color:${c}"></button>`).join('')} <b>Trim</b> ${COLS.map(c => `<button class="sw ${d.color2 === c ? 'on' : ''}" style="background:${c}" data-shoe="color2:${c}"></button>`).join('')}</p>
+          <p class="small"><b>Logo</b> ${SHOE.logos.map(x => `<button class="btn sm ${d.logo === x ? '' : 'ghost'}" data-shoe="logo:${x}">${esc(x)}</button>`).join(' ')}</p>
+          <p class="small"><b>Name</b> <input class="shoe-name" maxlength="18" value="${esc(d.name)}"> <button class="btn primary sm" data-shoe="save">Launch the shoe ›</button></p>`}</div>`; }
       case 'ranks': return rankTab(s);
       case 'rivals': return `<div class="glass panel"><h4>Rivalries</h4>${Object.entries(F.rivals).map(([n, r]) => `<div class="clip"><i>⚔</i><div><b>${esc(n)}</b><small>Heat ${r.heat} · ${r.w}-${r.l}</small></div></div>`).join('') || '<p class="muted">No rivals yet.</p>'}</div>`;
     }
@@ -170,6 +176,16 @@ const Features = (() => {
     body.querySelectorAll('[data-mission]').forEach(b => b.onclick = () => mission(b.dataset.mission));
     body.querySelectorAll('[data-celeb]').forEach(b => b.onclick = () => { state(s).celeb = b.dataset.celeb; SFX.play('click'); Game.save(); rerender(); });
     body.querySelectorAll('canvas.celeb-cv').forEach(cv => drawPose(cv, cv.dataset.pose, s));
+    // the signature shoe designer (Chapter 5)
+    body.querySelectorAll('[data-shoe]').forEach(b => b.onclick = () => { const F = state(s), [k, v] = b.dataset.shoe.split(':'), d = F.shoeDraft, nm = body.querySelector('.shoe-name'); if (nm) d.name = nm.value.trim().slice(0, 18) || d.name;
+      if (k === 'save') { s.shoe = { name: d.name, sil: d.sil, color: d.color, color2: d.color2, logo: d.logo, sold: 0 }; s.flags.shoe_launched = true; Engine.post(s, { by: 'courtvision', text: `👟 The ${d.name} drops Friday. {name}'s first signature shoe.` }); UI.toast(`👟 <b>${UI.esc(d.name)}</b> launched`, 'ach', 4000); SFX.play('levelup'); }
+      else d[k] = v; SFX.play('click'); Game.save(); rerender(); });
+    body.querySelectorAll('canvas.shoe-cv').forEach(drawShoe);
+  }
+  /* the signature shoe: a 16-bit side view */
+  function drawShoe(cv) {
+    const g = cv.getContext('2d'), sil = cv.dataset.sil, c = cv.dataset.c, c2 = cv.dataset.c2, P = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); }, top = sil === 'high' ? 6 : sil === 'mid' ? 14 : 22;
+    g.clearRect(0, 0, 96, 48); P(8, 38, 82, 6, c2); P(6, 42, 86, 3, '#111827'); P(10, top, 34, 38 - top, c); P(40, 24, 44, 14, c); P(80, 28, 10, 10, c); P(14, top + 2, 6, 34 - top, c2); P(44, 28, 30, 3, c2); P(46, 33, 26, 2, '#0006'); P(24, top + 4, 14, 10, '#0004');
   }
   /* a little looping preview of a celebration pose, in your colors */
   function drawPose(cv, pose, s) {
@@ -222,6 +238,7 @@ const Features = (() => {
 
   /* ---------- Prospect Rankings (js/rankings.js) ---------- */
   function rankTab(s) {
+    if (s.pro && typeof Pro !== 'undefined') return Pro.rankHtml(s);   // Chapter 5+: the NBL's top players
     if (!Rankings.on(s)) Rankings.ensure(s);
     const L = Rankings.list(s), R = s.rank, me = L.find(r => r.me), kai = Rankings.kai(), kr = kai && L.find(r => r.id === kai.id), BB = Rankings.bigBoard(s), cut = BALANCE.rankings.bigBoard;
     const prev = R.prevMap || R.last || {}, near = n => { const i = L.indexOf(me); return L.slice(Math.max(0, i - n), i + n + 1); };
@@ -270,7 +287,9 @@ const Features = (() => {
       CHEM_DUOS.forEach(d => { if (names.includes(d.name)) state(s).chem[d.id] = (state(s).chem[d.id] || 0) + 2 + (r.win ? 1 : 0); });
     }
     // rivalry heat (Chapter 5 — switches on with the feature)
-    if (on(s, 'rivalry') && r.cfg && r.cfg.them && r.cfg.them.star) { const n = r.cfg.them.star.name, R = state(s).rivals[n] || (state(s).rivals[n] = { heat: 0, w: 0, l: 0 }); R.heat += r.win ? RIVALRY.heat.win : RIVALRY.heat.loss; r.win ? R.w++ : R.l++; }
+    if (on(s, 'rivalry') && r.cfg && r.cfg.them && r.cfg.them.star) { const n = r.cfg.them.star.name, R = state(s).rivals[n] || (state(s).rivals[n] = { heat: 0, w: 0, l: 0 }); R.heat += r.win ? RIVALRY.heat.win : RIVALRY.heat.loss; r.win ? R.w++ : R.l++;
+      if (R.heat >= RIVALRY.grudge && !R.marked && typeof Story !== 'undefined') { R.marked = true; R.heat = Math.round(R.heat / 2); Story.mark(s, { id: 'riv_' + n, star: n, title: `GRUDGE MATCH: ${n.replace(/"[^"]*"\s*/, '').split(' ').pop().toUpperCase()}`, sub: `Heat ${RIVALRY.grudge}+ · it's personal` }); UI.toast(`⚔ <b>${UI.esc(n)}</b>: the next one is a grudge match.`, 'bad', 4200); } }   // heat → a grudge match (the boxing poster)
+    if (on(s, 'rivalry') && r.cfg && r.cfg.them && (r.cfg.them.roster || []).includes('Kai Sterling') && r.cfg.them.star && r.cfg.them.star.name !== 'Kai Sterling') { const R = state(s).rivals['Kai Sterling'] || (state(s).rivals['Kai Sterling'] = { heat: 0, w: 0, l: 0 }); R.heat += r.win ? RIVALRY.heat.win : RIVALRY.heat.loss; r.win ? R.w++ : R.l++; }
   }
 
   /* ---------- jelly ---------- */

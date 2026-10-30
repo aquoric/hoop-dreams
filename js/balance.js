@@ -252,6 +252,21 @@ const BALANCE = {
     arcade: { react: .7, steal: .1, block: .14, shotQ: .09, moves: .2, help: .2, shootAt: -3, speed: 1.1, window: .8,
               pm: { open: .76, period: .78, read: .76 } },
   },
+  /* ---------- THE NBL CAREER (Chapter 5+, js/pro.js) ----------
+     trust0: Coach Trust on day one (Bench; Sixth Man at 40, Starter at 60) · chemNew: team chemistry with new teammates after a
+     trade or signing · simXp: share of a played game's XP for a simmed game.
+     contract: rookie scale (firstTop for pick 1, − perPick per pick; firstYears for first-rounders, 1 otherwise), second-round /
+       two-way / minimum deals, free-agent offers (faBase + per Overall over 60 + per PPG + per trophy), negotiation won / lost ×.
+     age: peak years [from, to] (growth before, decline after: decline[0] + decline[1] per year past the peak, attribute points).
+     awards: PPG to win Rookie of the Year / Sixth Man / Most Improved (jump) · steals + blocks for DPOY · MVP [PPG, wins] ·
+       All-NBL teams [1st, 2nd, 3rd] PPG · Finals MVP PPG.
+     votes: All-Star fan votes = base + PPG × ppg + wins × win + fans × fan; the top `spots` in your conference make it. */
+  pro2: { trust0: 18, chemNew: 28, simXp: .35, franchisePpg: 22,   // franchisePpg: a starter averaging this becomes the Franchise Star in the offseason
+    contract: { firstTop: 10.5e6, perPick: 280000, firstYears: 2, second: 1.9e6, twoWay: 580000, minimum: 1.1e6, faBase: 6e6, faPerOvr: 9e5, faPerPpg: 6e5, faPerTrophy: 1.5e6, winK: 1.18, loseK: .92 },
+    age: { peak: [26, 30], decline: [2, 1.5] },
+    awards: { roy: 13, smoy: 13, mip: 6, dpoy: 3.2, mvp: [28, 54], nbl: [26, 22, 19], fmvp: 20 },
+    votes: { base: 600000, ppg: 95000, win: 12000, fan: .6, spots: 12 } },
+
   /* ---------- THE DRAFT (Chapter 4, js/draft.js) ----------
      mock: your mock-draft pick from your Big Board rank (rank × mock[0] + mock[1]; not every prospect on the board enters).
      form (0..1, how well you played) = combine × w.combine + team workouts × w.workouts + interviews × w.talks + your

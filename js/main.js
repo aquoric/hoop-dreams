@@ -64,6 +64,7 @@ const Game = {
     if (ch && !node && ch.moved && ch.moved[s.story.node]) return this.goto(s.story.chapter, ch.moved[s.story.node]);   // cut or merged node (older saves)
     if (!ch || !node) { console.error('Missing story node', s.story); UI.toast('Story node missing: ' + s.story.chapter + '/' + s.story.node, 'bad'); return UI.title(); }
     s.career.stage = typeof ch.stage === 'function' ? ch.stage(s) : ch.stage;   // Chapter 3: College / Overseas Pro / Grind League
+    if (s.pro && typeof Pro !== 'undefined') Pro.sync(s);   // Chapter 5+: your team, Kai's team and the star at your position on the rosters
     Features.check(s);   // new chapter / story beat → feature unlocks (popup waits for a calm screen)
     // story systems (js/story-fx.js): a new chapter → its opening sequence; a new arc → "Next time…" + its title card
     if (typeof Story !== 'undefined') { const pre = Story.beforeNode(s, s.story.chapter, s.story.node); if (pre) return pre.then(() => this.runNode()); }
@@ -94,6 +95,9 @@ const Game = {
       case 'talk': return USA.talk(this, node);
       case 'combine': return Draft.combine(this, node);   // Chapter 4: the draft combine (js/draft.js)
       case 'draft': return Draft.night(this, node);       // Chapter 4: draft night
+      case 'awards': return Pro.awardsNight(this, node);   // Chapter 5+: the season's awards (js/pro.js)
+      case 'freeagency': return Pro.freeAgency(this, node);
+      case 'allstar': return Pro.allStar(this, node);
       case 'flick': return Features.lesson(this, node);   // the jelly lesson (js/features.js)
       case 'branch': {
         const b = node.branches.find(x => Engine.check(s, x.if));
@@ -173,6 +177,7 @@ const Game = {
     if (fx.evolve && typeof Story !== 'undefined') { const e = Story.evolve(s, fx.evolve); if (e) changes.push({ label: `⚔ ${e.name}`, v: e.bonus, special: 'grow' }); }
     if (fx.mark && typeof Story !== 'undefined') Story.mark(s, fx.mark);
     if (fx.rankBump && Rankings.on(s)) { const res = Rankings.bump(s, fx.rankBump, fx.rankWhy || 'Story'); if (res && res.to !== res.from) UI.toast(`${res.to < res.from ? '📈' : '📉'} Prospect rank <b>#${res.from} → #${res.to}</b>`, res.to < res.from ? 'ach' : 'bad', 4000); }
+    if (typeof Pro !== 'undefined') Pro.fx(s, fx, changes);   // Chapter 5+: the NBL career (seasons, the offseason, trades)
     if (fx.weapon && WEAPONS[fx.weapon] && !Engine.weapons(s).some(w => w.id === fx.weapon)) { s.player.weapons.push({ id: fx.weapon, rank: 1 }); s.pendingWeapon = fx.weapon; changes.push({ label: `⚔ New weapon: ${WEAPONS[fx.weapon].name}`, v: 1, special: 'grow' }); }   // a weapon the story gives you (the awakening plays next)
     if (fx.giftWeapon && typeof Story !== 'undefined') { const w = Story.giftWeapon(s); if (w) changes.push({ label: `⚔ New weapon: ${WEAPONS[w].name}`, v: 1, special: 'grow' }); }
     if (fx.rankAt && Rankings.on(s)) {   // the story moves you on the list: { to, better } or by flag { good_final: 280, else: 295 }
@@ -334,6 +339,7 @@ const Game = {
   afterStoryGame(r, cfg, title) {
     if (typeof Story === 'undefined') return; const s = this.state;
     Story.noteGame(s, r, title);
+    if (s.pro && typeof Pro !== 'undefined') Pro.revenge(s, r);   // Chapter 5: the rookie revenge games
     if (cfg.revenge && r.win) { UI.toast(`🥊 <b>${cfg.revenge}</b> — revenge.`, 'ach', 4500); Story.note(s, { line: `${cfg.revenge}: you got your revenge, ${r.us}-${r.them}.`, scene: 'poster', cast: [{ id: 'you', kind: 'bust', x: 0, expr: 'smile', rim: '#fde68a' }] }); }
   },
   jellyPayoff(importance) { return this.state.flags.jelly_payoff && importance >= 2 ? { text: 'Their big man leaves his man and slides over to meet you at the rim. Scoop\'s voice in your head: "Around him."', late: true, payoff: true } : null; },
@@ -444,7 +450,12 @@ const Game = {
   seasonGame() { // the user's next game as {opp, key, title, sub, importance, moments, post}
     const se = this.state.season, def = se.def;
     if (se.phase === 'playoffs') {
-      const P = se.playoffs, final = P.rounds[P.round].length === 1;
+      const P = se.playoffs, final = P.rounds[P.round].length === 1, PO = def.playoff, SR = Season.series(se);
+      if (SR) {   // the pros: a best-of-7 — the story's fixed round always plays its clincher (or its Game 7) as a scripted key game
+        const fixed = PO.fixedWin === P.round && (SR.w === SR.need - 1 || SR.l === SR.need - 1);
+        return { opp: se.nextOpp, key: !PO.simOk || fixed, playoff: true, title: PO.name, sub: `${Season.roundName(se)} · Game ${SR.game} (${SR.w}-${SR.l})`, importance: final || fixed ? 3 : 2,
+          moments: (PO.moments || [])[P.round], script: fixed ? PO.script : null, away: [3, 4, 6].includes(SR.game) };
+      }
       return { opp: se.nextOpp, key: true, playoff: true, title: def.playoff.name, sub: Season.roundName(se), importance: final ? 3 : 2, moments: (def.playoff.moments || [])[P.round] };
     }
     return Object.assign({ sub: `Week ${se.week + 1}` }, def.schedule[se.week], { title: def.name, sub: def.schedule[se.week].title || `Week ${se.week + 1}` });
@@ -489,6 +500,7 @@ const Game = {
     let r, summary;
     if (sim) {
       r = Season.simUserGame(s, se, g.opp); r.cfg = { us: this.team(se.user), them: this.team(g.opp), title: se.name, sub: g.sub }; r.importance = 1; r.level = se.level;
+      if (g.script && !r.win) { r.win = true; [r.us, r.them] = [Math.max(r.us, r.them) + 3, Math.min(r.us, r.them)]; }   // the story's fixed high is never lost to a sim
       summary = this.applySim(r, g);
     } else {
       const roleMom = { Starter: 10, 'Sixth Man': 8, Bench: 7 }[Season.role(s)];
@@ -497,6 +509,7 @@ const Game = {
         moments: g.moments || roleMom + (g.key ? 1 : 0), level: se.level, importance: g.importance || (g.key ? 2 : 1), title: se.name, sub: g.sub,
       };
       cfg.jellyMoment = this.jellyPayoff(cfg.importance);
+      if (g.lateEntry) cfg.lateEntry = g.lateEntry;   // the pros: behind the star, you check in late (garbage time)
       // venue: home / away alternates through the season; the final is played at a neutral arena
       const finalGame = g.playoff && se.playoffs && se.playoffs.rounds[se.playoffs.round].length === 1;
       cfg.venue = g.away ? 'away' : g.home ? 'home' : (se.week + (g.opp || '').length) % 2 ? 'away' : 'home';
@@ -532,6 +545,7 @@ const Game = {
     this.healTick();
     const xr = Engine.addXP(s, Math.round(L.xp * 1.2 * ((s.season && s.season.def.simXp) || PROGRESSION.simXpFactor) * (r.win ? 1.2 : 1)));
     const changes = Engine.applyFx(s, { morale: r.win ? 3 : -3, fatigue: 8, fans: Math.round(b.pts * 6 * (1 + s.meta.rep / 50)), trust: r.grade[0] === 'A' ? 2 : r.grade[0] === 'D' ? -2 : 0, rep: r.win ? 1 : 0 });
+    if (s.pro && typeof Pro !== 'undefined') Pro.revenge(s, r);   // Chapter 5: a simmed win over a team that passed on you still counts
     s.career.games.push({ label: `${r.cfg.title} · ${r.cfg.sub} (sim)`, opp: r.cfg.them.name, us: r.us, them: r.them, win: r.win, pts: b.pts, reb: b.reb, ast: b.ast, grade: r.grade });
     this.recordOvr(r.cfg.sub);
     const rank = Rankings.afterGame(s, r, { sim: true });
@@ -541,7 +555,7 @@ const Game = {
     const s = this.state, se = s.season, def = se.def, homeNode = STORY.chapters[se.home.chapter].nodes[se.home.node];
     const st = se.stats, gp = st.gp || 1, P = se.playoffs;
     const resText = se.result === 'champion' ? 'Champions' : se.result === 'missed' ? 'Missed playoffs' : `Lost in ${P ? (P.names || [])[se.outRound != null ? se.outRound : P.round] || 'playoffs' : 'playoffs'}`;
-    const summary = { id: se.id, name: se.name, team: se.user, w: st.w, l: st.l, gp: st.gp, ppg: +(st.pts / gp).toFixed(1), rpg: +(st.reb / gp).toFixed(1), apg: +(st.ast / gp).toFixed(1), result: se.result, resText, ovr: Engine.ovr(s), age: s.player.age };
+    const summary = { id: se.id, name: se.name, team: se.user, w: st.w, l: st.l, gp: st.gp, ppg: +(st.pts / gp).toFixed(1), rpg: +(st.reb / gp).toFixed(1), apg: +(st.ast / gp).toFixed(1), spg: +(st.stl / gp).toFixed(1), bpg: +(st.blk / gp).toFixed(1), result: se.result, resText, ovr: Engine.ovr(s), age: s.player.age };
     s.career.seasons.push(summary);
     if (se.result === 'champion' && def.champFlag) s.flags[def.champFlag] = true;
     if (s.recruit) s.recruit.ppg = summary.ppg;

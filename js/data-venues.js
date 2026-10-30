@@ -61,6 +61,7 @@ const Venues = {
   team(id) { return (typeof LOCAL_TEAMS !== 'undefined' && LOCAL_TEAMS[id]) || (typeof COLLEGES !== 'undefined' && COLLEGES[id]) || (typeof NBL_TEAMS !== 'undefined' && NBL_TEAMS[id]) || (typeof OVERSEAS_CLUBS !== 'undefined' && OVERSEAS_CLUBS[id]) || null; },
   /* the home court of a team */
   home(teamId) {
+    if (/^nbl_[a-z]{3}$/.test(teamId || '') && VENUES[teamId]) return teamId;   // an NBL team's arena
     const base = String(teamId || '').replace(/_(hopefuls|varsity|white|blue)$/, '');
     if (VENUES['gym_' + base]) return 'gym_' + base;
     if (VENUES['col_' + base]) return 'col_' + base;   // Chapter 3: college arenas, Grind League gyms

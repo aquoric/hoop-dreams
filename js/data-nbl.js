@@ -79,7 +79,7 @@ const NBL_LEAGUE = {
     });
     lasts = new Set(); const roles = [role(), role(), role(), role()];
     T.stars = names; T.roles = roles;
-    LOCAL_TEAMS['nbl_' + id] = { name: T.name, abbr: T.abbr, colors: T.colors, logo: T.logo, rating, conf, roster: names.concat(roles).slice(0, 5), looks,
+    LOCAL_TEAMS['nbl_' + id] = { name: T.name, abbr: T.abbr, colors: T.colors, logo: T.logo, rating, conf, city: city, roster: names.concat(roles).slice(0, 5), looks,
       star: { name: names[0], perD: stars[0][3], intD: stars[0][4] } };
     // the Summer League squad: two young role players and a two-way guy (the drafted rookie is added on draft night)
     LOCAL_TEAMS['sl_' + id] = { name: `${T.name} Summer League`, abbr: T.abbr, colors: T.colors, logo: T.logo, rating: rating - 14, conf, roster: [roles[2], roles[3], role(), role()],
