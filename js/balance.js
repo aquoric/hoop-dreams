@@ -186,6 +186,21 @@ const BALANCE = {
     blowBy: { window: [.55, 1.05], tell: [.45, 1], perD: .9, hofTell: .2, fakeStar: .35, fake: .08, cutOff: { contested: .55, charge: .2, steal: .25 } },
     gather: { chance: .22, contested: .3, help: .15, beat: .34, tol: .12, clean: 1.35, sloppy: .75, travel: .45 },
   },
+  /* ---------- YOUR TEAMMATES' SHOTS (choices mode, Playmaker and arcade segments; Balance.matePct / mateGreen) ----------
+     The OPEN icon (arcade) and an "open" look (choices) mean truly open: no defender within openR px (arcade).
+     open / covered: % for an AVERAGE shooter (his shooting stat = avg) at the rim (layups, dunks), from mid-range (catch &
+       shoot, pull-ups, hooks, fades) and from three. skill: % per point of his shooting stat above / below avg (a 75 three-point
+       shooter hits ~52% open). deep: % per foot past 25 ft. pullUp: % on a pull-up instead of a catch. wide: extra % for a
+       WIDE OPEN look (choices). contested / heavy: added when a defender is on him. weapon: % when one of his weapons fits.
+     green: perfect-release chance = open|covered × (his stat / avg)^exp; a teammate's green goes in greenMake % of the time.
+     q: his release quality otherwise (arcade; .5 = average) · quick: seconds an open teammate waits after the catch before he
+       shoots (arcade) · minOpen: an open teammate shoots if his % is at least this · oop: alley-oop finish % on a good lob
+       (a perfect lob always goes down) · max: cap. Teammates don't take your difficulty's defensive shift (that's for you). */
+  mates: { openR: 30, avg: 60, open: { rim: 85, mid: 72, three: 45 }, covered: { rim: 70, mid: 52, three: 38 }, skill: .45, deep: -2.5, pullUp: -3, wide: 3,
+    contested: -8, heavy: -16, weapon: 5, green: { open: .22, covered: .08, exp: 1.6 }, greenMake: 95, q: .56, quick: .12, minOpen: 30, oop: 84, max: 95,
+    /* offAst: assists you pick up in the off-screen stretches of a game (choices mode) = (Passing × .7 + IQ × .3 − from) / per,
+       capped at max, × your passing in the visible moments (low…high: the share of your passes that became assists) */
+    offAst: { from: 38, per: 10, max: 5, low: .55, high: 1.45 } },
   others: { mate: 1.6, opp: 1.3, weaponUse: .5, star: { heatAt: 2, takeover: 3, bonus: 6, askGuard: .7 } },
   /* ---------- CLOSE CALLS (slow motion, zoom, crowd build-up + a quick reaction minigame) ----------
      chance per moment: early in the game / late in a close game (margin = "close"). max per game.
@@ -370,7 +385,8 @@ const BALANCE = {
        tapQ: your layup and jelly release quality (a tap, no timing) · strong: % added to the strong layup you get when your
        Dunking and Vertical are too low to dunk */
     finish: { dbl: .3, hold: .3, q: .86, qEarly: .45, tapQ: .62, strong: 6 },
-    playmaker: { maxPasses: 2, slow: .16, read: [3.4, 6.5], period: [1.6, 2.6], open: [.46, .7], defK: .35,
+    playmaker: { autoShot: 1.4,   // autoShot: after a pass to an OPEN teammate, he shoots when this read (s) runs out, unless you pass again
+      maxPasses: 2, slow: .16, read: [3.4, 6.5], period: [1.6, 2.6], open: [.46, .7], defK: .35,
       base: 90, k: .45, closed: 42, perfect: 25, steal: .5,
       movement: { look: 8, shot: 8, open: 14 }, duo: 12, farX: 150, bigAt: 62, shootAt: 40 },
     /* ALLEY-OOPS: a teammate with Vertical + Dunking (average after diminishing returns) of minSkill or more who can get to the rim
@@ -479,11 +495,30 @@ const Balance = (() => {
     if (dist != null && dist >= D.heave) return Math.round(clamp(p, 1, D.heaveMax * 2));    // …and halfcourt stays a prayer
     return Math.round(clamp(p, far ? 1 : BALANCE.minPct, BALANCE.maxPct));
   }
+  /* ---------- your teammates' shots (BALANCE.mates): open / covered targets by spot, his shooting stat, distance, contests ---------- */
+  const ZONE = { layup: 'rim', dunk: 'rim', jelly: 'rim', catch3: 'three', pull3: 'three', catchMid: 'mid', pullMid: 'mid', hook: 'mid', fade: 'mid' };
+  const mateStat = (action, st) => { const z = ZONE[action] || 'mid'; return z === 'three' ? st.three : z === 'rim' ? (action === 'dunk' ? (st.dunk + st.vert) / 2 : st.finish) : action === 'hook' ? st.finish : st.mid; };
+  function matePct(action, st, o = {}) {
+    const M = BALANCE.mates, z = ZONE[action]; if (!z) return pct(action, st, o);   // not a shot (passes, steals…): the plain formula
+    const c = o.contest || 'normal', open = c === 'open', stat = mateStat(action, st) || 50, parts = [];
+    let p = (open ? M.open : M.covered)[z] + (stat - M.avg) * M.skill;
+    parts.push({ label: `${open ? 'OPEN' : 'Covered'} · ${z === 'rim' ? 'at the rim' : z === 'three' ? 'three' : 'mid-range'}`, v: null }, { label: `Shooting ${Math.round(stat)}`, v: Math.round((stat - M.avg) * M.skill) });
+    const add = (label, v) => { if (v) { p += v; parts.push({ label, v: Math.round(v) }); } };
+    if (z === 'three' && o.dist > 25) add(`${Math.round(o.dist)} ft`, (o.dist - 25) * M.deep);
+    if (action === 'pull3' || action === 'pullMid') add('Pull-up', M.pullUp);
+    if (o.wide) add('Wide open', M.wide);
+    if (c === 'contested') add('Contested', M.contested); if (c === 'heavy') add('Heavily contested', M.heavy);
+    if (o.weapon) add('Weapon', M.weapon);
+    (o.bonus || []).forEach(b => add(b.label, b.v));
+    if (o.dist != null && o.dist >= BALANCE.distance.heave) p = Math.min(p, BALANCE.distance.heaveMax);
+    return { pct: Math.round(clamp(p, BALANCE.minPct, M.max)), parts, dist: o.dist };
+  }
+  function mateGreen(action, st, open) { const M = BALANCE.mates, G = M.green; if (!ZONE[action]) return 0; return clamp((open ? G.open : G.covered) * Math.pow((mateStat(action, st) || 50) / M.avg, G.exp), .02, .6); }
   function roll(p) { return Math.random() * 100 < p; }
   /* "Three-Point 72 · vs Perimeter D 58 +10% · Contested −8%" */
   function describe(parts) { return parts.map(x => x.v == null ? x.label : `${x.label} ${x.v > 0 ? '+' : '−'}${Math.abs(x.v)}%`).join(' · '); }
 
-  return { pct, apply, perfectPct, roll, profile, userStats, available, describe, eff, blend, curveAt, greenAt };
+  return { pct, apply, perfectPct, roll, profile, userStats, available, describe, eff, blend, curveAt, greenAt, matePct, mateGreen };
 })();
 
 /* ---------- named players: stats with a style + their weapons ---------- */

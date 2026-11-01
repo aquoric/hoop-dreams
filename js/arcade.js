@@ -246,7 +246,7 @@ const Arcade = (() => {
       const contestFor = s => {
         let d = 999; players.forEach(q => { if (q.team !== s.team && q.stun <= 0) d = Math.min(d, dist(q, s) - (q.z > 0 ? 6 : 0)); });
         if (toHoop(s) < A.dunkRange) players.forEach(q => { if (q.team !== s.team && q.stun <= 0 && toHoop(q) < 26) d = Math.min(d, 13); });   // rim protection
-        return d > 34 ? 'open' : d > 18 ? 'normal' : d > 10 ? 'contested' : 'heavy';
+        return d > (s.team === me.team ? BALANCE.mates.openR : 34) ? 'open' : d > 18 ? 'normal' : d > 10 ? 'contested' : 'heavy';   // (your team: the OPEN icon's distance)
       };
       const canDunk = p => Balance.available('dunk', p.st);
       const bonusOf = (p, action) => {
@@ -269,8 +269,13 @@ const Arcade = (() => {
         const action = force || (dh < A.layupRange ? (canDunk(p) && dh < A.dunkRange && p.st.dunk >= 45 ? 'dunk' : 'layup') : three ? (fresh ? 'catch3' : 'pull3') : (fresh ? 'catchMid' : 'pullMid'));
         const shotFt = action === 'layup' || action === 'dunk' ? Math.min(ft, 3) : ft;   // layups / dunks finish at the rim
         const ctx = { def: def ? def.st : null, diff: p.team === me.team ? diff : '_none', contest: contestFor(p) === 'open' ? 'open' : 'normal', dist: shotFt, longRange: longRange(p), fatigue: 100 - p.stamina, bonus: bonusOf(p, action) };
+        if (isMate(p)) { const c = contestFor(p); return { action, three, dh, ft: shotFt, open: c === 'open', pct: Balance.matePct(action, p.st, { contest: c, dist: shotFt, bonus: ctx.bonus, weapon: mateWeapon(p, action) }).pct }; }   // your teammates: BALANCE.mates
         return { action, three, dh, ft: shotFt, pct: Balance.pct(action, p.st, ctx).pct };
       }
+      const isMate = p => p.team === me.team && p !== me;
+      const mateWeapon = (p, action) => (p.weapons || []).some(w => Weapons.fits(w.id || w, action));
+      /* a teammate's release: greens by his shooting stat (more when he's open), otherwise a little above average */
+      const mateQ = (p, action, open) => Math.random() < Balance.mateGreen(action, p.st, open) ? 1 : clamp(BALANCE.mates.q + rnd(-.12, .12), 0, .97);
       const pctOf = (action, p, def, extra = {}) => Balance.pct(action, p.st, Object.assign({ def: def ? def.st : null, diff: p.team === me.team ? diff : '_none', fatigue: 100 - p.stamina, bonus: bonusOf(p, action) }, extra)).pct;
 
       /* ---------- text pops ---------- */
@@ -421,7 +426,8 @@ const Arcade = (() => {
         const sc = shotChance(me, 'layup'); spendWeapon(me, 'layup'); startJelly(me, sc);
       }
       const ringColor = pct => pct >= 50 ? '#4ade80' : pct >= 38 ? '#a3e635' : pct >= 28 ? '#facc15' : pct >= 15 ? '#fb923c' : '#ef4444';
-      const greenFX = (heave) => { if (heave) { pop('HALFCOURT GREEN!!!', '#4ade80', true); RD.confetti(220); SFX.play('roar'); SFX.play('stinger'); G.slowT = 1.2; G.zoomT = 1; impact(.3, 14, .6, .12, '74,222,128'); logLine(`${me.name} hits a GREEN from halfcourt!`); }
+      const greenFX = (heave, by) => { if (by && by !== me) { pop(`${String(by.short || by.name).toUpperCase()} — GREEN!`, '#4ade80', true); if (typeof Match !== 'undefined' && Match.green) Match.green(); else SFX.play('green'); G.flash = Math.max(G.flash, .2); G.flashCol = '74,222,128'; return; }   // a teammate's green: the same sound + flash, his name
+        if (heave) { pop('HALFCOURT GREEN!!!', '#4ade80', true); RD.confetti(220); SFX.play('roar'); SFX.play('stinger'); G.slowT = 1.2; G.zoomT = 1; impact(.3, 14, .6, .12, '74,222,128'); logLine(`${me.name} hits a GREEN from halfcourt!`); }
         pop('GREEN!', '#4ade80', true); if (typeof Match !== 'undefined' && Match.green) Match.green(); else SFX.play('green'); G.flash = Math.max(G.flash, .25); G.flashCol = '74,222,128'; };
       const contestK = p => ({ open: 1.15, normal: 1, contested: .8, heavy: .65 }[contestFor(p)] || 1);   // defenders shrink the release window
       /* a perfect release: contests cut it only a little (BALANCE.perfect.arcadeCut); other players hit greens too */
@@ -431,6 +437,7 @@ const Arcade = (() => {
          Contests and distance shrink both — the meter over your head is drawn from these every frame */
       function shotWin(p, stat, wide = 1) { const gw = (.05 + Balance.eff(stat) / 99 * .09) * WINDOW * wide * contestK(p) * Balance.greenAt(p.act && p.act.sc ? p.act.sc.ft : null); return { gw, pw: gw * .35 }; }
       function releaseQuality(p, err, stat, wide = 1, W0) {
+        if (isMate(p)) { const a = p.act && p.act.sc; return mateQ(p, a ? a.action : 'catchMid', a ? a.open : false); }
         if (p !== me) return aiGreen(p, stat) ? 1 : clamp(aiFor(p).shotQ + rnd(-.22, .22), 0, .97);
         const W = W0 || shotWin(p, stat, wide);   // W0: the windows on screen when you let go
         if (err <= W.pw) { tag('PERFECT', p, '#86efac'); SFX.play('good'); return 1; }   // the timing is perfect even if it misses; the green comes only if it goes in
@@ -496,13 +503,14 @@ const Arcade = (() => {
         noteShot(p, sc, sc.action);
         const ct = contest(p, 'shot'); if (ct.block) { p.box.fga++; if (sc.three) p.box.tpa++; G.lastShooter = p; return blocked(ct.by, p); }
         showContest(p, ct);
-        const pct = Balance.apply(sc.action, sc.pct, q, sc.ft) * perfCut(q, cutBy(ct, 'shot')), made = Math.random() * 100 < pct;
+        const pct = isMate(p) && q >= 1 ? BALANCE.mates.greenMake * perfCut(1, cutBy(ct, 'shot')) : Balance.apply(sc.action, sc.pct, q, sc.ft) * perfCut(q, cutBy(ct, 'shot')), made = Math.random() * 100 < pct;
+        if (window.__arcDebug && window.__arcDebug.G && isMate(p)) (window.__arcDebug.mates = window.__arcDebug.mates || []).push({ a: sc.action, open: !!sc.open, pct: Math.round(sc.pct), green: q >= 1, made });   // automated tests only
         const res = made ? (q > .8 || Math.random() < .55 ? 'swish' : 'rimin') : (q < .15 && sc.dh > 70 && Math.random() < .5 ? 'airball' : Math.random() < .55 ? 'rimout' : 'back');
         const hand = p.hand || { x: p.x + p.face * 3, y: p.y - p.z - 32 };
         ball.owner = null; ball.state = 'shot';
         const from = { x: p.x + p.face * 2, y: p.y, z: p.z + 32 }, H = A.hoop;
         const to = res === 'airball' ? { x: H.x + rnd(-8, 8), y: H.y + 10, z: H.z - 9 } : res === 'rimout' ? { x: H.x + rnd(-3, 3), y: H.y + 3, z: H.z + 1 } : res === 'back' ? { x: H.x + rnd(-2, 2), y: H.y - 3, z: H.z + 2 } : { x: H.x, y: H.y, z: H.z + 1 };
-        ball.shot = { by: p, from, to, t: 0, T: PACE.shotFlight(sc.dh), made, res, three: sc.three, action: sc.action, peak: 18 + sc.dh * .16, pct, green: p === me && q >= 1, heave: sc.ft >= BALANCE.distance.heave, foul: ct.foul };
+        ball.shot = { by: p, from, to, t: 0, T: PACE.shotFlight(sc.dh), made, res, three: sc.three, action: sc.action, peak: 18 + sc.dh * .16, pct, green: (p === me || isMate(p)) && q >= 1, heave: sc.ft >= BALANCE.distance.heave, foul: ct.foul };
         if ((SEGM && SEG.untilClock && G.clock < 2.2) || (!SEGM && made && G.score[p.team] + (sc.three ? 3 : 2) >= target)) { G.slowT = 1.2; G.zoomT = 1; G.winShot = !SEGM && made; SFX.play('heartbeat'); }
         Object.assign(ball, { x: from.x, y: from.y, z: from.z }); void hand;
         p.box.fga++; if (sc.three) p.box.tpa++; G.lastShooter = p;
@@ -643,7 +651,7 @@ const Arcade = (() => {
         const duoOf = q => q.duo && q.duo.arcade === 'alleyoop' && h === me ? q.duo : null;
         const cut = mates.filter(q => oopOpen(q, duoOf(q))).sort((a, b) => (duoOf(b) ? 99 : oopSkill(b)) - (duoOf(a) ? 99 : oopSkill(a)))[0];
         if (cut) lanes.push({ to: cut, idx: lanes.length + 1, oop: true, duo: duoOf(cut), d: rimProt(cut.team), open: true });
-        const T = lerp(C.read[0], C.read[1], sk) * (CK ? CK.pm.read : 1);
+        const T = (G.pm && G.pm.auto && G.pm.n > 0 ? Math.min(C.autoShot, lerp(C.read[0], C.read[1], sk)) : lerp(C.read[0], C.read[1], sk)) * (CK ? CK.pm.read : 1);
         G.pm = Object.assign(G.pm || { n: 0, chain: [] }, { reading: true, holder: h, lanes, t: T, T });
         if (h.act && h.act.type !== 'catch') h.act = null; h.vx = h.vy = 0; mates.forEach(q => { q.vx = q.vy = 0; q.face = h.x >= q.x ? 1 : -1; });
         pmUI(); SFX.play('whoosh', .6);
@@ -687,6 +695,7 @@ const Arcade = (() => {
         if (M.n >= 2) { tag('BALL MOVEMENT!', rc, '#fde68a'); SFX.play('crowd', 1.2); E.hype = Math.min(1, E.hype + .2); }
         if (rc.act && rc.act.type === 'dunk') { G.pmChain = M.chain.slice(); G.pm = null; pmUI(); return; }   // a duo catch at the rim goes straight up
         if (M.n >= PMC().maxPasses) return pmShoot(rc);
+        M.auto = isMate(rc) && contestFor(rc) === 'open';   // open: he shoots when the read runs out (or SPACE), unless you make another pass
         setTimeout(() => { if (!G.over && G.pm === M && ball.owner === rc && ball.state === 'held') pmRead(rc); }, 260 / PACE.game);   // the next read starts right away
       }
       /* the final shot: the holder lets it go with his own stats and weapon, more open after a second pass */
@@ -695,11 +704,12 @@ const Arcade = (() => {
         G.pmChain = M ? M.chain.slice() : null; G.pm = null; pmUI();
         if (n > 0) { p.pmB = C.movement.look + C.movement.shot * (n - 1); const d = nearestDef(p); if (d) { const l = dist(d, p) || 1, o = C.movement.open * n; d.x = clamp(d.x + (d.x - p.x) / l * o, A.court.x0, A.court.x1); d.y = clamp(d.y + (d.y - p.y) / l * o * .7, A.court.y0 + 8, A.court.y1); d.stun = Math.max(d.stun, .35); } }
         if (p === me) { tag(n > 1 ? 'WIDE OPEN — YOUR SHOT' : 'YOUR SHOT', me, '#fde68a'); return; }
-        if (shotChance(p).pct >= C.shootAt) { tag(n > 1 ? 'WIDE OPEN!' : 'SHOOT IT!', p, '#86efac'); p.goal = null; p.aiT = 1; p.wantShoot = true; }
+        const sc0 = shotChance(p);
+        if (sc0.pct >= C.shootAt || (isMate(p) && sc0.open && sc0.pct >= BALANCE.mates.minOpen)) { tag(n > 1 ? 'WIDE OPEN!' : sc0.open ? 'OPEN — SHOOT IT!' : 'SHOOT IT!', p, '#86efac'); p.goal = null; p.aiT = BALANCE.mates.quick; p.wantShoot = true; }
         else { tag('ATTACK!', p, '#86efac'); p.goal = { x: A.hoop.x + (p.x < A.hoop.x ? -8 : 8), y: A.hoop.y + 16 }; p.aiT = .5; }   // not his shot from there: he catches and attacks the scrambling defense
       }
       function pmLet() { const M = G.pm; if (M && M.reading && M.n > 0) pmShoot(M.holder); }   // after the first pass: let him shoot
-      function pmTimeout() { const M = G.pm; pop('DEFENSE RECOVERS', '#93c5fd', true); G.pmChain = M.chain.length ? M.chain.slice() : null; const h = M.holder; G.pm = null; pmUI(); if (h !== me) h.aiT = 0; }
+      function pmTimeout() { const M = G.pm; if (M.auto && M.n > 0) return pmShoot(M.holder); /* he was open: the shot goes up */ pop('DEFENSE RECOVERS', '#93c5fd', true); G.pmChain = M.chain.length ? M.chain.slice() : null; const h = M.holder; G.pm = null; pmUI(); if (h !== me) h.aiT = 0; }
       function pmKey(k) {
         const M = G.pm; if (!M || !M.reading) return false;
         const L = M.lanes.find(x => 'Digit' + x.idx === k || 'Numpad' + x.idx === k); if (L) { pmPick(L); return true; }
@@ -775,7 +785,7 @@ const Arcade = (() => {
       }
       function oopPct(passer, q, duo) {
         const C = OC(), w = C.w, off = eff(passer.st.pass) * w.pass + eff(q.st.vert) * w.vert + eff(q.st.dunk) * w.dunk;
-        return clamp(C.base + (off - protRating(rimProt(q.team))) * C.k + (duo ? duo.bonus : 0), C.min, C.max);
+        return clamp((q.team === me.team ? BALANCE.mates.oop : C.base) + (off - protRating(rimProt(q.team))) * C.k + (duo ? duo.bonus : 0), C.min, C.max);   // (your lobs: BALANCE.mates.oop)
       }
       function startOop(passer, q, o = {}) {
         const C = OC(), H = A.hoop, side = q.x >= H.x ? 1 : -1;
@@ -1130,7 +1140,7 @@ const Arcade = (() => {
         if (p.giveGo > 0 && p.team === me.team && toHoop(me) < A.layupRange * 1.4 && canAct(me)) { p.giveGo = 0; me.duoT = 2; me.duoB = p.duo ? p.duo.bonus : 6; G.duos = (G.duos || 0) + 1; pop(`🔗 ${(p.duo && p.duo.move || 'GIVE-AND-GO').toUpperCase()}!`, '#4ade80'); return startPass(p, me); }   // duo: he hits you on the cut
         const inFront = def && dd < 22 && toHoop(def) < dh;
         if (G.mustClear && !isThree(p)) { const a = Math.atan2(p.y - A.hoop.y, p.x - A.hoop.x); p.goal = { x: A.hoop.x + Math.cos(a) * (A.three.rx + 14), y: A.hoop.y + Math.max(.4, Math.sin(a)) * (A.three.ry + 14) }; return; }
-        const mates = teamOf(p.team).filter(q => q !== p), open = mates.filter(q => openness(q) > 24 && !(q.act && busyActs.includes(q.act.type)));
+        const mates = teamOf(p.team).filter(q => q !== p), open = mates.filter(q => contestFor(q) === 'open' && !(q.act && busyActs.includes(q.act.type)));
         if (BREAK) {   // attack: pass if cut off, use a move, pull up — always get a shot before the defense sets
           const left = G.clock;
           if (dh < A.layupRange + 2 || left < 2) { p.wantShoot = true; return; }
@@ -1142,6 +1152,8 @@ const Arcade = (() => {
           p.goal = { x: A.hoop.x + (def && def.x > p.x ? -12 : 12), y: A.hoop.y + 14 }; return;
         }
         const sc = shotChance(p);
+        if (isMate(p) && (p.openShot || sc.open) && sc.pct >= BALANCE.mates.minOpen) { p.openShot = false; p.wantShoot = true; return; }   // your teammate is open: he shoots (he only passes when covered)
+        p.openShot = false;
         const sty = (cfg.teams[p.team] || {}).style, adj = sty === 'inside' && sc.three ? 8 : sty === 'shooters' && sc.three ? -5 : sty === 'pace' ? -2 : 0;   // the other team's style
         if (dh < A.layupRange || sc.pct >= AI.shootAt + adj + rnd(0, 6) || (openness(p) > 28 && sc.pct >= AI.shootAt - 8) || G.clock < 2.2) { p.wantShoot = true; return; }   // good shots only — deep ones when the clock is dying
         if (inFront && p.cool <= 0 && Math.random() < AI.moves) { doMove(p, Math.random() < .5 ? -p.face : p.face * .4, rnd(-.6, .2)); return; }
@@ -1327,9 +1339,10 @@ const Arcade = (() => {
                 const h = p.hand || { x: p.x, y: p.y - p.z - 30 }; burst(h.x, h.y - 2, '#ffffff', 5, 40); burst(h.x, h.y - 2, '#fde68a', 7, 55); RD.ring(h.x, h.y - 2, '#ffffff', 40, .2, 1, 1);
                 if (J) { J.zoom = J.drama ? 1.62 : 1.46; }
               }
-              const q = p === me ? CF().finish.tapQ : aiGreen(p, p.st.finish) ? 1 : clamp(aiFor(p).shotQ + rnd(-.2, .2), 0, .97);
+              const q = p === me ? CF().finish.tapQ : isMate(p) ? mateQ(p, a.jelly ? 'jelly' : 'layup', a.sc && a.sc.open) : aiGreen(p, p.st.finish) ? 1 : clamp(aiFor(p).shotQ + rnd(-.2, .2), 0, .97);
               const cutJ = a.jelly ? 1 - (ct.C || 0) * CT().cut.layup * JB.contestFactor : cutBy(ct, 'layup');
-              const made = Math.random() * 100 < Balance.apply(a.jelly ? 'jelly' : 'layup', a.sc.pct, q, 3) * perfCut(q, cutJ);
+              const made = Math.random() * 100 < (isMate(p) && q >= 1 ? BALANCE.mates.greenMake : Balance.apply(a.jelly ? 'jelly' : 'layup', a.sc.pct, q, 3) * perfCut(q, cutJ));
+              if (window.__arcDebug && window.__arcDebug.G && isMate(p)) (window.__arcDebug.mates = window.__arcDebug.mates || []).push({ a: a.jelly ? 'jelly' : 'layup', open: !!(a.sc && a.sc.open), pct: Math.round(a.sc.pct), green: q >= 1, made });   // automated tests only
               ball.owner = null; ball.state = 'shot';
               const from = { x: p.x + p.face * 3, y: p.y, z: p.z + 34 };
               const jl = a.jelly ? a.jelly.lvl : 0, gside = a.jelly && jl === 1 ? -a.jelly.side : a.jelly ? a.jelly.side : 1, dv = a.jelly && (ct.by || a.jelly.def);
@@ -1339,7 +1352,7 @@ const Arcade = (() => {
                 : { x: (dv ? dv.x : from.x) + a.jelly.side * 3, y: (dv ? dv.y : from.y) - 4, z: (dv ? dv.z : 0) + 52 };                               // up past his fingertips
               ball.shot = { by: p, from, to: { x: H.x, y: H.y, z: H.z + 1 }, t: 0, T: a.jelly ? (G.jel && G.jel.drama ? .62 : .44) : .34, made, res: made ? (a.jelly || Math.random() < .5 ? 'swish' : 'rimin') : 'rimout', three: false, action: 'layup', peak: 6, foul: a.foul, green: p === me && q >= 1,
                 jelly: a.jelly ? { glass, ctrl, side: gside, def: ct.by || a.jelly.def } : null };
-              Object.assign(ball, from); if (a.jelly) { ball.jelly = true; ball.gold = made && p === me && q >= 1; }
+              Object.assign(ball, from); if (a.jelly) { ball.jelly = true; ball.gold = made && (p === me || isMate(p)) && q >= 1; } if (!a.jelly && made && isMate(p) && q >= 1) ball.shot.green = true;
             }
             if (a.wantRelease && a.relT == null) a.relT = a.t;
             break;
@@ -1356,8 +1369,9 @@ const Arcade = (() => {
               if (!a.chk && u > .4) { a.chk = true; const ct = a.ct = contest(p, 'dunk'); if (a.wall && WALL) { ct.block = true; ct.by = WALL; } if (ct.block) { p.box.fga++; G.lastShooter = p; a.stuffed = true; blocked(ct.by, p); p.act = { type: 'jump', t: 0 }; p.vz = 0; return; } showContest(p, ct); if (ct.foul) a.foul = true; }
             } else if (!a.slammed) {
               a.slammed = true; p.box.fga++; G.lastShooter = p;
-              const q = p === me ? (a.relT == null || a.relT >= CF().finish.hold ? CF().finish.q : CF().finish.qEarly) : aiGreen(p, p.st.dunk) ? 1 : clamp(aiFor(p).shotQ + .1 + rnd(-.15, .15), 0, .97);
-              a.made = Math.random() * 100 < Balance.apply('dunk', a.sc.pct, q, 1) * perfCut(q, cutBy(a.ct || {}, 'dunk')); if (a.made && p === me && q >= 1) greenFX();
+              const q = p === me ? (a.relT == null || a.relT >= CF().finish.hold ? CF().finish.q : CF().finish.qEarly) : isMate(p) ? mateQ(p, 'dunk', a.sc && a.sc.open) : aiGreen(p, p.st.dunk) ? 1 : clamp(aiFor(p).shotQ + .1 + rnd(-.15, .15), 0, .97);
+              a.made = Math.random() * 100 < (isMate(p) && q >= 1 ? BALANCE.mates.greenMake : Balance.apply('dunk', a.sc.pct, q, 1) * perfCut(q, cutBy(a.ct || {}, 'dunk'))); if (a.made && (p === me || isMate(p)) && q >= 1) greenFX(false, p);
+              if (window.__arcDebug && window.__arcDebug.G && isMate(p)) (window.__arcDebug.mates = window.__arcDebug.mates || []).push({ a: 'dunk', open: !!(a.sc && a.sc.open), pct: Math.round(a.sc.pct), green: q >= 1, made: a.made });
               G.slowT = 0; impact(a.big ? .2 : .14, a.big ? 11 : 8, .35, a.big ? .1 : .06); E.rim = 1; E.net.swish = 1; RD.sweat(p.x, p.y - p.z - 26, 6);
               if (a.made) {
                 const shatter = p.st.dunk >= 75 && Math.random() < .04;
@@ -1427,6 +1441,7 @@ const Arcade = (() => {
             if (!P.intercept && rc.duo && P.from === me && rc.team === me.team) duoCatch(rc);
             if (P.intercept) { if (P.pm) { G.pm = null; pmUI(); } P.from.box.to++; rc.box.stl++; stopRec('steal', rc, P.from); pop(pick(A.lines.steal), '#38bdf8'); logLine(`${rc.name} jumps the passing lane!`); changePossession(rc.team, 'stl', rc); }
             else if (P.pm) pmCatch(rc, P);
+            else if (isMate(rc) && !G.pm && contestFor(rc) === 'open' && shotChance(rc).pct >= BALANCE.mates.minOpen) { rc.aiT = BALANCE.mates.quick; rc.goal = null; rc.openShot = true; }   // open on the catch: he lets it fly
           }
         } else if (ball.state === 'shot' && ball.shot) {
           const S = ball.shot; S.t += dt; const k = clamp(S.t / S.T, 0, 1);
@@ -1441,7 +1456,7 @@ const Arcade = (() => {
         } else if (ball.state === 'roll') {   // rolling around the rim
           const R = ball.roll; R.t += dt; const u = R.t / R.T, H = A.hoop;
           ball.x = H.x + Math.sin(R.t * 14) * 4 * (1 - u); ball.y = H.y + Math.cos(R.t * 14) * 1.5 * (1 - u); ball.z = H.z + 1 + Math.abs(Math.sin(R.t * 9)) * 5 * (1 - u);
-          if (u >= 1) { if (R.made) { ball.state = 'net'; ball.netT = 0; E.net.swish = .7; if (R.green) greenFX(R.heave); scoreBasket(R.by, R.three ? 3 : 2, R.action === 'layup' ? 'layup' : 'shot', R.foul); } else { SFX.play('rim'); E.rim = .5; looseBall(H.x, H.y + 2, rnd(-70, 70), rnd(20, 70), 50); ball.z = H.z + 2; } }
+          if (u >= 1) { if (R.made) { ball.state = 'net'; ball.netT = 0; E.net.swish = .7; if (R.green) greenFX(R.heave, R.by); scoreBasket(R.by, R.three ? 3 : 2, R.action === 'layup' ? 'layup' : 'shot', R.foul); } else { SFX.play('rim'); E.rim = .5; looseBall(H.x, H.y + 2, rnd(-70, 70), rnd(20, 70), 50); ball.z = H.z + 2; } }
           else if (Math.floor(R.t * 9 / Math.PI) !== Math.floor((R.t - dt) * 9 / Math.PI)) { SFX.play('rim'); E.rim = .3; }
         } else if (ball.state === 'net') {     // dropping through the net
           ball.netT += dt; ball.x = A.hoop.x; ball.y = A.hoop.y; ball.z = A.hoop.z - ball.netT * 60;
@@ -1466,7 +1481,7 @@ const Arcade = (() => {
           return scoreBasket(p, 2, 'jelly', S.foul);
         }
         if (S.jelly) jellyEnd();   // missed: snap straight back
-        if (S.made && S.res === 'swish') { ball.state = 'net'; ball.netT = 0; E.net.swish = 1; if (S.green) greenFX(S.heave); return scoreBasket(p, S.three ? 3 : 2, S.action === 'layup' ? 'layup' : 'shot', S.foul); }
+        if (S.made && S.res === 'swish') { ball.state = 'net'; ball.netT = 0; E.net.swish = 1; if (S.green) greenFX(S.heave, p); return scoreBasket(p, S.three ? 3 : 2, S.action === 'layup' ? 'layup' : 'shot', S.foul); }
         if (S.made) { ball.state = 'roll'; ball.roll = { t: 0, T: .55, made: true, by: p, three: S.three, action: S.action, foul: S.foul, green: S.green, heave: S.heave }; SFX.play('rim'); E.rim = .4; return; }
         p.streak = 0; if (p.fire) p.fire--;
         if (S.res === 'airball') { pop('AIRBALL!', '#94a3b8'); SFX.play('groan'); looseBall(ball.x, ball.y, (S.to.x - S.from.x) * .3, 30, -10); ball.z = S.to.z; logLine(`${p.name} airballs it.`); }
@@ -1482,7 +1497,7 @@ const Arcade = (() => {
         impact(0, J.drama ? 9 : 6, gold ? .3 : .16, .06, gold ? '250,204,21' : '253,230,138'); burst(H.x, H.y - H.z, gold ? '#facc15' : '#fde047', gold ? 40 : 24); RD.ring(H.x, H.y - H.z + 2, '#fde68a', 150, .4);
         if (mine && navigator.vibrate) try { navigator.vibrate(gold ? [30, 40, 70] : [35, 30, 45]); } catch (e) { }
         const lv = J.lvl || 0; pop(gold ? 'PERFECT JELLY!' : lv === 1 ? 'REVERSE JELLY!' : lv === 2 ? 'UNDER THE ARM!' : 'JELLY!', gold ? '#4ade80' : mine ? '#facc15' : '#fca5a5', true, 'jelly');
-        if (gold && S.green) greenFX(); if (gold) RD.confetti(70);
+        if (gold && (S.green || ball.gold)) greenFX(false, p); if (gold) RD.confetti(70);
         const v = (S.jelly && S.jelly.def) || J.def;
         if (v && p && v.team !== p.team) {   // his reaction: never the same twice
           v.poseAct = null; const r = pick(J.drama ? ['down', 'sit', 'watch', 'down'] : ['stumble', 'watch', 'down', 'stumble', 'sit']);
@@ -1537,7 +1552,7 @@ const Arcade = (() => {
       function drawP(p) {
         const K = RD.player(p, { me: p === me, mate: p.team === me.team && p !== me, fire: p.fire > 0, ring: p === me ? G.ringCol : null });
         if (p.wpn && p.wpn.t > 0) { const col = p.team === me.team ? '#facc15' : '#ef4444'; for (let k = 0; k < 2; k++) E.fx.push({ x: p.x + rnd(-6, 6), y: p.y - p.z - rnd(0, 30), vx: rnd(-10, 10), vy: -rnd(20, 50), life: .35, col: k ? col : '#ffffff', sz: 2, g: -.4 }); }
-        if (ball.owner === me && p.team === me.team && p !== me && ball.state === 'held' && openness(p) > 24 && !G.pending && !G.pm && !G.oop) {   // OPEN indicator over teammates calling for the ball
+        if (ball.owner === me && p.team === me.team && p !== me && ball.state === 'held' && contestFor(p) === 'open' && !G.pending && !G.pm && !G.oop) {   // OPEN indicator: truly open (the same test his shot uses)
           const y = Math.round(K.head[1] - 13 + Math.sin(G.real * 8) * 1.5), x = Math.round(K.head[0]);
           RD.text('OPEN', x, y - 6, '#86efac', 1, 'center', '#0a0a12'); RD.px(x - 2, y, 5, 1, '#86efac'); RD.px(x - 1, y + 1, 3, 1, '#86efac'); RD.px(x, y + 2, 1, 1, '#86efac');
           if (G.real - (p.callT || 0) > 2.4 && Math.random() < .02) { p.callT = G.real; tag(pick(['HERE!', 'I\'M OPEN!', 'BALL!']), p, '#86efac'); SFX.play('blip', { f: 240 + p.i * 40, w: 'square', g: .03 }); }
