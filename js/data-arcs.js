@@ -141,6 +141,9 @@
     { id: 'breakout', name: 'The Breakout Arc', goal: 'Become a star. Win your first playoff series.',
       nodes: 'c5_s2_start c5_season2 c5_rival c5_shoe c5_nia1 c5_nia1_after c5_nia1_mend c5_votes c5_deadline2 c5_trade_offer c5_trade_forced c5_traded c5_allstar c5_asg_check c5_asg_pre c5_asg c5_asg_post c5_asg_watch c5_knee c5_knee_told c5_nia2 c5_nia_mend c5_nia_mended c5_nia_text c5_nia_ok c5_lou_warn c5_po_pre c5_series_won c5_s2_end c5_awards2 c5_off2 c5_fa2 c5a_next c5a_hold',
       goals: [{ t: 'Make the All-Star team', done: { flag: 'allstar_sel' } }, { t: 'Launch your signature shoe', done: { flag: 'shoe_launched' } }, { t: 'Make it right with Nia', done: { flag: 'nia_mended' } }, { t: 'Win a playoff series', done: { flag: 'first_series_win' } }] },
+    { id: 'injury', name: 'The Injury Arc', goal: 'Get back on the floor. Find a new way to play.',
+      nodes: 'c5_s3_start c5_season3 c5_peak c5_knee2 c5_bigame_pre c5_injured c5_hosp_kai c5_hosp_kai2 c5_hosp_kai3 c5_lou_hosp c5_lou_visit c5_lou_call c5_rehab c5_rehab_slow c5_rehab_fast c5_awaken2 c5_s3_end c5_awards3 c5_off3 c5_fa3 c5b_next c5b_hold',
+      goals: [{ t: 'Get through rehab', done: { flag: 'rehab_done' } }, { t: 'Find a new style', done: { flag: 'new_style' } }] },
   ]);
   if (C.pro) { C.pro.cast = ['you', 'vetstar', 'pcoach', 'gm_cole', 'kai', 'nia', 'mom', 'lou', 'priya', 'brand', 'trainer']; }
 
@@ -187,7 +190,7 @@
     _c4_combine: 'The combine. Four hundred scouts and one leaderboard.', _c4_kai: 'Silk told Kai: number one, or don\'t report.', _c4_green: 'Draft night. Table nine.', _c4_dn_slide: 'The phone never rang. Pick after pick.',
     _c4_dn_call: 'Then it did.', _c4_dn_undrafted: 'Sixty names. None of them yours.', _c4_summer: 'Summer League. Kai, and every team that passed.', pc_kai_practice: 'Kai\'s first practice. Rebounds and water.',
     _c5_arrival: 'The NBL. Your name above a locker.', _c5_dnp: 'DNP: Coach\'s decision. Over and over.', _c5_vethurt: 'Then the star went down.', _c5_thirty: 'Thirty points in your first start.',
-    _c5_confront: 'Kai found you in the tunnel. Every camera got it.', _c5_shoe: 'Your name, on a shoe.', _c5_nia: 'Nia saw the billboard on Halsey Street.', _c5_series: 'Your first playoff series win.',
+    _c5_confront: 'Kai found you in the tunnel. Every camera got it.', _c5_shoe: 'Your name, on a shoe.', _c5_nia: 'Nia saw the billboard on Halsey Street.', _c5_series: 'Your first playoff series win.', _c5_knee_out: 'Then the knee went, on national TV.', _c5_kai_visit: 'Kai showed up at the hospital.', _c5_lou_visit: 'Lou sat in the chair this time.', _c5_rehab: 'Nine months of getting up.', _c5_awaken2: 'You came back smarter. Slower.',
     c3_tariq_hug: 'You made it right with Tariq.', _upset: 'You knocked off No. 1.', _derby: 'You won the derby in front of 15,000.', _nbl: 'Your first NBL win.', pc_lottery: 'A GM at the lottery said your name. Then Kai\'s.',
   };
 

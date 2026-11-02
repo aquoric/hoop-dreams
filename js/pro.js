@@ -60,11 +60,13 @@ const Pro = (() => {
     // the story's games: Kai's team, the revenge games (the first meetings with teams that passed), the scripted nights
     if (S.kaiAt != null && P.kaiTeam !== P.team) at(S.kaiAt, P.kaiTeam);
     if (S.scriptAt != null && passed.length) at(S.scriptAt, passed[0]);
+    if (S.injuryAt != null && P.kaiTeam !== P.team) at(S.injuryAt, P.kaiTeam);   // the big game on national TV: Kai's team
     const schedule = opps.map((id, i) => ({ opp: 'nbl_' + id, title: `Game ${i + 1}`, away: i % 2 === 1 }));
     const firstMeet = id => opps.indexOf(id);
     passed.slice(0, S.revenge || 0).forEach(id => { const i = firstMeet(id); if (i >= 0) Object.assign(schedule[i], { key: true, title: `Game ${i + 1} · They passed on you` }); });
     if (S.kaiAt != null && P.kaiTeam !== P.team) Object.assign(schedule[S.kaiAt], { key: true, title: `Game ${S.kaiAt + 1} · Kai Sterling`, post: S.kaiPost || null });
     Object.entries(S.keys || {}).forEach(([i, g]) => { if (schedule[i]) Object.assign(schedule[i], g, { key: true }); });
+    if (S.injuryAt != null && schedule[S.injuryAt]) Object.assign(schedule[S.injuryAt], { key: true, importance: 3, script: S.injuryScript, post: S.injuryPost, away: false, title: `Game ${S.injuryAt + 1} · National TV${P.kaiTeam !== P.team ? ' · Kai Sterling' : ''}` });
     if (S.wallUntil) schedule.forEach((g, i) => { if (g.key && i < S.wallUntil && !g.script) g.lateEntry = { at: .62, title: 'Garbage time', text: 'Coach finally points at you. Mid-third quarter, the game\'s already decided.' }; });   // behind the star: you check in late
     const confs = {}; NBL_IDS.forEach(id => confs['nbl_' + id] = T(id).conf || 'East');
     return {
@@ -91,6 +93,7 @@ const Pro = (() => {
     if (s.shoe && s.shoe.name) { const S2 = SHOE, pairs = Math.round(S2.baseSales + (s.meta.fans || 0) * S2.perFan + (Engine.ovr(s) - 70) * S2.perOvr); s.shoe.sold = (s.shoe.sold || 0) + Math.max(0, pairs); Engine.applyFx(s, { money: Math.max(0, pairs) * S2.price, fans: Math.round(Math.max(0, pairs) * S2.fansPer) }); out.shoe = pairs; }
     Engine.applyFx(s, { money: (P.contract && P.contract.salary) || 0 });
     s.meta.fatigue = 0; P.lastOff = out;
+    if (s.flags.out_for_season) { s.flags.out_for_season = false; s.meta.injury = { games: 0, name: '' }; }   // rehab is over: back for next season
     return out;
   }
 
@@ -116,6 +119,18 @@ const Pro = (() => {
     if (typeof UI !== 'undefined') UI.toast(`🥊 Revenge: <b>${esc(T(m[1]).name)}</b> passed on you. Not anymore.`, 'ach', 4000);
   }
 
+  /* ---------- out for the season: the rest of it (and the playoffs) goes on without you ---------- */
+  function finishOut(s) {
+    const se = s.season; if (!se || se.level !== 'pro' || se.phase === 'done') return;
+    const keep = Object.assign({}, se.stats), zero = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, to: 0, dnp: true };
+    se.ratings = Object.assign({}, se.ratings, { [se.user]: (LOCAL_TEAMS[se.user] ? LOCAL_TEAMS[se.user].rating : 74) - B().injury.teamDrop });   // the team without you
+    s.flags.out_for_season = true;
+    while (se.phase === 'regular' && se.week < se.def.schedule.length) { const g = se.def.schedule[se.week], r = Season.simUserGame(s, se, g.opp); Season.finishUserWeek(s, se, r.us, r.them, zero); }
+    if (se.phase === 'regular') Season.buildPlayoffs(s, se);
+    for (let i = 0; se.phase === 'playoffs' && i < 60; i++) { const m = Season.userMatch(se); if (!m) break; const r = Season.simUserGame(s, se, Season.oppOf(se, m)); Season.finishUserPlayoff(s, se, r.us, r.them, zero); }
+    se.stats = Object.assign(keep, { w: se.stats.w, l: se.stats.l });   // your line stays what you played (their record is the team's)
+  }
+
   /* ---------- Game.applyFx hook ---------- */
   function fx(s, f, changes) {
     if (f.proInit) init(s);
@@ -125,6 +140,7 @@ const Pro = (() => {
       const o = offseason(s); changes.push({ label: `Offseason · age ${o.age}`, v: o.ovr[1] - o.ovr[0], special: o.ovr[1] >= o.ovr[0] ? 'grow' : null }); }
     if (f.proTrade) { const id = move(s, tradeTarget(s, f.proTrade), f.proTrade === 'forced' ? 'forced' : 'request'); if (id) changes.push({ label: `🔁 Traded to the ${T(id).name}`, v: 1 }); }
     if (f.proWall === false) s.flags.c5_wall = false;
+    if (f.proSeasonOut) finishOut(s);
   }
 
   /* =================================================================
@@ -133,7 +149,8 @@ const Pro = (() => {
   const AW = { roy: 'Rookie of the Year', smoy: 'Sixth Man of the Year', mip: 'Most Improved Player', dpoy: 'Defensive Player of the Year', nbl1: 'All-NBL First Team', nbl2: 'All-NBL Second Team', nbl3: 'All-NBL Third Team', mvp: 'Most Valuable Player', fmvp: 'Finals MVP', champ: 'NBL Champion', allstar: 'All-Star', dunk: 'Dunk Contest Champion', three: 'Three-Point Contest Champion' };
   function decideAwards(s) {
     const P = init(s), sum = (s.career.seasons || []).slice(-1)[0] || {}, prev = P.seasons.slice(-1)[0], A = B().awards, me = [], role = Season.role(s);
-    const ppg = sum.ppg || 0, def = (sum.spg || 0) + (sum.bpg || 0), w = sum.w || 0;
+    const ppg = sum.ppg || 0, def = (sum.spg || 0) + (sum.bpg || 0), w = sum.w || 0, short = (sum.gp || 0) < A.minGp;   // too few games: no ballot (the injury year)
+    if (short) return { mine: [], league: leagueAwards(s, P, []), ppg, n: P.n, short: true };
     if (P.n === 1 && ppg >= A.roy) me.push('roy');
     if (role === 'Sixth Man' && ppg >= A.smoy) me.push('smoy');
     if (prev && ppg - prev.ppg >= A.mip) me.push('mip');
@@ -141,11 +158,14 @@ const Pro = (() => {
     if (ppg >= A.mvp[0] && w >= A.mvp[1]) me.push('mvp');
     const tm = ppg >= A.nbl[0] ? 'nbl1' : ppg >= A.nbl[1] ? 'nbl2' : ppg >= A.nbl[2] ? 'nbl3' : null; if (tm) me.push(tm);
     if (sum.result === 'champion') { me.push('champ'); if (ppg >= A.fmvp) me.push('fmvp'); }
-    // everyone else's: the league's best (Kai takes Rookie of the Year when you don't)
+    return { mine: me, league: leagueAwards(s, P, me), ppg, n: P.n };
+  }
+  /* everyone else's: the league's best (Kai takes Rookie of the Year in your rookie year when you don't; later it's that year's rookie) */
+  const ROOKIES = ['Marcus Bellweather', 'Theo Okafor-Lane', 'Jaylen Crisp', 'Dmitri Volkonsky', 'Andre Sallis'];
+  function leagueAwards(s, P, me) {
     const stars = Object.values(NBL_LEAGUE.stars).sort((a, b) => b.ovr - a.ovr), pickStar = (i, f) => (stars.filter(f || (() => true))[i] || stars[0]).name;
-    const league = { roy: me.includes('roy') ? 'YOU' : 'Kai Sterling', smoy: me.includes('smoy') ? 'YOU' : pickStar(6, x => x.ovr < 88), mip: me.includes('mip') ? 'YOU' : pickStar(3, x => x.ovr < 87),
+    return { roy: me.includes('roy') ? 'YOU' : P.n === 1 ? 'Kai Sterling' : ROOKIES[(P.n - 2) % ROOKIES.length], smoy: me.includes('smoy') ? 'YOU' : pickStar(6, x => x.ovr < 88), mip: me.includes('mip') ? 'YOU' : pickStar(3, x => x.ovr < 87),
       dpoy: me.includes('dpoy') ? 'YOU' : pickStar(0, x => x.intD >= 84), mvp: me.includes('mvp') ? 'YOU' : pickStar(Math.floor(Math.random() * 3)) };
-    return { mine: me, league, ppg, n: P.n };
   }
   async function awardsNight(G, node) {
     const s = G.state, P = init(s), key = 'aw' + P.n;
@@ -154,7 +174,7 @@ const Pro = (() => {
       for (const id of D.mine) { if (typeof CH5S !== 'undefined') { const cs = CH5S.award(s, id, AW[id]); await Story.cut(cs, G.csCtx(s.story.node), { seenId: 'award_' + id }); } } }
     UI.setBg('arena');
     UI.showScreen(`<div class="usa-board glass aw">
-      <div class="ub-head"><b>NBL AWARDS · SEASON ${P.n}</b><small>${D.mine.length ? `You won ${D.mine.length === 1 ? 'one' : D.mine.length}. They go in the trophy room.` : 'Your name wasn\'t called tonight. Next year.'}</small></div>
+      <div class="ub-head"><b>NBL AWARDS · SEASON ${P.n}</b><small>${D.mine.length ? `You won ${D.mine.length === 1 ? 'one' : D.mine.length}. They go in the trophy room.` : D.short ? 'Not enough games for a ballot this year. You watched it in a knee brace.' : 'Your name wasn\'t called tonight. Next year.'}</small></div>
       <div class="ub-list">${['roy', 'smoy', 'mip', 'dpoy', 'mvp'].map(id => `<div class="ub-row ${D.league[id] === 'YOU' ? 'me safe' : ''}"><span class="ub-rank">🏆</span><span class="ub-name">${esc(AW[id])}</span><span class="ub-mv"></span><span class="ub-sc">${esc(D.league[id] === 'YOU' ? `${s.player.first} ${s.player.last}` : D.league[id])}</span></div>`).join('')}
         ${D.mine.filter(id => !['roy', 'smoy', 'mip', 'dpoy', 'mvp'].includes(id)).map(id => `<div class="ub-row me safe"><span class="ub-rank">🏆</span><span class="ub-name">${esc(AW[id])}</span><span class="ub-mv"></span><span class="ub-sc">${esc(s.player.first + ' ' + s.player.last)}</span></div>`).join('')}</div>
       <div class="ub-foot"><span class="ub-read">${trophyRow(s, P.n)}</span><button class="btn primary" id="ubGo">Continue ›</button></div></div>`, 'usaboard');
@@ -301,5 +321,5 @@ const Pro = (() => {
     return { team: t.name, teamCity: t.cityName || t.city, teamNick: t.nick || t.name, vet: v, vetShort: v.replace(/^.*"(.+)".*$/, '$1'), role: Season.role(s), seasonN: P.n || 1, votesRank: V.rank ? '#' + V.rank : 'outside the top twelve', votesNow: (() => { try { const x = votes(s); return '#' + x.rank; } catch (e) { return '#20'; } })(), kaiNick: T(P.kaiTeam).nick || T(P.kaiTeam).name };
   }
 
-  return { afterGame, rankRows, rankOf, revenge, tokens, init, sync, seasonDef, offseason, move, tradeTarget, fx, awardsNight, decideAwards, trophyRoom, allStar, votes, freeAgency, offers, contractHtml, rankHtml, vetName, AW };
+  return { finishOut, afterGame, rankRows, rankOf, revenge, tokens, init, sync, seasonDef, offseason, move, tradeTarget, fx, awardsNight, decideAwards, trophyRoom, allStar, votes, freeAgency, offers, contractHtml, rankHtml, vetName, AW };
 })();

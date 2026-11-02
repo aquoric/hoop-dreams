@@ -42,6 +42,10 @@ Object.assign(TALK.scripts, {
   ],
 });
 
+/* ---------- the Injury Arc's awakening: the new style ---------- */
+WEAPONS.slow_burn = { name: 'Slow Burn', rarity: 'legendary', type: 'mid', charge: 3, icon: 'flame', story: true, learn: true, stats: { iq: .5, mid: .3, handle: .2 },
+  desc: 'A change of pace, a hesitation, a fadeaway they read too late. Smarter, not slower.' };
+
 /* ---------- the story's beats inside each season (game index → node; js/pro.js seasonDef) ---------- */
 const C5_SEASONS = {
   1: { interrupts: { 3: 'c5_dnp', 12: 'c5_mentor', 26: 'c5_star_hurt', 44: 'c5_deadline1', 62: 'c5_rookie_kai' },
@@ -50,6 +54,8 @@ const C5_SEASONS = {
   2: { interrupts: { 14: 'c5_shoe', 24: 'c5_nia1', 36: 'c5_votes', 44: 'c5_deadline2', 50: 'c5_allstar', 58: 'c5_knee', 68: 'c5_nia2', 76: 'c5_lou_warn' },
        keys: { 0: { title: 'Game 1 · Opening Night' } }, revenge: 2, kaiAt: 9, kaiPost: { win: 'c5_rival', lose: 'c5_rival' },
        fixedWin: 0, seriesScript: 'c5_series', playoffPre: { 0: 'c5_po_pre', 1: 'c5_series_won' } },
+  3: { interrupts: { 6: 'c5_peak', 18: 'c5_knee2', 31: 'c5_bigame_pre' }, keys: { 0: { title: 'Game 1 · Opening Night' } }, revenge: 1, kaiAt: 12,
+       injuryAt: 31, injuryScript: 'c5_knee_out', injuryPost: { win: 'c5_injured', lose: 'c5_injured' } },   // the Injury Arc: Game 32, national TV
   generic: { revenge: 1, kaiAt: 20 },   // later seasons (the second half and Chapters 6–7 add their own beats)
 };
 
@@ -59,6 +65,10 @@ STORY.tests = Object.assign(STORY.tests || {}, {
   c5_s1_badly: s => ((s.career.seasons || []).slice(-1)[0] || {}).ppg < 7,
   c5_trade_forced: s => s.meta.trust < 30,
   c5_contract_up: s => !!(s.pro && s.pro.contract && s.pro.contract.years <= 0),
+  c5_s3_well: s => { const t = s.season && s.season.stats; return !!(t && t.gp >= 3 && t.pts / t.gp >= 18); },   // season three, before the knee
+  c5_s3_badly: s => { const t = s.season && s.season.stats; return !!(t && t.gp >= 3 && t.pts / t.gp < 10); },
+  c5_s3_mid: s => !STORY.tests.c5_s3_well(s) && !STORY.tests.c5_s3_badly(s),
+  kai_away: s => !!(s.pro && s.pro.kaiTeam !== s.pro.team),
 });
 STORY.refs = Object.assign(STORY.refs || {}, { '@myteam': s => 'nbl_' + (s.pro ? s.pro.team : s.career.nblTeam || 'tnl'), '@preopp': s => 'nbl_' + ((s.pro && s.pro.kaiTeam) || 'las') });
 
@@ -214,7 +224,63 @@ STORY.chapters.pro = {
     /* the end of the first half: "Next time…" and a hold until the second half is built */
     c5a_next: { scene: 'arena', cutscene: (s, ctx) => CH5S.nextHalf(s, ctx), seenId: 'c5a_next', fx: { log: 'Two seasons in the NBL.' },
       lines: [['narrator', 'Season three. Everything is going right.'], ['narrator', 'That\'s usually when it happens.']], next: 'c5a_hold' },
-    c5a_hold: { type: 'hub', locked: true, title: 'The Offseason', intro: 'To be continued: THE INJURY ARC and THE FIRST FINALS ARC arrive in a later build. Your career is saved and will continue right here.' },
+    c5a_hold: { type: 'hub', title: 'The Offseason', intro: 'Season three is a summer away. Train, rest, and get ready.', next: 'c5_s3_start' },
+    /* ---------------- ARC 3 · THE INJURY ARC ---------------- */
+    c5_s3_start: { scene: 'arena', fx: { proSeason: true },
+      lines: [['narrator', 'Season three. Your face is on the side of the arena now.'], ['pcoach', 'You\'re the guy, {first}. Act like it every night.']], next: 'c5_season3' },
+    c5_season3: { type: 'season', season: s => Pro.seasonDef(s), then: { done: 'c5_s3_end' } },
+    c5_peak: { scene: 'arena',
+      lines: [['narrator', 'Seven games in, and the national guys are saying the letters M-V-P.', null, { test: 'c5_s3_well' }],
+        ['narrator', 'Seven games in, and your shot is gone. The knee hums every time you land.', null, { test: 'c5_s3_badly' }],
+        ['narrator', 'Seven games in. A good start. The knee hums after back-to-backs.', null, { test: 'c5_s3_mid' }],
+        ['lou', '(text) Saw the game. Bend your knees on the landing.', 'neutral']], next: '@season' },
+    c5_knee2: { scene: 'locker', cutscene: (s, ctx) => CH5S.knee(s, ctx), seenId: 'c5_knee',
+      lines: [['narrator', 'The ice bag again. You still haven\'t told anyone how bad it is.', null, { flag: 'knee_hidden' }],
+        ['trainer', 'Still the tendinitis? Ice it, and sit the back end of this back-to-back.', null, { notFlag: 'knee_hidden' }],
+        ['narrator', 'You play the back end anyway.']], next: '@season' },
+    c5_bigame_pre: { scene: 'arena',
+      lines: [['narrator', 'National TV. Kai\'s team in your building, and every seat sold.', null, { test: 'kai_away' }],
+        ['narrator', 'National TV. Every seat sold.', null, { notTest: 'kai_away' }],
+        ['lou', '(text) Fundamentals tonight. No highlight stuff.', 'neutral'],
+        ['narrator', 'You read it in the tunnel. You don\'t write back.']], next: '@season' },
+    c5_injured: { scene: 'hospital', cutscene: (s, ctx) => CH5S.injured(s, ctx), seenId: 'c5_injured',
+      fx: { proSeasonOut: true, injury: { games: 82, name: 'Torn ACL' }, flag: 'acl', morale: -15, log: 'Tore an ACL on national TV in season three. The season is over.' },
+      lines: [['narrator', 'You were having an MVP year. Now it ends on a hospital bed.', null, { test: 'c5_s3_well' }],
+        ['narrator', 'You were having your worst year. Now you won\'t get to fix it.', null, { test: 'c5_s3_badly' }],
+        ['narrator', 'Thirty-one games. That\'s all season three gets.', null, { test: 'c5_s3_mid' }],
+        ['narrator', 'Your team lost that night. Nobody remembers the score.'],
+        ['trainer', 'Surgery tomorrow. Then nine months, if we do it right.']], next: 'c5_hosp_kai' },
+    c5_hosp_kai: { scene: 'hospital', cutscene: (s, ctx) => CH5S.kaiVisit(s, ctx), seenId: 'c5_kai_visit',
+      lines: [['kai', 'Don\'t make it weird. I was in town anyway.', 'neutral'], ['narrator', 'Eleven years of this. It\'s the first time he\'s ever shown up for you.']],
+      choices: [
+        { t: '"You came."', fx: { rel: { kai: 8 }, flag: 'kai_visited', morale: 4 }, next: 'c5_hosp_kai2' },
+        { t: '"Come to see it for yourself?"', fx: { rel: { kai: -2 }, flag: 'kai_visited' }, next: 'c5_hosp_kai3' },
+      ] },
+    c5_hosp_kai2: { scene: 'hospital', lines: [['kai', 'I need you back. Beating everybody else is boring.', 'smile']], next: 'c5_lou_hosp' },
+    c5_hosp_kai3: { scene: 'hospital', lines: [['kai', 'Yeah. I did.', 'sad'], ['kai', 'Get back fast, Halsey. I want you healthy when I beat you.', 'neutral']], next: 'c5_lou_hosp' },
+    c5_lou_hosp: { type: 'branch', branches: [{ if: { flag: 'lou_snub' }, next: 'c5_lou_call' }], else: 'c5_lou_visit' },
+    c5_lou_visit: { scene: 'hospital', cutscene: (s, ctx) => CH5S.louVisit(s, ctx), seenId: 'c5_lou_visit', fx: { rel: { lou: 6 }, morale: 6 },
+      lines: [['lou', 'Same knee as mine. Same kind of play. Down the lane, showing off.', 'sad'], ['lou', 'The difference is, you get to come back.', 'determined']], next: 'c5_rehab' },
+    c5_lou_call: { scene: 'hospital', cutscene: (s, ctx) => CH5S.louCall(s, ctx), seenId: 'c5_lou_visit', fx: { rel: { lou: 3 } },
+      lines: [['narrator', 'You haven\'t talked to Lou in a long time. He still knew which hospital.']], next: 'c5_rehab' },
+    c5_rehab: { scene: 'gym', cutscene: (s, ctx) => CH5S.rehab(s, ctx), seenId: 'c5_rehab', qteFx: () => CH5S.rehabBonus(),
+      lines: [['trainer', 'Month eight. Gabe\'s plan says nine. Your agent says the playoffs.']],
+      choices: [
+        { t: 'Do it Gabe\'s way. Nine months, no shortcuts.', fx: { flag: 'rehab_patient', attrs: { iq: 1, stam: 1 }, rel: { lou: 2 } }, next: 'c5_rehab_slow' },
+        { t: 'Push it. Get back on the floor early.', fx: { flag: 'rehab_rushed', attrs: { speed: 1 }, morale: 3 }, next: 'c5_rehab_fast' },
+      ] },
+    c5_rehab_slow: { scene: 'gym', lines: [['trainer', 'Good. A knee doesn\'t care what your agent says.', 'smile']], next: 'c5_awaken2' },
+    c5_rehab_fast: { scene: 'gym', lines: [['trainer', 'You\'ll be back sooner. The knee won\'t thank you for it.', 'sad']], next: 'c5_awaken2' },
+    c5_awaken2: { scene: 'gym', cutscene: (s, ctx) => CH5S.awaken(s, ctx), seenId: 'c5_awaken2',
+      fx: { attrs: { speed: -4, vert: -5, iq: 5, mid: 3, pass: 2 }, weapon: 'slow_burn', flag: ['new_style', 'rehab_done'], morale: 10, log: 'Came back from the ACL a different player: smarter, slower.' },
+      lines: [['narrator', 'You\'re a step slower. You don\'t need the step anymore.'], ['lou', 'Now you\'re a basketball player.', 'smile']], next: '@season' },
+    c5_s3_end: { scene: 'locker', lines: [['narrator', 'Season three ends without you. You watched the last fifty games in a knee brace.']], next: 'c5_awards3' },
+    c5_awards3: { type: 'awards', next: 'c5_off3' },
+    c5_off3: { scene: 'street_sunset', fx: { proOff: true }, lines: [['narrator', 'Another summer. The brace comes off on your birthday.'], ['narrator', 'Your contract is up. Some teams are scared of the knee.', null, { test: 'c5_contract_up' }]], next: 'c5_fa3' },
+    c5_fa3: { type: 'freeagency', next: 'c5b_next' },
+    c5b_next: { scene: 'arena', cutscene: (s, ctx) => CH5S.nextFinals(s, ctx), seenId: 'c5b_next', fx: { log: 'Back from the knee.' },
+      lines: [['narrator', 'Season four. You\'re a step slower and a lot smarter.'], ['narrator', 'And for the first time, you can see all the way to June.']], next: 'c5b_hold' },
+    c5b_hold: { type: 'hub', locked: true, title: 'The Offseason', intro: 'To be continued: THE FIRST FINALS ARC arrives in a later build. Your career is saved and will continue right here.' },
   },
   moved: {},
 };

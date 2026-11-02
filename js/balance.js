@@ -274,17 +274,18 @@ const BALANCE = {
        two-way / minimum deals, free-agent offers (faBase + per Overall over 60 + per PPG + per trophy), negotiation won / lost ×.
      age: peak years [from, to] (growth before, decline after: decline[0] + decline[1] per year past the peak, attribute points).
      awards: PPG to win Rookie of the Year / Sixth Man / Most Improved (jump) · steals + blocks for DPOY · MVP [PPG, wins] ·
-       All-NBL teams [1st, 2nd, 3rd] PPG · Finals MVP PPG.
+       All-NBL teams [1st, 2nd, 3rd] PPG · Finals MVP PPG · minGp: games you need to be on a ballot at all (DNPs count; the injury year doesn't).
      votes: All-Star fan votes = base + PPG × ppg + wins × win + fans × fan; the top `spots` in your conference make it. */
   pro2: {
     /* rank: the NBL player rankings — role players sit at team rating − roleDrop[0] − roleDrop[1] per depth − up to roleDrop[2];
        Kai = kai[0] + kai[1] a season; you = your Overall + rank points / perPt (± cap) + trophy per trophy. Rank points per game use
        BALANCE.rankings.game (grade, win / loss, per 10 points), × sim for simmed games. */
     rank: { roleDrop: [4, 2, 6], kai: [76, 3], perPt: 12, cap: 14, trophy: 1.5, sim: .5 },
+    injury: { teamDrop: 4 },   // the Injury Arc: your team's rating for the rest of the season without you
     trust0: 18, chemNew: 28, simXp: .35, franchisePpg: 22,   // franchisePpg: a starter averaging this becomes the Franchise Star in the offseason
     contract: { firstTop: 10.5e6, perPick: 280000, firstYears: 2, second: 1.9e6, twoWay: 580000, minimum: 1.1e6, faBase: 6e6, faPerOvr: 9e5, faPerPpg: 6e5, faPerTrophy: 1.5e6, winK: 1.18, loseK: .92 },
     age: { peak: [26, 30], decline: [2, 1.5] },
-    awards: { roy: 13, smoy: 13, mip: 6, dpoy: 3.2, mvp: [28, 54], nbl: [26, 22, 19], fmvp: 20 },
+    awards: { roy: 13, smoy: 13, mip: 6, dpoy: 3.2, mvp: [28, 54], nbl: [26, 22, 19], fmvp: 20, minGp: 58 },
     votes: { base: 600000, ppg: 95000, win: 12000, fan: .6, spots: 12 } },
 
   /* ---------- THE DRAFT (Chapter 4, js/draft.js) ----------

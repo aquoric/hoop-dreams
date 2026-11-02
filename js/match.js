@@ -2966,7 +2966,7 @@ const Match = (() => {
       if (st.bench > 0 && !(cfg.script && !st.scripted && i >= n - (cfg.script.moments || 2))) { st.bench--; pbp(`🪑 You watch from the bench as ${escH(cfg.us.name)} play on.`, 'bad'); simSegment((1 - LATE) / (n + 1)); updBug(); st.lastType = 'bench'; await sleep(600); continue; }
       if (cfg.script && !st.scripted && !FULL && i >= n - (cfg.script.moments || 2)) {   // a scripted ending (js/data-story-ch2-scenes.js): its cinematic, then the final score
         st.scripted = true;
-        if (st.them - st.us > 5) { const g = st.them - st.us - 5; st.us += g; updBug(); pbp(`📈 <b>A ${g}-${Math.max(0, Math.round(g / 4))} run</b> pulls ${escH(cfg.us.abbr)} back within five.`, 'good hot'); await sleep(900); }   // the story's fixed high always starts within reach
+        if (!cfg.script.noRally && st.them - st.us > 5) { const g = st.them - st.us - 5; st.us += g; updBug(); pbp(`📈 <b>A ${g}-${Math.max(0, Math.round(g / 4))} run</b> pulls ${escH(cfg.us.abbr)} back within five.`, 'good hot'); await sleep(900); }   // the story's fixed high always starts within reach
         const r = await runScript({ score: [st.us, st.them], next: 0 }); if (r && r.final) { st.us = r.final[0]; st.them = r.final[1]; clk.rem = 0; updBug(); pbp(`🎬 <b>${st.us}–${st.them}.</b> ${st.us > st.them ? 'What a finish.' : 'It slips away.'}`, st.us > st.them ? 'good hot' : 'bad'); break; } }
       const diff = st.us - st.them;
       st.clutch = clk.per === L.periods && (i >= n - 2) && Math.abs(diff) <= 6; st.last = last;
