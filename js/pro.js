@@ -263,18 +263,36 @@ const Pro = (() => {
       ${(P.seasons || []).length ? `<div class="glass panel"><h4>NBL Seasons</h4>${P.seasons.map(x => `<p class="small"><b>Season ${x.n}</b> · ${esc(x.team)} · ${x.w}-${x.l} · ${x.ppg} PPG · ${esc(x.result)}</p>`).join('')}</div>` : ''}</div>`;
   }
   /* the NBL player rankings: every star, Kai, and you (Overall, production, hardware) */
+  /* the NBL player rankings: every player in the league (the stars, every role player, Kai) and you.
+     Their spot comes from their Overall; yours from your Overall plus rank points earned game by game (BALANCE.pro2.rank:
+     grades, wins, points — played games count fully, simmed ones partly), so it keeps moving like the prospect rankings did */
   function rankRows(s) {
-    const P = init(s), sum = s.season && s.season.stats.gp ? s.season.stats : null, ppg = sum ? sum.pts / sum.gp : ((s.career.seasons || []).slice(-1)[0] || {}).ppg || 0;
-    const mine = Engine.ovr(s) + ppg * .5 + P.trophies.length * 1.5, rows = Object.values(NBL_LEAGUE.stars).map(x => ({ name: x.name, team: x.team, v: x.ovr + 8 - (P.n || 1) * .2 * (x.ovr > 92 ? 1 : 0) }));
-    if (P.kaiTeam) rows.push({ name: 'Kai Sterling', team: P.kaiTeam, v: 74 + (P.n || 1) * 4 });
-    rows.push({ name: `${s.player.first} ${s.player.last}`, team: P.team, v: mine, me: true }); return rows.sort((a, b) => b.v - a.v);
+    const P = init(s), K = B().rank, rows = [];
+    Object.values(NBL_LEAGUE.stars).forEach(x => rows.push({ name: x.name, team: x.team, v: x.ovr, ovr: x.ovr }));
+    NBL_IDS.forEach(id => { const t = T(id); (t.roles || []).forEach((n, i) => { const o = Math.round(t.rating - K.roleDrop[0] - i * K.roleDrop[1] - Art.seeded(n)() * K.roleDrop[2]); rows.push({ name: n, team: id, v: o, ovr: o }); }); });
+    if (P.kaiTeam) { const o = Math.min(96, K.kai[0] + (P.n || 1) * K.kai[1]); rows.push({ name: 'Kai Sterling', team: P.kaiTeam, v: o, ovr: o }); }
+    const ovr = Engine.ovr(s); rows.push({ name: `${s.player.first} ${s.player.last}`, team: P.team, v: ovr + clamp((P.rankPts || 0) / K.perPt, -K.cap, K.cap) + P.trophies.length * K.trophy, ovr, me: true });
+    return rows.sort((a, b) => b.v - a.v || (a.me ? -1 : 1));
   }
   const rankOf = (s, name) => { const R = rankRows(s), i = name ? R.findIndex(r => r.name === name) : R.findIndex(r => r.me); return i >= 0 ? i + 1 : null; };
-  function rankHtml(s) {
-    const P = init(s), rows = rankRows(s), i = rows.findIndex(r => r.me);
-    return `<div class="glass panel"><h4>NBL PLAYER RANKINGS</h4><p class="muted small">The league's top players by Overall, production and hardware. You're <b>#${i + 1}</b>.</p>
-      <div class="pro-ranks">${rows.slice(0, Math.max(20, i + 3)).map((r, j) => `<div class="pr-row ${r.me ? 'me' : ''}"><span>#${j + 1}</span>${Art.logo(Object.assign({ id: r.team }, T(r.team)), 22)}<b>${esc(r.me ? 'YOU · ' + r.name : r.name)}</b><small>${esc(T(r.team).abbr)}</small></div>`).join('')}</div></div>`;
+  /* after every NBL game (played or simmed): rank points, the move, a toast */
+  function afterGame(s, r, o = {}) {
+    const P = s.pro; if (!P || !r || !r.box) return null; const K = B().rank, G = BALANCE.rankings.game;
+    const from = rankOf(s), d = ((G.grade[r.grade] != null ? G.grade[r.grade] : 0) + (r.win ? G.win : G.loss) + (r.box.pts || 0) / 10 * G.per10pts + (r.box.ast >= 8 ? 3 : 0)) * (o.sim ? K.sim : 1);
+    if (r.box.dnp) return null;
+    P.rankPts = clamp((P.rankPts || 0) + d, -K.cap * K.perPt, K.cap * K.perPt); P.rankPrev = from;
+    const R = rankRows(s), to = R.findIndex(x => x.me) + 1, around = (a, b) => R.slice(a, b).filter(x => !x.me).map(x => ({ p: { name: x.name }, rank: R.indexOf(x) + 1 }));
+    const res = { from, to, passed: to < from ? around(to, from) : [], dropped: to > from ? around(from - 1, to - 1) : [], label: 'NBL RANK' };
+    if (to !== from && typeof UI !== 'undefined' && (!o.sim || Math.abs(to - from) >= 3)) UI.toast(`${to < from ? '📈' : '📉'} NBL rank <b>#${from} → #${to}</b>`, to < from ? 'ach' : 'bad', 3200);
+    return res;
   }
+  function rankHtml(s) {
+    const P = init(s), rows = rankRows(s), i = rows.findIndex(r => r.me), prev = P.rankPrev, mv = prev ? prev - (i + 1) : 0;
+    setTimeout(() => { const L = document.querySelector('.nbl-ranks'), me = L && L.querySelector('.nr-row.me'); if (L && me) { L.scrollTop = me.offsetTop - L.offsetTop - L.clientHeight / 2 + me.offsetHeight / 2; if (me.getBoundingClientRect().bottom > innerHeight - 110) me.scrollIntoView({ block: 'center' }); } }, 30);   // (phones: the page scrolls too, clear of the bottom bar)   // you, in the middle: the players just above and below
+    return `<div class="glass panel nbl-rank-panel"><h4>NBL PLAYER RANKINGS</h4><p class="muted small">Every player in the league, by Overall and production. You're <b>#${i + 1}</b> of ${rows.length}${mv ? ` <b class="${mv > 0 ? 'up' : 'down'}">${mv > 0 ? '▲' + mv : '▼' + (-mv)}</b>` : ''} · it moves with every game you play.</p>
+      <div class="nbl-ranks">${rows.map((r, j) => `<div class="nr-row ${r.me ? 'me' : ''}"><span class="nr-n">#${j + 1}</span>${Art.logo(Object.assign({ id: r.team }, T(r.team)), 20)}<b>${esc(r.me ? 'YOU · ' + r.name : r.name)}</b><small>${esc(T(r.team).abbr)} · ${r.ovr}</small></div>`).join('')}</div></div>`;
+  }
+
 
   /* text tokens for the story: {team} {teamCity} {teamNick} {vet} {vetShort} {role} {seasonN} {votesRank} {coachName} */
   function tokens(s) {
@@ -283,5 +301,5 @@ const Pro = (() => {
     return { team: t.name, teamCity: t.cityName || t.city, teamNick: t.nick || t.name, vet: v, vetShort: v.replace(/^.*"(.+)".*$/, '$1'), role: Season.role(s), seasonN: P.n || 1, votesRank: V.rank ? '#' + V.rank : 'outside the top twelve', votesNow: (() => { try { const x = votes(s); return '#' + x.rank; } catch (e) { return '#20'; } })(), kaiNick: T(P.kaiTeam).nick || T(P.kaiTeam).name };
   }
 
-  return { rankRows, rankOf, revenge, tokens, init, sync, seasonDef, offseason, move, tradeTarget, fx, awardsNight, decideAwards, trophyRoom, allStar, votes, freeAgency, offers, contractHtml, rankHtml, vetName, AW };
+  return { afterGame, rankRows, rankOf, revenge, tokens, init, sync, seasonDef, offseason, move, tradeTarget, fx, awardsNight, decideAwards, trophyRoom, allStar, votes, freeAgency, offers, contractHtml, rankHtml, vetName, AW };
 })();

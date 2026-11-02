@@ -276,7 +276,12 @@ const BALANCE = {
      awards: PPG to win Rookie of the Year / Sixth Man / Most Improved (jump) · steals + blocks for DPOY · MVP [PPG, wins] ·
        All-NBL teams [1st, 2nd, 3rd] PPG · Finals MVP PPG.
      votes: All-Star fan votes = base + PPG × ppg + wins × win + fans × fan; the top `spots` in your conference make it. */
-  pro2: { trust0: 18, chemNew: 28, simXp: .35, franchisePpg: 22,   // franchisePpg: a starter averaging this becomes the Franchise Star in the offseason
+  pro2: {
+    /* rank: the NBL player rankings — role players sit at team rating − roleDrop[0] − roleDrop[1] per depth − up to roleDrop[2];
+       Kai = kai[0] + kai[1] a season; you = your Overall + rank points / perPt (± cap) + trophy per trophy. Rank points per game use
+       BALANCE.rankings.game (grade, win / loss, per 10 points), × sim for simmed games. */
+    rank: { roleDrop: [4, 2, 6], kai: [76, 3], perPt: 12, cap: 14, trophy: 1.5, sim: .5 },
+    trust0: 18, chemNew: 28, simXp: .35, franchisePpg: 22,   // franchisePpg: a starter averaging this becomes the Franchise Star in the offseason
     contract: { firstTop: 10.5e6, perPick: 280000, firstYears: 2, second: 1.9e6, twoWay: 580000, minimum: 1.1e6, faBase: 6e6, faPerOvr: 9e5, faPerPpg: 6e5, faPerTrophy: 1.5e6, winK: 1.18, loseK: .92 },
     age: { peak: [26, 30], decline: [2, 1.5] },
     awards: { roy: 13, smoy: 13, mip: 6, dpoy: 3.2, mvp: [28, 54], nbl: [26, 22, 19], fmvp: 20 },
@@ -385,7 +390,8 @@ const BALANCE = {
        tapQ: your layup and jelly release quality (a tap, no timing) · strong: % added to the strong layup you get when your
        Dunking and Vertical are too low to dunk */
     finish: { dbl: .3, hold: .3, q: .86, qEarly: .45, tapQ: .62, strong: 6 },
-    playmaker: { autoShot: 1.4,   // autoShot: after a pass to an OPEN teammate, he shoots when this read (s) runs out, unless you pass again
+    playmaker: { oopChance: .5,   // oopChance: when a leaper could catch a lob, the golden OOP lane shows up this often
+      autoShot: 1.4,   // autoShot: after a pass to an OPEN teammate, he shoots when this read (s) runs out, unless you pass again
       maxPasses: 2, slow: .16, read: [3.4, 6.5], period: [1.6, 2.6], open: [.46, .7], defK: .35,
       base: 90, k: .45, closed: 42, perfect: 25, steal: .5,
       movement: { look: 8, shot: 8, open: 14 }, duo: 12, farX: 150, bigAt: 62, shootAt: 40 },

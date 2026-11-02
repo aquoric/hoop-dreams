@@ -389,7 +389,7 @@ const Game = {
     Engine.post(s, { by, text: text.replace('{pts}', b.pts).replace('{opp}', r.cfg.them.name) });
     Features.afterMatch(s, r, node);   // mixtape clips, chemistry, the jelly story beats
     this.updateRecruit();
-    const rank = Rankings.afterGame(s, r);   // js/rankings.js
+    const rank = s.pro && typeof Pro !== 'undefined' ? Pro.afterGame(s, r) : Rankings.afterGame(s, r);   // js/rankings.js (the pros: the NBL player rankings)
     return { xp: xr.xp, levels: xr.levels, changes, rank, badges: Engine.badgeDiff(bb, s), achievements: Engine.checkAchievements(s) };
   },
   /* milestone cutscenes from the rankings (top 100 / 50 / 10, passing Kai, #1) — between the result screen and the next scene */
@@ -548,7 +548,7 @@ const Game = {
     if (s.pro && typeof Pro !== 'undefined') Pro.revenge(s, r);   // Chapter 5: a simmed win over a team that passed on you still counts
     s.career.games.push({ label: `${r.cfg.title} · ${r.cfg.sub} (sim)`, opp: r.cfg.them.name, us: r.us, them: r.them, win: r.win, pts: b.pts, reb: b.reb, ast: b.ast, grade: r.grade });
     this.recordOvr(r.cfg.sub);
-    const rank = Rankings.afterGame(s, r, { sim: true });
+    const rank = s.pro && typeof Pro !== 'undefined' ? Pro.afterGame(s, r, { sim: true }) : Rankings.afterGame(s, r, { sim: true });
     return { xp: xr.xp, levels: xr.levels, changes, rank, badges: Engine.badgeDiff(bb, s), achievements: Engine.checkAchievements(s) };
   },
   finishSeason() {

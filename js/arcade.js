@@ -650,7 +650,8 @@ const Arcade = (() => {
         // ALLEY-OOP: the best leaper who can get up there (or a duo lob partner) gets a golden lane of his own number
         const duoOf = q => q.duo && q.duo.arcade === 'alleyoop' && h === me ? q.duo : null;
         const cut = mates.filter(q => oopOpen(q, duoOf(q))).sort((a, b) => (duoOf(b) ? 99 : oopSkill(b)) - (duoOf(a) ? 99 : oopSkill(a)))[0];
-        if (cut) lanes.push({ to: cut, idx: lanes.length + 1, oop: true, duo: duoOf(cut), d: rimProt(cut.team), open: true });
+        if (cut && Math.random() < C.oopChance) lanes.push({ to: cut, idx: lanes.length + 1, oop: true, duo: duoOf(cut), d: rimProt(cut.team), open: true });   // a special chance, not every read (BALANCE.arcade.playmaker.oopChance)
+        if (window.__arcDebug && window.__arcDebug.G) { const D = window.__arcDebug; D.oopReads = (D.oopReads || 0) + 1; D.oopEligible = (D.oopEligible || 0) + (cut ? 1 : 0); D.oopShown = (D.oopShown || 0) + (lanes.some(L => L.oop) ? 1 : 0); }   // automated tests only
         const T = (G.pm && G.pm.auto && G.pm.n > 0 ? Math.min(C.autoShot, lerp(C.read[0], C.read[1], sk)) : lerp(C.read[0], C.read[1], sk)) * (CK ? CK.pm.read : 1);
         G.pm = Object.assign(G.pm || { n: 0, chain: [] }, { reading: true, holder: h, lanes, t: T, T });
         if (h.act && h.act.type !== 'catch') h.act = null; h.vx = h.vy = 0; mates.forEach(q => { q.vx = q.vy = 0; q.face = h.x >= q.x ? 1 : -1; });

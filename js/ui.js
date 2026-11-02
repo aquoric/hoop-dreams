@@ -723,7 +723,7 @@ const UI = (() => {
     const meRow = `<div class="pr-row me" style="--a:${up ? n : 0};--b:${up ? 0 : n}"><b>YOU</b>${esc(P.first + ' ' + P.last)}</div>`;
     const others = rows.map((x, i) => `<div class="pr-row" style="--a:${up ? i : i + 1};--b:${up ? i + 1 : i}"><b>#${x.r}</b>${esc(x.n)}</div>`).join('');
     const why = up && R.passed.length ? `You passed <b>${esc(R.passed[0].p.name)}</b> (#${R.passed[0].rank})${R.passed.length > 1 ? ` +${R.passed.length - 1} more` : ''}` : !up && R.dropped.length ? `<b>${esc(R.dropped[0].p.name)}</b> moved past you` : R.to === R.from ? 'Holding your spot' : '';
-    return `<div class="pg-rank glass ${up ? 'up' : R.to > R.from ? 'dn' : ''}"><span class="pr-l">PROSPECT RANK</span><b class="pr-n" data-from="${R.from}" data-to="${R.to}">#${R.from}</b>
+    return `<div class="pg-rank glass ${up ? 'up' : R.to > R.from ? 'dn' : ''}"><span class="pr-l">${esc(R.label || 'PROSPECT RANK')}</span><b class="pr-n" data-from="${R.from}" data-to="${R.to}">#${R.from}</b>
       <em class="pr-d">${R.to === R.from ? '–' : up ? '▲' + (R.from - R.to) : '▼' + (R.to - R.from)}</em>${n ? `<div class="pr-ladder" style="--n:${n + 1}">${others}${meRow}</div>` : ''}<span class="pr-why">${why}</span></div>`;
   }
   function animRank(root) {

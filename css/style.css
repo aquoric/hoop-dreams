@@ -1626,9 +1626,12 @@ body.paused *:not(#pz):not(#pz *) { animation-play-state: paused !important; }
 .trophy-room .tro-shelf { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px; background: linear-gradient(#1c1408, #0b0f1c); border-bottom: 6px solid #78350f; }
 .tro { width: 92px; text-align: center; } .tro canvas { width: 48px; height: 56px; image-rendering: pixelated; display: block; margin: 0 auto; }
 .tro b { display: block; font-family: var(--px); font-size: .42rem; color: #fde68a; line-height: 1.4; margin-top: 4px; } .tro small { font-size: .7rem; color: #94a3b8; }
-.pro-ranks { max-height: 54vh; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
-.pr-row { display: grid; grid-template-columns: 40px 26px 1fr auto; align-items: center; gap: 8px; padding: 3px 8px; background: #0b0f1c; border: 1px solid #1e293b; font-size: .85rem; }
-.pr-row span { font-family: var(--px); font-size: .5rem; color: #94a3b8; } .pr-row.me { border-color: #facc15; background: #1c1708; } .pr-row.me b { color: #fde68a; }
+/* the NBL player rankings (hub: Rankings tab) — its own class names (.pr-row belongs to the post-game rank ticker) */
+.nbl-ranks { max-height: min(52vh, calc(100dvh - 400px)); min-height: 160px; overflow: auto; display: flex; flex-direction: column; gap: 2px; padding-right: 2px; }
+.nr-row { display: grid; grid-template-columns: 44px 24px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 3px 8px; background: #0b0f1c; border: 1px solid #1e293b; font-size: .85rem; flex: 0 0 auto; }
+.nr-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .nr-row small { color: #94a3b8; white-space: nowrap; }
+.nr-n { font-family: var(--px); font-size: .5rem; color: #94a3b8; } .nr-row.me { border-color: #facc15; background: #1c1708; box-shadow: 0 0 12px rgba(250, 204, 21, .3); } .nr-row.me b { color: #fde68a; }
+.nbl-rank-panel .up { color: #4ade80; } .nbl-rank-panel .down { color: #f87171; }
 .shoe-show { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; } .shoe-show canvas { width: 192px; height: 96px; image-rendering: pixelated; background: #0b0f1c; border: 2px solid #1e293b; }
 .shoe-show small { display: block; color: #94a3b8; } .shoe-panel .sw { width: 22px; height: 22px; border: 2px solid #0b0f1c; margin: 0 2px; vertical-align: middle; cursor: pointer; } .shoe-panel .sw.on { outline: 2px solid #facc15; }
 .shoe-name { background: #0b0f1c; color: #f8fafc; border: 2px solid #334155; padding: 4px 8px; font-family: inherit; }
