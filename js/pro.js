@@ -73,7 +73,8 @@ const Pro = (() => {
       id: 'pro' + n, name: `NBL Season ${n}`, level: 'pro', user: me, teams: NBL_IDS.map(id => 'nbl_' + id), confs, mateRating: LOCAL_TEAMS[me].rating,
       autoSim: true, simXp: B().simXp, hubAP: 1, schedule, interrupts: S.interrupts || {},
       playoff: { teams: 16, name: 'NBL Playoffs', rounds: ['First Round', 'Conference Semifinals', 'Conference Finals', 'NBL Finals'], bestOf: 7, simOk: true, moments: [9, 10, 11, 12],
-        fixedWin: S.fixedWin != null ? S.fixedWin : null, forceIn: S.fixedWin != null, script: S.seriesScript || null, pre: S.playoffPre || {} },
+        fixedWin: S.fixedWin != null ? S.fixedWin : null, forceIn: S.fixedWin != null, script: S.seriesScript || null, pre: S.playoffPre || {},
+        scripts: S.seriesScripts || null, kaiScript: S.kaiScript || null, carry: S.carryKai && P.kaiTeam !== P.team ? 'nbl_' + P.kaiTeam : null, finals: S.finals || null },   // the First Finals Arc
       finalVenue: 'finals',
     };
   }
@@ -131,6 +132,14 @@ const Pro = (() => {
     se.stats = Object.assign(keep, { w: se.stats.w, l: se.stats.l });   // your line stays what you played (their record is the team's)
   }
 
+  /* ---------- the Finals montage: the series jumps to w-l (Games 2–6 simmed, each one in your game log) ---------- */
+  function finalsTo(s, w, l) {
+    const se = s.season; if (!se || se.phase !== 'playoffs') return;
+    const opp = Season.oppOf(se, Season.userMatch(se)), T2 = LOCAL_TEAMS[opp] || { name: 'them' }; s.pro.finalsOpp = opp;
+    Season.shapeSeries(s, se, w, l).forEach(r => { const b = r.box; s.counters.games++; r.win ? s.counters.wins++ : s.counters.losses++; s.counters.points += b.pts;
+      s.career.games.push({ label: `${se.name} · NBL Finals · Game ${r.game}`, opp: T2.name, us: r.us, them: r.them, win: r.win, pts: b.pts, reb: b.reb, ast: b.ast, grade: r.grade }); });
+  }
+
   /* ---------- Game.applyFx hook ---------- */
   function fx(s, f, changes) {
     if (f.proInit) init(s);
@@ -141,6 +150,7 @@ const Pro = (() => {
     if (f.proTrade) { const id = move(s, tradeTarget(s, f.proTrade), f.proTrade === 'forced' ? 'forced' : 'request'); if (id) changes.push({ label: `🔁 Traded to the ${T(id).name}`, v: 1 }); }
     if (f.proWall === false) s.flags.c5_wall = false;
     if (f.proSeasonOut) finishOut(s);
+    if (f.proFinals) finalsTo(s, f.proFinals[0], f.proFinals[1]);
   }
 
   /* =================================================================
@@ -318,8 +328,9 @@ const Pro = (() => {
   function tokens(s) {
     const P = s.pro; if (!P) return {};
     const t = T(P.team), v = vetName(s), V = P.allstar[P.n] || {};
-    return { team: t.name, teamCity: t.cityName || t.city, teamNick: t.nick || t.name, vet: v, vetShort: v.replace(/^.*"(.+)".*$/, '$1'), role: Season.role(s), seasonN: P.n || 1, votesRank: V.rank ? '#' + V.rank : 'outside the top twelve', votesNow: (() => { try { const x = votes(s); return '#' + x.rank; } catch (e) { return '#20'; } })(), kaiNick: T(P.kaiTeam).nick || T(P.kaiTeam).name };
+    const sd = s.season && s.season.standings && s.season.standings[s.season.user];
+    return { record: sd ? `${sd.w}-${sd.l}` : '0-0', team: t.name, teamCity: t.cityName || t.city, teamNick: t.nick || t.name, vet: v, vetShort: v.replace(/^.*"(.+)".*$/, '$1'), role: Season.role(s), seasonN: P.n || 1, votesRank: V.rank ? '#' + V.rank : 'outside the top twelve', votesNow: (() => { try { const x = votes(s); return '#' + x.rank; } catch (e) { return '#20'; } })(), kaiNick: T(P.kaiTeam).nick || T(P.kaiTeam).name };
   }
 
-  return { finishOut, afterGame, rankRows, rankOf, revenge, tokens, init, sync, seasonDef, offseason, move, tradeTarget, fx, awardsNight, decideAwards, trophyRoom, allStar, votes, freeAgency, offers, contractHtml, rankHtml, vetName, AW };
+  return { finishOut, finalsTo, afterGame, rankRows, rankOf, revenge, tokens, init, sync, seasonDef, offseason, move, tradeTarget, fx, awardsNight, decideAwards, trophyRoom, allStar, votes, freeAgency, offers, contractHtml, rankHtml, vetName, AW };
 })();

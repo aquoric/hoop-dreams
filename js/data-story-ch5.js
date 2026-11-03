@@ -57,6 +57,9 @@ const C5_SEASONS = {
        fixedWin: 0, seriesScript: 'c5_series', playoffPre: { 0: 'c5_po_pre', 1: 'c5_series_won' } },
   3: { interrupts: { 6: 'c5_peak', 18: 'c5_knee2', 31: 'c5_bigame_pre' }, keys: { 0: { title: 'Game 1 · Opening Night' } }, revenge: 1, kaiAt: 12,
        injuryAt: 31, injuryScript: 'c5_knee_out', injuryPost: { win: 'c5_injured', lose: 'c5_injured' } },   // the Injury Arc: Game 32, national TV
+  4: { interrupts: { 3: 'c5_s4_back', 30: 'c5_s4_contender', 64: 'c5_s4_lou' }, keys: { 0: { title: 'Game 1 · Opening Night' } }, revenge: 1, kaiAt: 22,   // the First Finals Arc
+       fixedWin: [0, 1, 2], seriesScripts: { 0: 'c5_po_close', 1: 'c5_po_close', 2: 'c5_cf_close' }, kaiScript: 'c5_kai_close', carryKai: true,
+       playoffPre: { 0: 'c5_s4_r1', 1: 'c5_s4_r2', 2: 'c5_s4_r3', 3: 'c5_s4_fin' }, finals: { round: 3, mid: { after: 1, node: 'c5_finals_mid' }, g7Script: 'c5_g7' } },
   generic: { revenge: 1, kaiAt: 20 },   // later seasons (the second half and Chapters 6–7 add their own beats)
 };
 
@@ -70,6 +73,12 @@ STORY.tests = Object.assign(STORY.tests || {}, {
   c5_s3_badly: s => { const t = s.season && s.season.stats; return !!(t && t.gp >= 3 && t.pts / t.gp < 10); },
   c5_s3_mid: s => !STORY.tests.c5_s3_well(s) && !STORY.tests.c5_s3_badly(s),
   kai_away: s => !!(s.pro && s.pro.kaiTeam !== s.pro.team),
+  c5_s4_well: s => { const t = s.season && s.season.stats; return !!(t && t.gp >= 3 && t.pts / t.gp >= 20); },   // season four: the new style
+  c5_s4_badly: s => { const t = s.season && s.season.stats; return !!(t && t.gp >= 3 && t.pts / t.gp < 12); },
+  c5_s4_mid: s => !STORY.tests.c5_s4_well(s) && !STORY.tests.c5_s4_badly(s),
+  kai_next: s => { const se = s.season, m = se && se.playoffs && Season.userMatch(se); return !!(m && s.pro && Season.oppOf(se, m) === 'nbl_' + s.pro.kaiTeam); },   // your next series is against Kai's team
+  kai_same_conf: s => !!(s.pro && NBL_TEAMS[s.pro.kaiTeam] && NBL_TEAMS[s.pro.team] && NBL_TEAMS[s.pro.kaiTeam].conf === NBL_TEAMS[s.pro.team].conf),
+  finals_vs_kai: s => !!s.flags.finals_vs_kai,
 });
 STORY.refs = Object.assign(STORY.refs || {}, { '@myteam': s => 'nbl_' + (s.pro ? s.pro.team : s.career.nblTeam || 'tnl'), '@preopp': s => 'nbl_' + ((s.pro && s.pro.kaiTeam) || 'las') });
 
@@ -281,7 +290,57 @@ STORY.chapters.pro = {
     c5_fa3: { type: 'freeagency', next: 'c5b_next' },
     c5b_next: { scene: 'arena', cutscene: (s, ctx) => CH5S.nextFinals(s, ctx), seenId: 'c5b_next', fx: { log: 'Back from the knee.' },
       lines: [['narrator', 'Season four. You\'re a step slower and a lot smarter.'], ['narrator', 'And for the first time, you can see all the way to June.']], next: 'c5b_hold' },
-    c5b_hold: { type: 'hub', locked: true, title: 'The Offseason', intro: 'To be continued: THE FIRST FINALS ARC arrives in a later build. Your career is saved and will continue right here.' },
+    c5b_hold: { type: 'hub', title: 'The Offseason', intro: 'Season four is a summer away. The knee is fine. Train, and get ready.', next: 'c5_s4_start' },
+    /* ---------------- ARC 4 · THE FIRST FINALS ARC ---------------- */
+    c5_s4_start: { scene: 'arena', fx: { proSeason: true },
+      lines: [['narrator', 'Season four. A step slower, a lot smarter, and the {team} are picked to win the conference.'], ['pcoach', 'Everybody\'s healthy. No more excuses for anybody in this building.']], next: 'c5_season4' },
+    c5_season4: { type: 'season', season: s => Pro.seasonDef(s), then: { done: 'c5_s4_end' } },
+    c5_s4_back: { scene: 'arena',
+      lines: [['narrator', 'Four games in, and the slow style works. You\'re averaging twenty without one dunk.', null, { test: 'c5_s4_well' }],
+        ['narrator', 'Four games in, and the slow style isn\'t clicking yet. Defenders sit on your hesitation.', null, { test: 'c5_s4_badly' }],
+        ['narrator', 'Four games in. The new game is quieter. It still works.', null, { test: 'c5_s4_mid' }],
+        ['trainer', 'The knee looks good. Keep doing the boring stuff.']], next: '@season' },
+    c5_s4_contender: { scene: 'locker',
+      lines: [['narrator', 'The {team} are {record} at the break. The national guys finally say the word "contender."'], ['pcoach', 'I\'ve been to the Finals three times as an assistant. Nobody gets there by accident.']], next: '@season' },
+    c5_s4_lou: { scene: 'street_night',
+      lines: [['lou', '(on the phone) You\'re playing the right way now. I can see it on a TV in a barbershop.'], ['lou', 'Win it for you, kid. Not for me.']], next: '@season' },
+    /* the playoffs: three fixed series wins; Kai's team is carried through the bracket until it meets you */
+    c5_s4_r1: { type: 'branch', branches: [{ if: { test: 'kai_next' }, next: 'c5_kai_series' }], else: 'c5_s4_r1b' },
+    c5_s4_r1b: { scene: 'arena', lines: [['narrator', 'The playoffs again. Sixteen wins to a ring. You\'ve done four before.'], ['pcoach', 'First round is about nerves. Ours are better than theirs.']], next: '@season' },
+    c5_s4_r2: { type: 'branch', branches: [{ if: { test: 'kai_next' }, next: 'c5_kai_series' }], else: 'c5_s4_r2b' },
+    c5_s4_r2b: { scene: 'locker', lines: [['narrator', 'Round two. Further than you\'ve ever been.'], ['narrator', 'Kai\'s team is still alive on the other side of the bracket.', null, { test: 'kai_same_conf' }]], next: '@season' },
+    c5_s4_r3: { type: 'branch', branches: [{ if: { test: 'kai_next' }, next: 'c5_kai_series' }], else: 'c5_s4_r3b' },
+    c5_s4_r3b: { scene: 'locker', lines: [['narrator', 'The Conference Finals. Win four more and you play for a ring.'], ['narrator', 'Kai\'s team is waiting in the Finals if you get there.', null, { notTest: 'kai_same_conf' }]], next: '@season' },
+    c5_kai_series: { scene: 'arena', cutscene: (s, ctx) => CH5S.kaiSeries(s, ctx), seenId: 'c5_kai_series',
+      fx: { flag: 'kai_series', mark: { id: 'kai', star: 'Kai Sterling', title: 'THE SERIES', sub: 'Best of seven · Kai Sterling' } },
+      lines: [['kai', '(at the podium) Halsey wants a series? He gets seven games of me.', 'smile'], ['narrator', 'Every highlight show runs your two faces side by side.']], next: '@season' },
+    c5_s4_fin: { scene: 'arena', cutscene: (s, ctx) => CH5S.finals(s, ctx), seenId: 'c5_finals', fx: { flag: 'c5_finals' },
+      lines: [['narrator', 'The NBL Finals. Kai\'s team, from the other conference. Of course it\'s Kai.', null, { test: 'kai_next' }],
+        ['narrator', 'The NBL Finals. You went through Kai to get here.', null, { flag: 'beat_kai_series' }],
+        ['mom', '(on the phone) I bought a dress. Don\'t tell Nia it was expensive.', 'smile']], next: 'c5_s4_fin2' },
+    c5_s4_fin2: { type: 'branch', branches: [{ if: { test: 'kai_next' }, next: 'c5_finals_kai' }], else: '@season' },
+    c5_finals_kai: { scene: 'arena', fx: { flag: 'finals_vs_kai', mark: { id: 'kai', star: 'Kai Sterling', title: 'THE FINALS', sub: 'Best of seven · Kai Sterling' } },
+      lines: [['kai', 'Halsey Park to the Finals. Nobody would believe this script.', 'determined']], next: '@season' },
+    c5_finals_mid: { scene: 'arena', fx: { proFinals: [3, 3] }, cutscene: (s, ctx) => CH5S.finalsMid(s, ctx), seenId: 'c5_finals_mid',
+      lines: [['narrator', 'Six games. Three each. Nobody in either city has slept.'], ['pcoach', 'Game 7. The two best words in sports. Go to sleep.']], next: '@season' },
+    /* the low: the confetti falls for someone else */
+    c5_s4_end: { scene: 'locker', cutscene: (s, ctx) => CH5S.theLow(s, ctx), seenId: 'c5_the_low', fx: { flag: 'first_finals', morale: -12, rep: 8, log: 'Lost Game 7 of the NBL Finals in season four.' },
+      lines: [['narrator', 'Forty-one in a Game 7 loss. Nobody will ever remember the forty-one.', null, { flag: 'g7_41' }],
+        ['narrator', 'You went cold in the biggest game of your life. You\'ll see every miss for a year.', null, { notFlag: 'g7_41' }],
+        ['narrator', 'Kai holds the trophy over his head. He looks for you in the crowd and doesn\'t find you.', null, { flag: 'finals_vs_kai' }],
+        ['narrator', 'An hour later you\'re still in your jersey. The arena crew is sweeping up confetti that isn\'t yours.'],
+        ['pcoach', 'Take the jersey off when you\'re ready. Not before.', 'sad']], next: 'c5_awards4' },
+    c5_awards4: { type: 'awards', next: 'c5_end' },
+    c5_end: { type: 'chapterEnd', nextChapter: null, nextTitle: 'Chapter 6 — Far From Home',
+      teaser: 'Next time: Far From Home. A contract year, an old knee that scares teams, and a choice between a EuroLeeg giant and a small team that needs a leader. (Coming in a later build — your save carries over.)',
+      summary: 'Four seasons in the NBL. You leave Chapter 5 at {ovr} Overall.',
+      recap: [
+        { if: { flag: 'starter' }, t: '🏀 From DNPs to a starter in your rookie season' },
+        { if: { flag: 'first_series_win' }, t: '🏆 Your first playoff series win' },
+        { if: { flag: 'rehab_done' }, t: '🩹 Came back from a torn ACL: smarter, slower' },
+        { if: { flag: 'beat_kai_series' }, t: '⚔️ Beat Kai\'s team in a playoff series' },
+        { if: { flag: 'first_finals' }, t: '🥈 The NBL Finals: a Game 7 loss' },
+      ] },
   },
   moved: {},
 };

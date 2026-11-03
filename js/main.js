@@ -443,6 +443,8 @@ const Game = {
       const m = Season.userMatch(se); se.nextOpp = Season.oppOf(se, m);
       const pre = def.playoff.pre && def.playoff.pre[se.playoffs.round];
       if (pre && !se.shown['pp' + se.playoffs.round]) { se.shown['pp' + se.playoffs.round] = 1; return this.goto(home, pre); }
+      const FN = def.playoff.finals, SR = Season.series(se);   // a story beat in the middle of the Finals (after Game 1: the montage to Game 7)
+      if (FN && FN.mid && FN.round === se.playoffs.round && SR && SR.w + SR.l >= FN.mid.after && !se.shown.fmid) { se.shown.fmid = 1; return this.goto(home, FN.mid.node); }
       return this.seasonHub();
     }
     return this.finishSeason();
@@ -452,9 +454,12 @@ const Game = {
     if (se.phase === 'playoffs') {
       const P = se.playoffs, final = P.rounds[P.round].length === 1, PO = def.playoff, SR = Season.series(se);
       if (SR) {   // the pros: a best-of-7 — the story's fixed round always plays its clincher (or its Game 7) as a scripted key game
-        const fixed = PO.fixedWin === P.round && (SR.w === SR.need - 1 || SR.l === SR.need - 1);
-        return { opp: se.nextOpp, key: !PO.simOk || fixed, playoff: true, title: PO.name, sub: `${Season.roundName(se)} · Game ${SR.game} (${SR.w}-${SR.l})`, importance: final || fixed ? 3 : 2,
-          moments: (PO.moments || [])[P.round], script: fixed ? PO.script : null, away: [3, 4, 6].includes(SR.game) };
+        const fixed = PO.fixedWin != null && [].concat(PO.fixedWin).includes(P.round) && (SR.w === SR.need - 1 || SR.l === SR.need - 1);
+        const FN = PO.finals && PO.finals.round === P.round ? PO.finals : null, g7 = FN && SR.game === 7;   // the story's Finals: Game 1 and Game 7 are played; Game 7 is scripted
+        const script = g7 ? FN.g7Script : fixed ? (PO.kaiScript && se.nextOpp === PO.carry ? PO.kaiScript : (PO.scripts && PO.scripts[P.round]) || PO.script) : null;
+        const kaiG1 = !!PO.carry && se.nextOpp === PO.carry && SR.game === 1;   // the marked series opens with a game you play (the poster)
+        return { opp: se.nextOpp, key: !PO.simOk || fixed || !!FN || kaiG1, playoff: true, title: PO.name, sub: `${Season.roundName(se)} · Game ${SR.game} (${SR.w}-${SR.l})`, importance: final || fixed ? 3 : 2,
+          moments: (PO.moments || [])[P.round], script, away: [3, 4, 6].includes(SR.game) };
       }
       return { opp: se.nextOpp, key: true, playoff: true, title: def.playoff.name, sub: Season.roundName(se), importance: final ? 3 : 2, moments: (def.playoff.moments || [])[P.round] };
     }
@@ -494,7 +499,7 @@ const Game = {
     UI.simStretch(out, se, () => this.state === s && this.afterRanks(() => this.seasonStep()));   // (ignore a highlights screen left over from another save)
   },
   async playSeasonGame(sim) {
-    const s = this.state, se = s.season; if (!se) return this.runNode();   // a stale click after the season ended: back to the story
+    const s = this.state, se = s.season; if (!se || se.phase === 'done' || (se.phase === 'regular' && se.week >= se.def.schedule.length)) return this.runNode();   // a stale click after the season (or its regular season) ended: back to the story
     const g = this.seasonGame();
     Engine.applyFx(s, { fatigue: -8 }); s.hub = null;
     let r, summary;
@@ -563,6 +568,7 @@ const Game = {
     const then = homeNode.then || {};
     const next = then[se.result] || then.done;
     const done = se; s.season = null; s.hub = null;
+    s.story = { chapter: done.home.chapter, node: next, fxApplied: null };   // the story moves on now: a second tap (or a reload) can't start the season over
     this.updateRecruit(); this.checkAch(); this.save();
     UI.seasonScreen(done, 'final', () => this.goto(done.home.chapter, next), summary);
   },

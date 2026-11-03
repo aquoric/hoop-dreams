@@ -207,6 +207,85 @@ const CH5S = (() => {
       { d: 2000, scene: 'void', title: { text: 'The First Finals Arc', sub: 'Next time on Hoop Dreams', style: 'next2', at: 80 }, ev: [[80, 'sfx', 'sting']] },
     ] });
   }
+  /* ---------- ARC 4 · THE FIRST FINALS ARC ---------- */
+  const oppT = s => T((s.pro && s.pro.finalsOpp || '').replace(/^nbl_/, '') || (s.pro && s.pro.kaiTeam));
+  function kaiSeries(s, ctx) {
+    ctx.looks = Object.assign(ctx.looks || {}, kaiLook(s));
+    return def('_c5_kai_series', { name: 'The Series', chapter: 'Chapter 5', shots: [
+      { d: 2600, scene: 'arena', grade: 'red', music: 'clutch', tr: 'fade', cam: [[0, -20, 0, 1.1], [1, 10, -4, 1.2]], title: { text: 'BEST OF SEVEN', sub: `${myT(s).name} vs ${T(s.pro.kaiTeam).name}`, style: 'loc', at: 300 }, ev: [[0, 'sfx', 'crowd', .9], [200, 'cheer']] },
+      { d: 2600, scene: 'vs', cam: [[0, 0, 0, 1.25], [1, 0, 0, 1, 'snap']], speed: 'radial', cast: [{ id: 'kai', kind: 'bust', x: .55, expr: 'fierce', from: { dx: 160, t: 300, ease: 'back' }, rim: '#fca5a5' }, { id: 'you', kind: 'bust', x: -.55, expr: 'determined', from: { dx: -160, t: 300, ease: 'back' }, rim: '#93c5fd' }],
+        title: { text: 'THE SERIES', sub: 'Halsey Park, seven games long', style: 'slam', at: 320 }, ev: [[320, 'impact', 150], [320, 'sfx', 'impact'], [320, 'shake', 10]] },
+      { d: 2400, scene: 'void', grade: 'red', bars: 50, cam: [[0, 0, 8, 1.32], [1, 0, 12, 1.46]], cast: [{ id: 'kai', kind: 'face', x: 0, expr: 'smile', rim: '#fca5a5' }], say: ['kai', 'You came back from the knee for this? Good. Me too.'], ev: [[500, 'glint', 'kai']] },
+    ] });
+  }
+  function finals(s, ctx) {
+    return def('_c5_finals', { name: 'The Finals', chapter: 'Chapter 5', shots: [
+      { d: 2800, scene: 'arena', grade: 'gold', music: 'build', tr: 'fade', cam: [[0, -30, -10, 1.05], [1, 20, -14, 1.16, 'lin']], title: { text: 'THE NBL FINALS', sub: `${myT(s).name} · season ${s.pro ? s.pro.n : 4}`, style: 'loc', at: 300 }, ev: [[0, 'sfx', 'crowd', 1.2], [200, 'cheer']] },
+      { d: 2800, scene: 'title', music: 'clutch', cam: [[0, 0, 0, 1.3], [1, 0, 0, 1.05, 'snap']], speed: 'radial', cast: [{ id: 'tr', kind: 'trophy', x: 0, y: 96, s: 3.4, d: 1 }], title: { text: 'FOUR MORE', sub: 'Twelve wins down, four to go', style: 'slam', at: 300 }, ev: [[300, 'impact', 150], [300, 'sfx', 'stinger'], [300, 'flash', '#fde68a', .4]] },
+      { d: 2400, scene: 'void', grade: 'gold', cam: [[0, 0, 6, 1.3], [1, 0, 10, 1.42]], cast: [{ id: 'you', kind: 'face', x: 0, expr: 'determined', rim: '#fde68a' }], say: ['narrator', 'The trophy sits on a table by the tunnel. You don\'t look at it.'] },
+    ] });
+  }
+  /* Games 2–6 (Pro.finalsTo already played them): every score, then GAME 7 */
+  function finalsMid(s, ctx) {
+    const G = (s.career.games || []).filter(g => /NBL Finals · Game [2-6]$/.test(g.label)).slice(-5), at = (g, i) => `G${i + 2} ${g.win ? 'W' : 'L'}`;   // short enough for a third of a phone screen
+    const P = (g, i, r) => ({ r, at: i * 650, from: ['left', 'right', 'bottom', 'top', 'left'][i], tone: !g.win, shot: { scene: 'arena', grade: g.win ? 'gold' : 'blue', cast: [{ id: 'you', kind: 'bust', x: 0, y: 128, expr: g.win ? 'fierce' : 'sad', rim: g.win ? '#fde68a' : '#93c5fd' }] }, sfx: [at(g, i), .5, .7, g.win ? '#fde68a' : '#93c5fd', 3] });
+    const R = [[0, 0, .34, .5], [.34, 0, .33, .5], [.67, 0, .33, .5], [0, .5, .5, .5], [.5, .5, .5, .5]];
+    return def('_c5_finals_mid', { name: 'Games 2 to 6', chapter: 'Chapter 5', shots: [
+      { d: 4200, music: 'clutch', manga: { panels: G.map((g, i) => P(g, i, R[i])) } },
+      { d: 2600, scene: 'title', cam: [[0, 0, 0, 1.3], [1, 0, 0, 1.04, 'snap']], speed: 'radial', title: { text: 'GAME 7', sub: 'Three wins each', style: 'slam', at: 300 }, ev: [[300, 'impact', 170], [300, 'sfx', 'impact'], [300, 'shake', 10]] },
+    ] });
+  }
+  /* the low: the confetti falls for someone else, and an hour in the locker room */
+  function theLow(s, ctx) {
+    const o = oppT(s), kai = !!s.flags.finals_vs_kai; if (kai) ctx.looks = Object.assign(ctx.looks || {}, kaiLook(s));
+    ctx.them = { colors: o.colors }; ctx.team = { colors: myT(s).colors };
+    return def('_c5_the_low', { name: 'Someone Else\'s Confetti', chapter: 'Chapter 5', shots: [
+      { d: 3600, court: 'finals', music: null, drain: .5, cam: [[0, 0, 20, 1.5], [1, 0, 10, 1.7, 'io']], cast: [SP('you', 150, 150), SP('c1', 210, 120, 1), SP('c2', 240, 140, 1), SP('c3', 190, 100, 1)],
+        say: ['narrator', `The confetti falls in ${o.name} colors.`], ev: [[0, 'confetti', 200], [0, 'cheer'], [200, 'sfx', 'roar']],
+        play(S2, tm) { const p = S2.sp.you; p.face = 1; p.act = null; ['c1', 'c2', 'c3'].forEach((k, i) => CSK.cel(S2.sp[k], 'joy', tm + i * .3)); S2.ball.holder = null; S2.ball.z = 0; S2.ball.x = 300; S2.ball.y = 190; } },
+      kai ? { d: 2600, scene: 'arena', grade: 'gold', drain: .3, cam: [[0, 0, 4, 1.2], [1, 0, 8, 1.3]], cast: [{ id: 'kai', kind: 'actor', x: .1, y: 74, s: 2.9, acts: [[0, 'joy', 99]] }, { id: 'tr', kind: 'trophy', x: .3, y: 60, s: 2.4, d: 1 }],
+        say: ['narrator', 'Kai Sterling, NBL champion. His dad is crying in row two.'] }
+        : { d: 2600, scene: 'arena', grade: 'gold', drain: .4, cam: [[0, 0, 4, 1.2], [1, 0, 8, 1.3]], cast: [{ id: 'tr', kind: 'trophy', x: 0, y: 96, s: 3.2, d: 1 }], say: ['narrator', 'Somebody else lifts it. You hear the cheer through the tunnel wall.'] },
+      { d: 3400, scene: 'locker', grade: 'dark', music: 'sad', tr: 'fade', cam: [[0, 0, 10, 1.2], [1, 0, 14, 1.32, 'lin']], cast: [{ id: 'bench', kind: 'bench', x: 0, y: 74, s: 3, w: 40, d: 1 }, { id: 'you', kind: 'actor', x: 0, y: 74, s: 3, acts: [[0, 'bench', 99, { down: true }]] }],
+        title: { text: 'ONE HOUR LATER', style: 'line', at: 400 } },
+      { d: 2600, scene: 'locker', grade: 'dark', cam: [[0, 0, 8, 1.3], [1, 0, 12, 1.42]], cast: [{ id: 'you', kind: 'face', x: 0, expr: 'sad', rim: '#93c5fd' }], ev: [[0, 'sfx', 'heartbeat']] },
+    ] });
+  }
+  /* post-credits: Lou, older now, on Halsey Street — then "Next time…" (Chapter 6) */
+  function postCredits(s) {
+    const old = Object.assign({}, STORY.characters.lou.look, { hairColor: '#e5e7eb' });
+    return def('pc_lou_halsey', { name: 'One More', chapter: 'Chapter 5 · after the credits', shots: [
+      { d: 2200, scene: 'void', music: null, tr: 'fade', title: { text: 'Halsey Street Courts · August', style: 'line', at: 300 } },
+      { d: 3400, scene: 'street_sunset', grade: 'sunset', music: 'lou', cam: [[0, -30, 0, 1.1], [1, 0, 4, 1.2, 'lin']], cast: [{ id: 'bench', kind: 'bench', x: .32, y: 74, s: 2.7, w: 34, d: 1 }, { id: 'lou', kind: 'actor', x: .3, y: 74, s: 2.7, face: -1, look: old, acts: [[0, 'bench', 99]] }, { id: 'you', kind: 'actor', x: -.9, y: 74, s: 2.8, ball: true, path: [[0, -.9], [2200, -.3]] }],
+        say: ['narrator', 'Same cracked court. Same bench. Lou\'s beard went white while you were away.'] },
+      { d: 3200, scene: 'street_sunset', grade: 'sunset', cam: [[0, 18, -2, 1.24], [1, 22, 2, 1.34]], cast: [{ id: 'lou', kind: 'bust', x: .3, expr: 'smile', rim: '#fde68a', look: old }, { id: 'you', kind: 'bust', x: -.7, y: 130, sil: true, rim: '#fdba74', d: 1.2 }],
+        say: ['lou', 'One more, kid. Go get it.'] },
+      { d: 1100, scene: 'void', music: null, title: { text: 'NEXT TIME…', style: 'next', at: 0 }, ev: [[0, 'sfx', 'whoosh']] },
+      { d: 2600, scene: 'airport', grade: 'night', tr: 'flash', speed: 'h', cam: [[0, -14, 0, 1.15], [1, 12, -4, 1.32, 'io']], cast: [{ id: 'you', kind: 'bust', x: .1, sil: true, rim: '#93c5fd' }], say: ['narrator', 'A contract year. A knee that scares teams. A plane ticket, maybe.'] },
+      { d: 2000, scene: 'void', title: { text: 'Chapter 6: Far From Home', sub: 'Next time on Hoop Dreams', style: 'next2', at: 80 }, ev: [[80, 'sfx', 'sting']] },
+    ] });
+  }
+  /* JAM_SCRIPTS.c5_g7: Game 7 of the Finals, a fixed loss. Played well (22+ before the end): forty-one in a Game 7 loss. Played badly: the misses */
+  function g7Shots(o) {
+    const [u, t] = o.score, b = o.box || {}, well = (b.pts || 0) >= 22, hi = Math.max(u, t), fin = well ? [hi + 2, hi + 3] : [hi, hi + 3]; o.fin = fin;   // tied; your bucket (or your miss), then their three
+    o.addBox = well ? { pts: Math.max(0, 41 - (b.pts || 0)), fgm: Math.ceil(Math.max(0, 41 - (b.pts || 0)) / 2.4), fga: Math.ceil(Math.max(0, 41 - (b.pts || 0)) / 2) } : { pts: 2, fgm: 1, fga: 5 };
+    const S0 = typeof Game !== 'undefined' && Game.state; if (S0) { S0.flags.g7_41 = well; if (S0.flags.finals_vs_kai && o.ctx) o.ctx.looks = Object.assign(o.ctx.looks || {}, kaiLook(S0)); }
+    const tie = `${hi}-${hi}`;
+    return [
+      { d: 3000, court: '@venue', score: true, music: 'clutch', tr: 'fade', cam: [[0, 16, 34, 2.0], [1, 10, 10, 2.2]], cast: [SP('st', 200, 150, 1), SP('you', 230, 120)], say: ['narrator', well ? 'Game 7, under a minute. You have thirty-nine. They can\'t guard you and they know it.' : 'Game 7, under a minute. You\'ve missed eight straight. The ball still finds you.'],
+        ev: [[300, 'bug', tie], [300, 'sfx', 'roar']], play(S2, tm) { const p = S2.sp.you; p.face = -1; p.stance = true; CSK.jumper(S2, S2.sp.st, tm, .3, { made: true, flight: 1.1 }); } },
+      { d: 3600, court: '@venue', score: true, scoreText: tie, clockText: '0:21', cam: [[0, 8, 24, 2.3], [1, 4, -8, 2.4, 'io']], slow: [[400, 3000, .4]], speed: 'radial', focus: [.5, .35], cast: [SP('you', 196, 128), SP('st', 206, 116, 1)],
+        title: well ? { text: '41', sub: 'Forty-one in Game 7', style: 'slam', at: 2300 } : null, ev: well ? [[0, 'riser', 3], [2300, 'bug', `${hi + 2}-${hi}`], [2400, 'cheer'], [2400, 'impact', 160]] : [[0, 'riser', 3], [2300, 'sfx', 'rim'], [2400, 'sfx', 'gasp']],
+        play(S2, tm) { const d = S2.sp.st; d.face = 1; d.act = { type: 'block', t: .1 }; d.z = Math.max(0, Math.sin(Math.min(1, Math.max(0, (tm - .35) / .6)) * Math.PI) * 10); CSK.jumper(S2, S2.sp.you, tm, .2, { made: well, flight: 1.25, jump: 15 }); } },
+      { d: 3800, court: '@venue', score: true, scoreText: well ? `${hi + 2}-${hi}` : tie, clockText: '0:04', music: null, cam: [[0, -6, 20, 2.2], [1, 0, -6, 2.5, 'io']], slow: [[600, 3400, .35]], speed: 'radial', focus: [.5, .35], cast: [SP('st', 230, 132, 1), SP('you', 214, 120)],
+        ev: [[0, 'riser', 3], [2500, 'bug', `${fin[0]}-${fin[1]}`], [2500, 'sfx', 'buzzer'], [2600, 'sfx', 'roar'], [2600, 'drain', .7, 700]],
+        play(S2, tm) { const p = S2.sp.you; p.face = 1; p.act = { type: 'block', t: .1 }; p.z = Math.max(0, Math.sin(Math.min(1, Math.max(0, (tm - .5) / .6)) * Math.PI) * 11); CSK.jumper(S2, S2.sp.st, tm, .3, { made: true, flight: 1.3, jump: 16, arc: 40 }); } },
+      { d: 2600, scene: 'arena', grade: 'dark', drain: .7, music: null, cam: [[0, 0, 6, 1.3], [1, 0, 10, 1.42]], cast: [{ id: 'you', kind: 'face', x: 0, expr: 'shocked', rim: '#93c5fd' }],
+        say: ['narrator', well ? 'A three over your outstretched hand. Forty-one points, and it\'s not enough.' : 'A three over your outstretched hand. Your night ends the way it went.'] },
+    ];
+  }
+  const g7 = { moments: 2, at: 0, noRally: true, async run(o) { CUTSCENES._c5_g7 = { name: 'Game 7', chapter: 'Chapter 5', shots: g7Shots(o) }; await Story.cut('_c5_g7', o.ctx, { seenId: 'c5_g7' }); return o.fin; } };
+
   /* JAM_SCRIPTS.c5_knee_out: national TV, a breakaway, the dunk, the knee. No rally: the story doesn't fix this one */
   function kneeShots(o) {
     const [u, t] = o.score, fin = [u + 2, Math.max(t + 8, u + 5)]; o.fin = fin;   // nobody on your bench can finish it: the lead (if there was one) is gone
@@ -236,7 +315,12 @@ const CH5S = (() => {
   function endShots(o, k) {
     const [u, t] = o.score, down = [u, t], fin = u > t ? [u + 8, t + 3] : [t + 3, t], pts = Math.max(30, (o.box && o.box.pts || 0) + 10); o.fin = fin;   // from the real score
     const L = k === 'thirty' ? { line: 'Your first start. Fourth quarter, and the ball keeps finding you.', title: `${pts} POINTS`, sub: 'In your first career start', crowd: 'The bench is a memory. Every team that passed just watched it.' }
+      : k === 'close' ? { line: 'Close it out. Win this one and the next round is yours.', title: 'SERIES WON', sub: 'On to the next round', crowd: 'Handshakes at midcourt. Nobody on your bench sits down.' }
+      : k === 'cf' ? { line: 'One more win and you play for a ring.', title: 'CONFERENCE CHAMPIONS', sub: 'You\'re going to the NBL Finals', crowd: 'The building is shaking. Mom is on the phone with Nia, screaming.' }
+      : k === 'kai' ? { line: 'Close out Kai\'s team. Halsey Street is watching on one TV in a barbershop.', title: 'SERIES WON', sub: 'Through Kai Sterling', crowd: 'Kai shakes your hand last. He holds it a second too long and says nothing.' }
       : { line: 'Close it out. One more win and it\'s your first playoff series.', title: 'SERIES WON', sub: 'Your first playoff series', crowd: 'The building is shaking. Somebody in the third row is crying, and it might be Mom.' };
+    o.addBox = k === 'thirty' ? { pts: Math.max(0, pts - (o.box && o.box.pts || 0)), fgm: Math.ceil(Math.max(0, pts - (o.box && o.box.pts || 0)) / 2.4) } : { pts: 8, fgm: 3, fga: 4, stl: 1 };   // the cinematic's points go in your box score
+    if (k === 'kai' && typeof Game !== 'undefined' && Game.state) Game.state.flags.beat_kai_series = true;
     return [
       { d: 3000, court: '@venue', score: true, music: 'build', tr: 'fade', cam: [[0, 16, 34, 2.0], [1, 10, 10, 2.2]], cast: [SP('st', 200, 150, 1), SP('you', 230, 120)], say: ['narrator', L.line], ev: [[300, 'bug', `${down[0]}-${down[1]}`], [300, 'sfx', 'roar']],
         play(S2, tm) { const p = S2.sp.you; p.face = -1; p.stance = true; CSK.jumper(S2, S2.sp.st, tm, .3, { made: true, flight: 1.1 }); } },
@@ -255,8 +339,8 @@ const CH5S = (() => {
     ];
   }
   const script = k => ({ moments: 2, at: 0, async run(o) { CUTSCENES['_c5_' + k] = { name: k === 'thirty' ? 'Thirty' : 'Series', chapter: 'Chapter 5', shots: endShots(o, k) }; await Story.cut('_c5_' + k, o.ctx, { seenId: 'c5_' + k }); return o.fin; } });
-  const scripts = { c5_thirty: script('thirty'), c5_series: script('series'), c5_knee_out: kneeOut };
+  const scripts = { c5_thirty: script('thirty'), c5_series: script('series'), c5_knee_out: kneeOut, c5_po_close: script('close'), c5_cf_close: script('cf'), c5_kai_close: script('kai'), c5_g7: g7 };
 
-  return { arrival, meetVet, dnp, vetHurt, confront, shoeMeet, niaFight, traded, knee, louWarn, seriesWon, award, nextHalf, injured, kaiVisit, louVisit, louCall, rehab, rehabBonus, awaken, nextFinals, scripts };
+  return { arrival, meetVet, dnp, vetHurt, confront, shoeMeet, niaFight, traded, knee, louWarn, seriesWon, award, nextHalf, injured, kaiVisit, louVisit, louCall, rehab, rehabBonus, awaken, nextFinals, kaiSeries, finals, finalsMid, theLow, postCredits, scripts };
 })();
 if (typeof JAM_SCRIPTS !== 'undefined') Object.assign(JAM_SCRIPTS, CH5S.scripts);

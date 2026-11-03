@@ -2935,7 +2935,9 @@ const Match = (() => {
       try {
         st.us = b.score[0]; st.them = b.score[1]; updBug(); idle();
         const ctx = { score: `${b.score[0]}-${b.score[1]}`, usAbbr: cfg.us.abbr, themAbbr: cfg.them.abbr, team: { colors: cfg.us.colors }, them: { colors: cfg.them.colors }, venue: court.venueId, night: true };
-        const fin = await cfg.script.run({ score: b.score.slice(), lead: b.score[0] - b.score[1], ctx, cfg, counters: Object.assign({}, st.counters), box: Object.assign({}, st.box) }); st.script = { at: b.score.slice(), final: fin };
+        const o = { score: b.score.slice(), lead: b.score[0] - b.score[1], ctx, cfg, counters: Object.assign({}, st.counters), box: Object.assign({}, st.box) };
+        const fin = await cfg.script.run(o); st.script = { at: b.score.slice(), final: fin };
+        if (o.addBox) Object.entries(o.addBox).forEach(([k, v]) => { st.box[k] = (st.box[k] || 0) + Math.max(0, v || 0); });   // the points the cinematic shows you scoring go in the box score
         return fin ? { final: fin } : {};
       } catch (e) { console.error('[match] script', e); return {}; }
     }

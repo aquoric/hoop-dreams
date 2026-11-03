@@ -117,7 +117,8 @@ const Season = (() => {
   function buildPlayoffs(s, se) {
     const P = se.def.playoff;
     if (se.def.confs) {   // the pros: 8 seeds a side (East first), the conference champions meet in the Finals
-      const side = c => { let L = table(se, c).slice(0, P.teams / 2).map(t => t.id); if (P.forceIn && se.def.confs[se.user] === c && !L.includes(se.user)) L[L.length - 1] = se.user; return L; };
+      const side = c => { let L = table(se, c).slice(0, P.teams / 2).map(t => t.id); if (P.forceIn && se.def.confs[se.user] === c && !L.includes(se.user)) L[L.length - 1] = se.user;
+        if (P.carry && se.def.confs[P.carry] === c && !L.includes(P.carry)) L[L.length - (L[L.length - 1] === se.user ? 2 : 1)] = P.carry; return L; };   // playoff.carry: the story needs this team in the field
       const E = side('East'), W = side('West'), pairs = [[0, 7], [3, 4], [1, 6], [2, 5]];
       const r0 = [E, W].flatMap(L => pairs.map(([i, j]) => ({ a: L[i], b: L[j], sa: 0, sb: 0, winner: null, seedA: i + 1, seedB: j + 1 })));
       se.playoffs = { seeds: E.concat(W), rounds: [r0], round: 0, names: P.rounds }; se.phase = 'playoffs';
@@ -138,9 +139,11 @@ const Season = (() => {
   const need = se => Math.ceil((se.def.playoff.bestOf || 1) / 2);
   function simRound(s, se) {
     const P = se.playoffs, bo = se.def.playoff.bestOf;
+    const carry = se.def.playoff.carry;
     P.rounds[P.round].forEach(m => { if (m.winner) return;
       if (!bo) { const [x, y] = simGame(s, se, m.a, m.b); setResult(m, m.a, m.b, x, y); return; }
       while (m.sa < need(se) && m.sb < need(se)) { const [x, y] = simGame(s, se, m.a, m.b); x > y ? m.sa++ : m.sb++; }   // a whole series
+      if (carry && (m.a === carry || m.b === carry) && (m.sa > m.sb ? m.a : m.b) !== carry) { const w = Math.max(m.sa, m.sb), l = Math.min(m.sa, m.sb); if (m.a === carry) { m.sa = w; m.sb = l; } else { m.sb = w; m.sa = l; } }   // the story's team keeps winning until it meets you
       m.winner = m.sa > m.sb ? m.a : m.b; });
   }
   /* the user's series right now: { w, l, game } */
@@ -166,8 +169,15 @@ const Season = (() => {
     if (!advance(se)) { se.result = 'champion'; se.phase = 'done'; return 'champion'; }
     return 'advanced';
   }
+  /* the story shapes the user's series to w-l (the Finals montage): simmed games fill the gap; returns them */
+  function shapeSeries(s, se, w, l) {
+    const m = userMatch(se); if (!m) return []; const me = m.a === se.user, out = []; let W = me ? m.sa : m.sb, L = me ? m.sb : m.sa;
+    while (W < w || L < l) { const win = W < w && (L >= l || Math.random() < .5), r = simUserGame(s, se, oppOf(se, m)), hi = Math.max(r.us, r.them), lo = Math.min(r.us, r.them);
+      r.win = win; r.us = win ? hi : lo; r.them = win ? lo : hi; if (r.us === r.them) win ? r.us++ : r.them++; win ? W++ : L++; addStats(se, r.box, win); out.push(Object.assign(r, { game: W + L })); }
+    if (me) { m.sa = W; m.sb = L; } else { m.sa = L; m.sb = W; } return out;
+  }
   function roundName(se) { const P = se.playoffs; const n = P.names || []; return n[P.round] || `Round ${P.round + 1}`; }
   function champion(se) { const P = se.playoffs; if (!P) return null; const last = P.rounds[P.rounds.length - 1]; return last.length === 1 && last[0].winner; }
 
-  return { create, simUserGame, finishUserWeek, finishUserPlayoff, buildPlayoffs, userMatch, oppOf, table, roundName, champion, role, roleFactor, rating, statLine, series, LEVEL_AVG };
+  return { create, shapeSeries, simUserGame, finishUserWeek, finishUserPlayoff, buildPlayoffs, userMatch, oppOf, table, roundName, champion, role, roleFactor, rating, statLine, series, LEVEL_AVG };
 })();

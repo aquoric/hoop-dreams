@@ -144,8 +144,11 @@
     { id: 'injury', name: 'The Injury Arc', goal: 'Get back on the floor. Find a new way to play.',
       nodes: 'c5_s3_start c5_season3 c5_peak c5_knee2 c5_bigame_pre c5_injured c5_hosp_kai c5_hosp_kai2 c5_hosp_kai3 c5_lou_hosp c5_lou_visit c5_lou_call c5_rehab c5_rehab_slow c5_rehab_fast c5_awaken2 c5_s3_end c5_awards3 c5_off3 c5_fa3 c5b_next c5b_hold',
       goals: [{ t: 'Get through rehab', done: { flag: 'rehab_done' } }, { t: 'Find a new style', done: { flag: 'new_style' } }] },
+    { id: 'finals', name: 'The First Finals Arc', goal: 'Make the playoffs a run. Get through Kai. Play for a ring.',
+      nodes: 'c5_s4_start c5_season4 c5_s4_back c5_s4_contender c5_s4_lou c5_s4_r1 c5_s4_r1b c5_s4_r2 c5_s4_r2b c5_s4_r3 c5_s4_r3b c5_kai_series c5_s4_fin c5_s4_fin2 c5_finals_kai c5_finals_mid c5_s4_end c5_awards4 c5_end',
+      goals: [{ t: 'Reach the NBL Finals', done: { flag: 'c5_finals' } }, { t: 'Get through Kai Sterling', test: s => !!(s.flags.beat_kai_series || s.flags.finals_vs_kai) }, { t: 'Win the ring', done: { flag: 'nbl_champ' } }] },
   ]);
-  if (C.pro) { C.pro.cast = ['you', 'vetstar', 'pcoach', 'gm_cole', 'kai', 'nia', 'mom', 'lou', 'priya', 'brand', 'trainer']; }
+  if (C.pro) { C.pro.cast = ['you', 'vetstar', 'pcoach', 'gm_cole', 'kai', 'nia', 'mom', 'lou', 'priya', 'brand', 'trainer']; C.pro.postCredits = s => CH5S.postCredits(s); }
 
   /* ---------------- CHAPTER OPENINGS (20–30s: theme, the cast as silhouettes, Kai turning, your number, your silhouette) ----------------
      you: how much of your silhouette is still shadow (1 = all shadow; it sharpens chapter by chapter) */
@@ -190,7 +193,7 @@
     _c4_combine: 'The combine. Four hundred scouts and one leaderboard.', _c4_kai: 'Silk told Kai: number one, or don\'t report.', _c4_green: 'Draft night. Table nine.', _c4_dn_slide: 'The phone never rang. Pick after pick.',
     _c4_dn_call: 'Then it did.', _c4_dn_undrafted: 'Sixty names. None of them yours.', _c4_summer: 'Summer League. Kai, and every team that passed.', pc_kai_practice: 'Kai\'s first practice. Rebounds and water.',
     _c5_arrival: 'The NBL. Your name above a locker.', _c5_dnp: 'DNP: Coach\'s decision. Over and over.', _c5_vethurt: 'Then the star went down.', _c5_thirty: 'Thirty points in your first start.',
-    _c5_confront: 'Kai found you in the tunnel. Every camera got it.', _c5_shoe: 'Your name, on a shoe.', _c5_nia: 'Nia saw the billboard on Halsey Street.', _c5_series: 'Your first playoff series win.', _c5_knee_out: 'Then the knee went, on national TV.', _c5_kai_visit: 'Kai showed up at the hospital.', _c5_lou_visit: 'Lou sat in the chair this time.', _c5_rehab: 'Nine months of getting up.', _c5_awaken2: 'You came back smarter. Slower.',
+    _c5_confront: 'Kai found you in the tunnel. Every camera got it.', _c5_shoe: 'Your name, on a shoe.', _c5_nia: 'Nia saw the billboard on Halsey Street.', _c5_series: 'Your first playoff series win.', _c5_knee_out: 'Then the knee went, on national TV.', _c5_kai_visit: 'Kai showed up at the hospital.', _c5_lou_visit: 'Lou sat in the chair this time.', _c5_rehab: 'Nine months of getting up.', _c5_awaken2: 'You came back smarter. Slower.', _c5_kai_series: 'Seven games against Kai.', _c5_finals: 'The NBL Finals.', _c5_g7: 'Game 7.', _c5_the_low: 'The confetti fell for someone else.',
     c3_tariq_hug: 'You made it right with Tariq.', _upset: 'You knocked off No. 1.', _derby: 'You won the derby in front of 15,000.', _nbl: 'Your first NBL win.', pc_lottery: 'A GM at the lottery said your name. Then Kai\'s.',
   };
 
