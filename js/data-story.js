@@ -58,20 +58,39 @@ STORY.accounts = {
   fan:         { name: 'Halsey Hooper', handle: '@halsey4life', verified: false, look: { skin: '#d9a77e', hair: 'fade', outfit: 'tee', jersey: '#2563eb' } },
 };
 
-/* Post-game feed templates by result. {first} {last} {pts} {opp} tokens. */
+/* Post-game feed templates by result: [account, text, conditions?] (conditions as in Engine.check: stage, notStage, flag, test…).
+   Only posts that fit where you are in the story are picked. {first} {last} {pts} {opp} tokens. */
+STORY.tests = Object.assign(STORY.tests || {}, {
+  tariq_ok: s => !s.flags.tariq_lost || !!s.flags.tariq_mended,   // still talking to you
+  nia_ok: s => !s.flags.nia_hurt || !!s.flags.nia_mended,
+});
+const FEED_EARLY = { stage: ['street', 'hs', 'usa'] }, FEED_LATER = { notStage: ['street', 'hs', 'usa'] }, FEED_PRO = { stage: 'pro' };
 STORY.feedTemplates = {
-  bigWin:  [['courtvision', '{first} {last} with {pts} and the dub vs {opp}. Remember the name. 📈'], ['fan', 'HALSEY STAND UP 🗣️🗣️ {first} was COOKING'], ['streetball', 'Who is {first} {last} and why is nobody talking about this kid?']],
-  win:     [['fan', 'W. {first} looked solid today.'], ['tariq', 'my boy {first} different 😤'], ['nia', 'my brother just did THAT. manager fees are going up']],
-  loss:    [['streetball', '{first} {last} showed flashes vs {opp}, but flashes don\'t win games.'], ['fan', 'tough L. bounce back {first}']],
-  badLoss: [['streetball', '{first} {last} got cooked by {opp} today. Not ready.'], ['fan', 'yikes 😬']],
+  bigWin:  [['courtvision', '{first} {last} with {pts} and the dub vs {opp}. Remember the name. 📈'], ['fan', 'HALSEY STAND UP 🗣️🗣️ {first} was COOKING'],
+            ['streetball', 'Who is {first} {last} and why is nobody talking about this kid?', FEED_EARLY], ['ehn', '{first} {last} drops {pts} on {opp}. That\'s a problem for the rest of the league.', FEED_PRO],
+            ['tariq', '{pts} PIECE. that\'s my brother from Halsey 😤', { test: 'tariq_ok' }]],
+  win:     [['fan', 'W. {first} looked solid today.'], ['tariq', 'my boy {first} different 😤', { test: 'tariq_ok' }], ['nia', 'my brother just did THAT. manager fees are going up', { test: 'nia_ok' }],
+            ['courtvision', 'Quiet {pts} for {first} {last} in a win over {opp}.', FEED_LATER]],
+  loss:    [['streetball', '{first} {last} showed flashes vs {opp}, but flashes don\'t win games.', FEED_EARLY], ['fan', 'tough L. bounce back {first}'],
+            ['courtvision', '{opp} gets the win. {first} {last} had {pts} in the loss.', FEED_LATER]],
+  badLoss: [['streetball', '{first} {last} got cooked by {opp} today. Not ready.', FEED_EARLY], ['fan', 'yikes. {opp} had our number today 😬'],
+            ['courtvision', 'Rough night for {first} {last}: {opp} rolls.', FEED_LATER]],
 };
 
-/* ---------- POST-GAME REACTIONS (mentor/coach quote by grade) ---------- */
+/* ---------- POST-GAME REACTIONS (the quote under the score, by grade) ----------
+   Lou on the playground (Tariq if you snubbed him); after that, the coach of the stage you're in: your high-school coach,
+   Coach Reyes, your college / club / Grind League coach, then Coach Dellinger. Every quote fits any game at that stage. */
 STORY.reactions = {
-  A: ['lou', ['That\'s what I\'m talking about. Now forget it — tomorrow nobody cares.', 'You played the rim, not the man. Proud of you.', 'See? When you stop forcing it, the game comes to you.']],
-  B: ['lou', ['Solid, not special. Special is a choice you make in the gym.', 'Good. But you left points on the floor — I counted.']],
+  A: ['lou', ['That\'s what I\'m talking about. Now forget it. Tomorrow nobody cares.', 'You played the rim, not the man. Proud of you.', 'See? When you stop forcing it, the game comes to you.']],
+  B: ['lou', ['Solid, not special. Special is a choice you make in the gym.', 'Good. But you left points on the floor. I counted.']],
   C: ['lou', ['Average. And average is the most crowded place in this city.', 'You got tired and your feet got lazy. Fix it.']],
-  F: ['lou', ['Ugly game. Good — ugly games teach the most, if you\'re listening.', 'Get up off the floor and get back in the gym.']],
+  F: ['lou', ['Ugly game. Good. Ugly games teach the most, if you\'re listening.', 'Get up off the floor and get back in the gym.']],
+};
+STORY.coachReactions = {   // any coach after Chapter 1 (plain, no catchphrases that need context)
+  A: ['That\'s the player I want every night.', 'Great game. Film tomorrow anyway.', 'You made the right play all night. That\'s the standard now.'],
+  B: ['Good game. A couple of possessions I want back.', 'Solid. Now do it two nights in a row.'],
+  C: ['Not your best. Not your worst. We\'ll watch it tomorrow.', 'You were a step slow tonight. Sleep, then fix it.'],
+  F: ['That one\'s on all of us. Film at nine.', 'Forget the box score. Come back tomorrow and work.'],
 };
 
 /* ---------- PLAY-BY-PLAY COMMENTARY ----------
@@ -80,7 +99,7 @@ STORY.commentary = {
   setup_wing: ['You catch it on the wing, {def} closing out hard. {sc} on the shot clock.', 'Swing pass finds you on the right wing. {def} is crowding you — {sc} seconds left.', 'You\'re isolated on the wing against {def}. Clock: {sc}.'],
   setup_pnr: ['{mate} sets the screen and {def} ducks under it. {sc} on the clock.', 'High pick-and-roll with {mate}. Defense switches — {sc} seconds.'],
   setup_post: ['You seal deep on the block and the entry pass is in. {sc} on the clock.', 'Back to the basket, low post. You can feel the double coming.'],
-  setup_break: ['STEAL! You\'re out in transition with one man back!', 'Long rebound, you\'re off to the races — {def} is the only one back!'],
+  setup_break: ['You\'re out in transition with one man back!', 'Long rebound, you\'re off to the races — {def} is the only one back!'],
   setup_catch: ['{mate} drives and the defense collapses — you\'re wide open on the perimeter!', 'Ball reversal — {mate} swings it to you. Feet set, open look!'],
   setup_iso: ['They clear the side — one-on-one with {def}. Go to work.', 'Isolation at the top. {def} is down in a stance, daring you.'],
   setup_passlane: ['You\'ve got the ball up top. The defense is rotating — find the open man.', 'Drive and kick — their help is scrambling. Who\'s open?'],
@@ -111,7 +130,7 @@ STORY.commentary = {
   ft_none: ['{me} bricks both free throws. Ugh.'],
   oreb: ['{me} crashes and grabs the offensive board!', 'Second chance — {me} with the tip-out!'],
   dreb: ['{me} secures the defensive rebound.', 'Strong board from {me}.'],
-  putback: ['Putback! {me} scores off his own hustle!'],
+  putback: ['Putback! {me} cleans up the miss!'],
   putback_miss: ['The putback attempt from {me} rolls off.'],
   lost_board: ['They grab the offensive board and score. Second-chance points.'],
   lost_oreb: ['Their defense secures it.'],

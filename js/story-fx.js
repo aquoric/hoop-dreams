@@ -255,7 +255,7 @@ const Story = (() => {
   }
 
   /* ---------- in-match inner monologue ---------- */
-  function mono(kind, s) { const L = STORY.monologue && STORY.monologue[kind]; if (!L || !L.length) return null; const m = L[Math.floor(Math.random() * L.length)]; return { lines: m.lines.map(l => txt(l, s)), metaphor: m.metaphor }; }
+  function mono(kind, s) { const L = STORY.monologue && (STORY.monologue[kind] || []).filter(m => Engine.check(s, m.if)); if (!L || !L.length) return null; const m = L[Math.floor(Math.random() * L.length)]; return { lines: m.lines.map(l => txt(l, s)), metaphor: m.metaphor }; }
 
   /* ---------- the hub: redemption goals of the current arc ---------- */
   function goals(s) { const a = current(s); if (!a || !a.goals) return []; return val(a.goals, s).map(g => ({ t: txt(g.t, s), done: !!(g.test ? g.test(s) : g.done && Engine.check(s, g.done)) })); }

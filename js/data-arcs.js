@@ -215,7 +215,7 @@
       { lines: ['Three quarters on the bench.', 'None of that matters now.', 'Only him, only the rim.'], metaphor: 'void' },
     ],
     jelly_puzzle: [
-      { lines: ['His arm comes up on the left.', 'Scoop\'s voice: around him.', 'Right side, soft.'], metaphor: 'puzzle' },
+      { lines: ['His arm comes up on the left.', 'Scoop\'s voice: around him.', 'Right side, soft.'], metaphor: 'puzzle', if: { flag: 'jelly_met' } },
       { lines: ['Hide the ball.', 'Wait for the jump.', 'Kiss it off the glass.'], metaphor: 'puzzle' },
     ],
     jam: [

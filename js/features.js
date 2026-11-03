@@ -267,7 +267,7 @@ const Features = (() => {
     // the jelly story beats
     if (c.jellies) {
       s.flags.jelly_dropped = true;
-      const t = STORY.feedTemplates.jelly; if (t && Math.random() < .7) { const [by, text] = t[Math.floor(Math.random() * t.length)]; Engine.post(s, { by, text }); }
+      const t = (STORY.feedTemplates.jelly || []).filter(f => Engine.check(s, f[2])); if (t.length && Math.random() < .7) { const [by, text] = t[Math.floor(Math.random() * t.length)]; Engine.post(s, { by, text }); }
     }
     if (c.jellyPayoff && s.flags.jelly_payoff) { delete s.flags.jelly_payoff; UI.toast('🍯 <b>Scoop DeLuca</b>: "Told you. Around him."', 'ach', 4500); Engine.post(s, { by: 'courtvision', text: '🍯 That jelly over the seven-footer in the big game? Unreal. Somebody taught {first} something.' }); }
     // mixtape clips

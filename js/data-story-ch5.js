@@ -36,7 +36,8 @@ Object.assign(TALK.personalities, {
 });
 Object.assign(TALK.scripts, {
   c5_fa: [
-    { say: 'Tell me why you\'re worth the max.', opts: [['honest', 'I\'m not yet. I will be, and it\'s cheaper now.'], ['ego', 'Because I\'m the best player you\'ll talk to all summer.'], ['effort', 'Look at what I did when the star went down.']] },
+    { say: 'You\'re coming off a torn ACL. Why should we pay you like nothing happened?', if: { flag: 'acl' }, opts: [['honest', 'Because I came back a smarter player. Watch the film.'], ['ego', 'Because nothing did happen. I\'m the same guy.'], ['effort', 'Nine months, every day at six. Ask the trainers.']] },
+    { say: 'Tell me why you\'re worth the max.', if: { notFlag: 'acl' }, opts: [['honest', 'I\'m not yet. I will be, and it\'s cheaper now.'], ['ego', 'Because I\'m the best player you\'ll talk to all summer.'], ['effort', 'Look at what I did when I finally got real minutes.']] },
     { say: 'Two other teams called your agent. Are you using us?', opts: [['honest', 'Yes. And I\'d still rather be here.'], ['argue', 'That\'s the business. Match them or don\'t.'], ['team', 'I want the team that wants to win. Is that you?']] },
     { say: 'Last thing. What do you need from us besides money?', opts: [['team', 'A coach who plays the hot hand, and teammates who pass.'], ['excuse', 'Better trainers. Last year wasn\'t my fault.'], ['respect', 'Your word that I\'ll get the ball late.']] },
   ],

@@ -56,7 +56,8 @@ Object.assign(TALK.scripts, {
   ],
   c4_int_park: [
     { say: 'Your usage went up and your efficiency went down. Explain.', opts: [['honest', 'I took bad shots when we were losing.'], ['excuse', 'My teammates couldn\'t finish.'], ['joke', 'Math was never my strong subject.']] },
-    { say: 'The Summer Jam final. What went wrong?', opts: [['honest', 'I tried to win it alone. Kai didn\'t.'], ['argue', 'Nothing. We got unlucky.'], ['effort', 'I\'ve watched it a hundred times. I fixed it.']] },
+    { say: 'The Summer Jam final against Kai. You lost it. What went wrong?', if: { notFlag: 'summer_champ' }, opts: [['honest', 'I tried to win it alone. Kai didn\'t.'], ['argue', 'Nothing. We got unlucky.'], ['effort', 'I\'ve watched it a hundred times. I fixed it.']] },
+    { say: 'You beat Kai in the Summer Jam final. What did that teach you?', if: { flag: 'summer_champ' }, opts: [['honest', 'That he gets better when he loses. So do I.'], ['ego', 'That I\'m better than him.'], ['team', 'That I can\'t win those alone. Tariq hit the big ones.']] },
     { say: 'What\'s your worst habit on defense?', opts: [['honest', 'I ball-watch on the weak side.'], ['ego', 'I don\'t really have one.'], ['team', 'I talk less than I should. I\'m working on it.']] },
   ],
   c4_int_cole: [

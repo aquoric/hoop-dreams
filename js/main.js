@@ -385,8 +385,8 @@ const Game = {
     }
     // social feed
     const key = r.win ? (r.grade[0] === 'A' || b.pts >= 20 ? 'bigWin' : 'win') : (r.grade[0] === 'D' || r.grade[0] === 'F' ? 'badLoss' : 'loss');
-    const [by, text] = Engine.pick(STORY.feedTemplates[key]);
-    Engine.post(s, { by, text: text.replace('{pts}', b.pts).replace('{opp}', r.cfg.them.name) });
+    const [by, text] = Engine.pick(STORY.feedTemplates[key].filter(f => Engine.check(s, f[2])));   // only posts that fit where you are in the story
+    Engine.post(s, { by, text: text.replace(/\{pts\}/g, b.pts).replace(/\{opp\}/g, r.cfg.them.name) });
     Features.afterMatch(s, r, node);   // mixtape clips, chemistry, the jelly story beats
     this.updateRecruit();
     const rank = s.pro && typeof Pro !== 'undefined' ? Pro.afterGame(s, r) : Rankings.afterGame(s, r);   // js/rankings.js (the pros: the NBL player rankings)

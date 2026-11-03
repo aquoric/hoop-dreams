@@ -192,9 +192,15 @@ const Engine = (() => {
     return out;
   }
 
+  /* the story stage you're in: street (Chapter 1) · hs · usa · college / overseas / grind (Chapter 3) · draft · pro */
+  function stage(s) { const ch = s.story && s.story.chapter; return ch === 'street' ? 'street' : ch === 'highschool' ? 'hs' : ch === 'usa' ? 'usa'
+    : ch === 'college' ? ({ overseas: 'overseas', grind: 'grind' })[s.career.path] || 'college' : ch === 'draft' ? 'draft' : ch === 'pro' ? 'pro' : 'street'; }
+
   /* Conditions used by choice requirements and branch nodes. */
   function check(s, c) {
     if (!c) return true;
+    if (c.stage && ![].concat(c.stage).includes(stage(s))) return false;
+    if (c.notStage && [].concat(c.notStage).includes(stage(s))) return false;
     if (c.flag && ![].concat(c.flag).every(f => s.flags[f])) return false;
     if (c.notFlag && [].concat(c.notFlag).some(f => s.flags[f])) return false;
     if (c.minOvr && ovr(s) < c.minOvr) return false;
@@ -428,7 +434,7 @@ const Engine = (() => {
   }
 
   return {
-    clamp, rand, randi, pick, properName, caps, capsOf, ape, apeOf, archOf, weaponOf, weapons, weaponSlots, weaponOffers, learnWeapon, weaponUpgradeInfo, upgradeWeapon, weaponPct, passiveMod, passiveMg, hasSpecial, roll, createState, attr, look, ovr, ovrRaw, ovrLabel, tierOf, radar,
+    clamp, rand, randi, pick, stage, properName, caps, capsOf, ape, apeOf, archOf, weaponOf, weapons, weaponSlots, weaponOffers, learnWeapon, weaponUpgradeInfo, upgradeWeapon, weaponPct, passiveMod, passiveMg, hasSpecial, roll, createState, attr, look, ovr, ovrRaw, ovrLabel, tierOf, radar,
     badges, badgeTier, badgeBonus, badgeSnapshot, badgeDiff, addXP, upgradeCost, canUpgrade, upgrade, bump,
     applyFx, check, checkPct, playPct, checkAchievements, text, heightStr, starStr, snapshotStage, stagePerf, develop, recruitScore, starsFor, rankFor, fmtFans, fmtMoney, post,
     save, load, remove, list, latest, exportSave, importSave,

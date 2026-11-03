@@ -1259,6 +1259,8 @@ const Match = (() => {
   MG.camp = on => { CAMP = on ? (on === true ? BALANCE.camp : on) : null; };   // camp difficulty on / off (js/usa.js drills; the combine passes BALANCE.pro)
 
   const STYLE_EXPR = { ego: 'fierce', brag: 'fierce', needle: 'fierce', joke: 'smile', calm: 'determined', respect: 'determined', honest: 'determined', effort: 'determined', team: 'smile', specific: 'determined', humble: 'neutral', excuse: 'sad', argue: 'angry', insult: 'angry', sarcasm: 'smile' };
+  /* how they answer your answer: it fits the style you picked (TALK.reacts in js/data-talk-lines.js; a character can override with react) */
+  const reactTo = (P, style, good) => { const R = (P.react && P.react[style]) || (((typeof TALK !== 'undefined' && TALK.reacts) || {})[P.kind] || {})[style]; const L = R && (good ? R.good : R.bad); return L && L.length ? pick(L) : pick(good ? P.good || ['Okay.'] : P.bad || ['No.']); };
   function zoomCourt(court, to, ms) { return new Promise(res => { if (!court) return res(); const z0 = court.zoom, t0 = performance.now(); const f = now => { const k = Math.min(1, (now - t0) / ms); court.zoom = z0 + (to - z0) * EASE.io(k); if (k < 1 && court.alive) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); }); }
   async function talkSceneCore(o, env) {   // env: { court (optional), meLook, first, last, beat(), waitInput(setup) }
     const court = env.court, beat = env.beat || (() => { }), waitInput = env.waitInput, meLook = env.meLook, PH = 112;
@@ -1324,15 +1326,16 @@ const Match = (() => {
     const T = await talkSceneCore({ title: o.title || (o.name || P.name || ''), name: o.name || P.name || 'Coach', trait: P.trait, look: o.look, ego, g, gaugeLabel: ego ? 'EGO' : P.kind === 'mate' ? 'TRUST' : 'PATIENCE', startExpr: ego ? 'smile' : 'neutral' },
       { court: null, meLook: Object.assign({}, Engine.look(s), { num: s.player.num, jersey: team[0], trim: team[1], outfit: 'jersey' }), first: s.player.first, last: s.player.last, waitInput });
     try {
-      for (let k = 0; k < script.length && !ended; k++) {
-        const ex = script[k], opts = ex.opts.slice().sort(() => Math.random() - .5);
+      const exs = script.filter(ex => !ex.if || Engine.check(s, ex.if));   // an exchange about something that never happened in this career is skipped
+      for (let k = 0; k < exs.length && !ended; k++) {
+        const ex = exs[k], opts = ex.opts.slice().sort(() => Math.random() - .5);
         await T.say('them', fillT(ex.say), ego ? 'smile' : k ? 'determined' : null, voice);
         const pickI = await T.ask(opts.map(x => fillT(x[1])));
         const style = opts[pickI][0], v = Math.round((P.styles[style] || 0) + rnd(-3, 3)), good = v > 0;
         await T.say('me', fillT(opts[pickI][1]), STYLE_EXPR[style] || 'determined', myVoice);
         if (ego) g = clamp(g - v, 0, 130); else g = clamp(g + v, 0, 100); if (!good) backfires++;
         T.gauge(g, (ego ? (good ? '−' : '+') : (good ? '+' : '−')) + Math.abs(v), good); SFX.play(good ? 'good' : 'bad');
-        await T.say('them', pick(good ? P.good : P.bad), ego ? (good ? 'angry' : 'smile') : (good ? 'smile' : 'angry'), voice);
+        await T.say('them', fillT(ex.react && ex.react[style] || reactTo(P, style, good)), ego ? (good ? 'angry' : 'smile') : (good ? 'smile' : 'angry'), voice);
         T.face('me', good ? 'smile' : 'shocked'); await sleep(600);
         if (v <= TALK.endAt || (!ego && g <= 0)) ended = true;
       }
@@ -1539,7 +1542,7 @@ const Match = (() => {
       if (st.run.side === side) st.run.pts += p; else st.run = { side, pts: p, shown: false };
       if (st.run.pts >= 8 && !st.run.shown && !st.done) { st.run.shown = true; const ours = side === 'us', sl = STAR.look;
         court.highlight('run', ours ? `${st.run.pts}-0 RUN!` : `${cfg.them.abbr} ${st.run.pts}-0 RUN`, 450, ours ? { sub: `${st.run.pts}-0` } : { look: sl, name: STAR.full, colors: cfg.them.colors, sub: `${st.run.pts}-0` });
-        if (!ours) queueTalk('coach', 1, 'play'); }
+        if (!ours) queueTalk('coach', 1, 'run'); }
       if (PICK && st[side] >= cfg.target && !(cfg.jam && st.inSeg)) { st.done = side; if (side === 'us' && st.them >= cfg.target - 4) { st.gameWinner = true; cnt('gameWinners'); st.highlights.push('Hit the game-winner'); } }
       updBug(); const el = $(side === 'us' ? 'sbUs' : 'sbThem'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
     }
@@ -1559,10 +1562,11 @@ const Match = (() => {
     }
     function success(big) {
       st.failRun = 0; st.succ++; st.att++; st.streak++; if (!st.sigUsed) st.sig++;
-      if (st.streak >= 3 && !st.fire) { st.fire = true; st.talkEv = 'me_hot'; court.fire = true; pbp(`🔥 <b>${myName} is ON FIRE!</b>`, 'hot'); banner('🔥 ON FIRE', 'fire'); SFX.play('roar'); }
+      if (st.streak === 2 && !st.minutes && /^(Bench|Sixth Man)$/.test(seasonRole()) && st.i < n * .75) queueTalk('coach', .45, 'minutes');   // off the bench and playing well: Coach notices
+      if (st.streak >= 3 && !st.fire) { st.fire = true; st.talkEvAt = st.i, st.talkEv = 'me_hot'; court.fire = true; pbp(`🔥 <b>${myName} is ON FIRE!</b>`, 'hot'); banner('🔥 ON FIRE', 'fire'); SFX.play('roar'); }
       court.excite = Math.min(1, court.excite + (big ? .5 : .25)); updBug();
     }
-    function fail() { st.failRun++; if (st.failRun >= 2) st.talkEv = 'me_cold'; if (st.failRun >= 3) { st.failRun = 0; queueTalk('coach', .8, 'argue'); } st.att++; st.streak = 0; if (st.fire) { st.fire = false; court.fire = false; pbp('The fire cools off.', 'cold'); } court.excite = Math.max(.2, court.excite - .1); updBug(); }
+    function fail() { st.failRun++; if (st.failRun >= 2) st.talkEvAt = st.i, st.talkEv = 'me_cold'; if (st.failRun >= 3) { st.failRun = 0; queueTalk('coach', .8, 'cold'); } st.att++; st.streak = 0; if (st.fire) { st.fire = false; court.fire = false; pbp('The fire cools off.', 'cold'); } court.excite = Math.max(.2, court.excite - .1); updBug(); }
     const tire = () => { st.fatigue = Math.min(100, st.fatigue + (100 - Engine.attr(s, 'stam')) / 14 + 1.5); court.sweaty = st.fatigue > 50; };
     const roll = p => Math.random() * 100 < p;
 
@@ -1642,7 +1646,7 @@ const Match = (() => {
       else made = await court.shoot(U, made ? (o.perfect || Math.random() < .55 ? 'swish' : 'rimin') : (Math.random() < .08 ? 'airball' : 'miss'), { slowmo: o.slowmo, green: o.perfect && made });
       if (o.perfect && !made) pbp('<i class="pct-note">Perfect release — still no good.</i>');
       if (made) {
-        st.box.fgm++; st.box.pts += pts; if (kind === 'dunk') st.talkEv = 'dunked_on'; if (kind === 'three') { st.box.tpm++; cnt('threes'); } else if (kind === 'mid' || kind === 'fade') cnt('mids'); else if (kind === 'dunk') { cnt('dunks'); if (o.poster) { cnt('posterizers'); st.posterizers++; } } else cnt('layups');
+        st.box.fgm++; st.box.pts += pts; if (kind === 'dunk') st.talkEvAt = st.i, st.talkEv = 'dunked_on'; if (kind === 'three') { st.box.tpm++; cnt('threes'); } else if (kind === 'mid' || kind === 'fade') cnt('mids'); else if (kind === 'dunk') { cnt('dunks'); if (o.poster) { cnt('posterizers'); st.posterizers++; } } else cnt('layups');
         if (kind === 'hook' || kind === 'fade') cnt('posts');
         addPts('us', pts, playOf(U, kind === 'hook' ? 'hook' : kind, { poster: o.poster, ast: o.ast || st.astNext, putback: o.putback })); court.pop(kind === 'dunk' ? (o.poster ? 'POSTERIZED!' : 'SLAM!') : '+' + pts, U.x, U.y, 9, kind === 'three' ? '#38bdf8' : '#facc15', o.poster ? 46 : 36);
         if (cfg.venue === 'away' && (kind === 'dunk' || kind === 'three')) SFX.play('boo', .65); else SFX.play('crowd', 1 + (st.clutch ? .8 : 0)); court.celebrate(U, kind === 'three' ? 'three' : kind === 'dunk' ? 'dunk' : 'two');
@@ -1661,7 +1665,7 @@ const Match = (() => {
       if (action === 'dunk') await court.dunk(by, made, o.poster);
       else { if (action === 'layup' || action === 'hook') await court.drive(by, rnd(-2, 2), 8, .4); await court.shoot(by, made ? 'swish' : 'miss', { arc: action === 'layup' ? 3 : undefined, slowmo: o.slowmo }); }
       shotBox(by, made, three);
-      if (made) { if (cfg.venue === 'away') SFX.play('crowd', 1.2); addPts('them', pts, playOf(by, KIND_OF[action] || (three ? 'three' : 'layup'), { def: o.def || U })); if (by === STAR) st.talkEv = 'got_dunked'; st.oppSig++; court.pop('+' + pts, by.x, by.y, 9, '#f87171', 30); court.celebrate(by, three ? 'three' : action === 'dunk' ? 'dunk' : 'two'); }
+      if (made) { if (cfg.venue === 'away') SFX.play('crowd', 1.2); addPts('them', pts, playOf(by, KIND_OF[action] || (three ? 'three' : 'layup'), { def: o.def || U })); if (by === STAR) st.talkEvAt = st.i, st.talkEv = action === 'dunk' ? 'got_dunked' : 'he_scored'; st.oppSig++; court.pop('+' + pts, by.x, by.y, 9, '#f87171', 30); court.celebrate(by, three ? 'three' : action === 'dunk' ? 'dunk' : 'two'); }
       if (by === STAR) heatCheck(made);
       return made;
     }
@@ -1907,7 +1911,7 @@ const Match = (() => {
       } else if (o.k === 'pull') {
         busy(setup, `🎮 Dribble move`);
         const r1 = await MG.dribbleCombo($('mg'), { title: 'CREATE SPACE', len: 3, time: (.7 + ME.handle / 99 * .6) * WIN() * MGX('comboTime') });
-        if (r1.quality >= (Engine.hasSpecial(s, 'ankles') ? .6 : 1)) { cnt('crosses'); court.pop('ANKLES!', STAR.x, STAR.y, 7, '#f472b6', 30); pbp(say('ankles'), 'good'); await court.mini('ankles', 'ANKLES!', { name2: star.name, colors2: cfg.them.colors }); queueTalk('rival', .35); }
+        if (r1.quality >= (Engine.hasSpecial(s, 'ankles') ? .6 : 1)) { cnt('crosses'); court.pop('ANKLES!', STAR.x, STAR.y, 7, '#f472b6', 30); pbp(say('ankles'), 'good'); st.talkEvAt = st.i; st.talkEv = 'ankles'; await court.mini('ankles', 'ANKLES!', { name2: star.name, colors2: cfg.them.colors }); queueTalk('rival', .35); }
         busy(setup, `🎮 Rise up`);
         const stat = o.action === 'pull3' ? ME.three : ME.mid;
         const r2 = await MG.shotMeter($('mg'), { title: o.label.toUpperCase(), green: green(stat, FT(o.action)) * MGX('green'), dur: .95, sub: `${o.action === 'pull3' ? 'Three-Point' : 'Mid-Range'} ${stat} · Handles ${ME.handle}` });
@@ -1958,7 +1962,7 @@ const Match = (() => {
       } else if (o.k === 'dunk') {
         busy(setup, `🎮 Beat your man`);
         const r1 = await MG.dribbleCombo($('mg'), { title: 'BEAT YOUR MAN', len: 4, time: (.7 + ME.handle / 99 * .6) * WIN() * MGX('comboTime') });
-        if (r1.quality >= (Engine.hasSpecial(s, 'ankles') ? .6 : 1)) { cnt('crosses'); pbp(say('ankles'), 'good'); await court.mini('ankles', 'ANKLES!', { name2: star.name, colors2: cfg.them.colors }); queueTalk('rival', .35); }
+        if (r1.quality >= (Engine.hasSpecial(s, 'ankles') ? .6 : 1)) { cnt('crosses'); pbp(say('ankles'), 'good'); st.talkEvAt = st.i; st.talkEv = 'ankles'; await court.mini('ankles', 'ANKLES!', { name2: star.name, colors2: cfg.them.colors }); queueTalk('rival', .35); }
         busy(setup, o.k === 'dunk' ? '🎮 Throw it down' : '🎮 Finish');
         let r2q;
         const ck = { open: 1.2, normal: 1, contested: .8, heavy: .65 }[(o.extra && o.extra.contest) || 'normal'];   // defenders shrink the window
@@ -2034,7 +2038,7 @@ const Match = (() => {
         await court.drive(att, -3, 8, .45);
         const ok = r.success && roll(fin(r.quality));
         await court.block(U, att, ok); shotBox(att, !ok, false);
-        if (ok) { st.box.blk++; cnt('blocks'); cnt('stops'); st.talkEv = 'blocked'; st.lastStop = Object.assign(playOf(U, 'block', { def: STAR }), { side: 'us', clock: Math.round(clk.rem * 10) / 10 }); pbp(say('block'), 'good'); court.pop('REJECTED!', U.x, U.y, 10, '#38bdf8', 38); success(true); if (!(await maybeFastBreak('block', Math.random() < .6 ? 'me' : 'mate'))) await boardAfterMiss(false); return true; }
+        if (ok) { st.box.blk++; cnt('blocks'); cnt('stops'); st.talkEvAt = st.i, st.talkEv = 'blocked'; st.lastStop = Object.assign(playOf(U, 'block', { def: STAR }), { side: 'us', clock: Math.round(clk.rem * 10) / 10 }); pbp(say('block'), 'good'); court.pop('REJECTED!', U.x, U.y, 10, '#38bdf8', 38); success(true); if (!(await maybeFastBreak('block', Math.random() < .6 ? 'me' : 'mate'))) await boardAfterMiss(false); return true; }
         addPts('them', 2, playOf(att, 'layup', { def: U })); pbp(say('block_fail', { att: att.name }), 'bad'); fail(); return false;
       } else if (ch.k === 'contest') {
         busy(setup, '🎮 Contest timing');
@@ -2103,7 +2107,7 @@ const Match = (() => {
     function heatCheck(made) {
       if (!made) { st.starRun = 0; return; }
       st.starRun++;
-      if (st.starRun >= OB.star.heatAt && !(st.takeover > 0)) { st.takeover = OB.star.takeover; st.talkEv = 'he_hot'; queueTalk('rival', .7); court.aura(STAR, '#ef4444', 3); pbp(`🔥 <b>${escH(STAR.short)} is taking over!</b> ${st.starRun} straight bucket${st.starRun > 1 ? 's' : ''}.`, 'bad'); banner(`<small>${escH(STAR.full)}</small>IS TAKING OVER`, 'fire', 1300); SFX.play('roar'); }
+      if (st.starRun >= OB.star.heatAt && !(st.takeover > 0)) { st.takeover = OB.star.takeover; st.talkEvAt = st.i, st.talkEv = 'he_hot'; queueTalk('rival', .7); court.aura(STAR, '#ef4444', 3); pbp(`🔥 <b>${escH(STAR.short)} is taking over!</b> ${st.starRun} straight bucket${st.starRun > 1 ? 's' : ''}.`, 'bad'); banner(`<small>${escH(STAR.full)}</small>IS TAKING OVER`, 'fire', 1300); SFX.play('roar'); }
     }
     const heatBonus = by => by !== STAR ? [] : [].concat(st.takeover > 0 ? [{ label: 'Taking over', v: OB.star.bonus }] : [], st.rattled > 0 ? [{ label: 'Rattled', v: -8 }] : []);
     const diffBonus = () => (diffShift ? [{ label: 'Difficulty', v: Math.round(diffShift * .6) }] : []).concat(tutOn() ? [{ label: 'Warm-up', v: -8 }] : []);   // Kai takes it easy until the tutorial is done
@@ -2220,7 +2224,14 @@ const Match = (() => {
        TALK — quick conversations with a gauge (coach / ref PATIENCE, rival EGO). Data: js/data-talk.js
        ================================================================= */
     const TK = typeof TALK !== 'undefined' ? TALK : null;
-    const coachId = cfg.coach || (cfg.level === 'street' ? (PICK ? null : 'lou') : s.career.hs === 'lincoln' ? 'brennan' : s.career.hs === 'westbrook' ? 'graves' : 'coach');
+    /* the story stage this game belongs to (lines are tagged with it) and that stage's coach: Lou on the playground, your high-school
+       coach, Coach Reyes with the national team, your college / club / Grind League coach, then Coach Dellinger in the NBL */
+    const CH = (s.story && s.story.chapter) || '', STAGE = CH === 'street' ? 'street' : CH === 'highschool' ? 'hs' : CH === 'usa' ? 'usa'
+      : CH === 'college' ? ({ overseas: 'overseas', grind: 'grind' })[s.career.path] || 'college' : CH === 'draft' ? 'draft' : CH === 'pro' ? 'pro' : cfg.level === 'street' ? 'street' : cfg.level;
+    const stageCoach = () => ({ street: 'lou', hs: s.career.hs === 'lincoln' ? 'brennan' : s.career.hs === 'westbrook' ? 'graves' : 'coach', usa: 'reyes',
+      college: s.flags.coach_fired ? 'vance' : 'ccoach', overseas: 'ocoach', grind: 'gcoach', draft: 'coach', pro: s.flags.traded ? 'coach' : 'pcoach' })[STAGE] || 'coach';
+    const coachId = cfg.coach || (PICK || (cfg.level === 'street' && STAGE !== 'street') ? null : stageCoach());   // pickup runs have no coach
+    const seasonRole = () => s.season && typeof Season !== 'undefined' ? Season.role(s) : null;
     const refId = cfg.level === 'street' ? null : pick(['ref_dawkins', 'ref_vance', 'ref_ortiz']);
     const rivalId = star.name === 'Kai Sterling' ? 'kai' : star.name === 'Bastien Mbaye' ? 'mbaye' : ['hothead', 'iceman', 'showman'][Weapons.hash(star.name) % 3];   // each star keeps the same voice
     const MATE_LOOK = () => Object.assign({}, TMATE().look, { jersey: cfg.us.colors[0], trim: cfg.us.colors[1], outfit: 'jersey' });   // your teammate wears your colors in talks
@@ -2262,7 +2273,7 @@ const Match = (() => {
     const talkLook = id => { const P = TK && TK.personalities[id]; if (!P) return null; if (P.kind === 'rival') return Object.assign({}, STAR.look, { jersey: cfg.them.colors[0], trim: cfg.them.colors[1], outfit: 'jersey' }); if (P.kind === 'mate') return TMATE() ? MATE_LOOK() : Art.lookFromSeed(id, P.look || {}); if (P.char && STORY.characters[P.char]) return UI.charLook(P.char); return Art.lookFromSeed(P.name || id, P.look || {}); };
     const talkName = id => { const P = TK.personalities[id]; return P.kind === 'rival' ? STAR.full : P.kind === 'mate' ? (TMATE() ? TMATE().full || TMATE().name : 'Teammate') : P.char && STORY.characters[P.char] ? STORY.characters[P.char].name : P.name || 'Coach'; };
     /* ask for a conversation at the next dead ball (with probability p) */
-    function queueTalk(type, p = 1, topic) { if (!TK || tutOn() || !talkOK || st.talkQ || st.done || st.talkN >= ((BALANCE.talk && BALANCE.talk.perGame) ?? 1) || Math.random() > p) return; if (type === 'coach' && !coachId) return; if (type === 'ref' && !refId) return; if (type === 'ref') st.talkEv = 'bad_call'; st.talkQ = { type, topic }; if (type === 'coach' && typeof Cutscene !== 'undefined') Cutscene.prep(talkLook(coachId)); }
+    function queueTalk(type, p = 1, topic) { if (!TK || tutOn() || !talkOK || st.talkQ || st.done || st.talkN >= ((BALANCE.talk && BALANCE.talk.perGame) ?? 1) || Math.random() > p) return; if (type === 'coach' && !coachId) return; if (type === 'ref' && !refId) return; if (type === 'ref') st.talkEvAt = st.i, st.talkEv = 'bad_call'; st.talkQ = { type, topic }; if (type === 'coach' && typeof Cutscene !== 'undefined') Cutscene.prep(talkLook(coachId)); }
     /* =================================================================
        IN-GAME DIALOGUE AS A MINI CUTSCENE — the game pauses, the camera pushes in, letterbox bars slide in and the
        background dims. You and the other person face off in big 16-bit portraits (expressions change as you talk);
@@ -2271,14 +2282,22 @@ const Match = (() => {
     const talkScene = o => talkSceneCore(o, { court, meLook: Object.assign({}, U.look || {}, { num: s.player.num, jersey: cfg.us.colors[0], trim: cfg.us.colors[1], outfit: 'jersey' }), first: s.player.first, last: s.player.last, beat, waitInput });
     /* ---------- conversations from the line pools (js/data-talk-lines.js): fit the moment, never repeat until a pool is used up ---------- */
     function talkCtx() {
-      const d = st.us - st.them, V = (s.vs || {})[STAR.full];
-      const score = (d >= 10 ? ['bigup', 'up'] : d <= -10 ? ['bigdown', 'down'] : d > 0 ? ['up'] : d < 0 ? ['down'] : ['tied']).concat(Math.abs(d) <= 3 ? ['close'] : []);
-      return { rank: starRank && myRank ? [starRank.rank < myRank ? 'below' : 'above', 'ranked'] : []   /* from YOUR side: below = he's ranked higher */, score, ev: st.talkEv ? [st.talkEv] : [], when: st.i >= n * .6 ? 'late' : 'early', vs: [!V || !V.g ? 'first' : null, V && V.last > 0 ? 'won' : null, V && V.last < 0 ? 'lost' : null, V && V.g >= 3 ? 'many' : null].filter(Boolean), games: V ? V.g + 1 : 1 };
+      const d = st.us - st.them, V = (s.vs || {})[STAR.full], fresh = st.talkEv && st.i - (st.talkEvAt == null ? -9 : st.talkEvAt) <= 2;   // only what JUST happened
+      const score = (d >= 10 ? ['bigup', 'up'] : d <= -10 ? ['bigdown', 'down'] : d > 0 ? ['up'] : d < 0 ? ['down'] : ['tied']).concat(Math.abs(d) <= 4 ? ['close'] : []);
+      const fr = st.i / Math.max(1, n);
+      return { rank: starRank && myRank ? [starRank.rank < myRank ? 'below' : 'above', 'ranked'] : []   /* from YOUR side: below = he's ranked higher */, score, ev: fresh ? [st.talkEv] : [],
+        when: fr >= .65 ? 'late' : fr >= .3 ? 'mid' : 'early', vs: [!V || !V.g ? 'first' : null, V && V.last > 0 ? 'won' : null, V && V.last < 0 ? 'lost' : null, V && V.g >= 3 ? 'many' : null].filter(Boolean), games: V ? V.g + 1 : 1,
+        stage: STAGE, role: seasonRole(), bench: st.bench > 0, star: rivalId };
     }
+    /* a line fits only when every condition holds (js/data-talk-lines.js lists them) */
     function condOk(c, X, topic) {
       if (!c) return true;
+      const any = (v, have) => [].concat(v).some(x => [].concat(have).includes(x));
       for (const k in c) { const v = c[k];
-        if (k === 'topic' ? v !== topic : k === 'rank' ? !X.rank.includes(v) : k === 'score' ? !X.score.includes(v) : k === 'ev' ? !X.ev.includes(v) : k === 'when' ? v !== X.when : k === 'vs' ? !X.vs.includes(v) : k === 'flag' ? ![].concat(v).every(f => s.flags[f]) : k === 'hs' ? s.career.hs !== v : false) return false; }
+        const ok = k === 'topic' ? any(v, topic) : k === 'rank' ? any(v, X.rank) : k === 'score' ? any(v, X.score) : k === 'ev' ? any(v, X.ev) : k === 'when' ? any(v, X.when)
+          : k === 'vs' ? any(v, X.vs) : k === 'stage' ? any(v, X.stage) : k === 'role' ? any(v, X.role) : k === 'star' ? any(v, X.star) : k === 'bench' ? !!v === X.bench
+          : k === 'flag' ? [].concat(v).every(f => s.flags[f]) : k === 'notFlag' ? ![].concat(v).some(f => s.flags[f]) : k === 'hs' ? s.career.hs === v : true;
+        if (!ok) return false; }
       return true;
     }
     function drawLine(key, pool, ok, prefer) {   // no repeats until the pool is used up (saved per career)
@@ -2287,35 +2306,43 @@ const Match = (() => {
       if (!items.length) return null;
       let cand = items.filter(l => !used.includes(l.i)); if (!cand.length) { seen[key] = used.filter(i => !items.some(l => l.i === i)); cand = items; }
       const pref = prefer ? cand.filter(prefer) : []; const L = pref.length && Math.random() < .8 ? pick(pref) : pick(cand);
-      seen[key].push(L.i); return L.t;
+      seen[key].push(L.i); return L;
     }
     function buildTalk(id, P, topic, pre) {
-      const X = talkCtx(), key = TK.lines[id] ? id : P.kind === 'coach' ? 'coach' : P.kind === 'ref' ? 'ref_dawkins' : P.kind === 'mate' ? 'mate_vet' : 'hothead', L = TK.lines[key], kind = P.kind;
-      const ok = l => condOk(l.if, X, topic), specific = l => l.if && Object.keys(l.if).length > 0;
-      const lines = [drawLine(key + ':open', L.open, ok, l => specific(l) && (!l.if.topic || l.if.topic === topic) && (l.if.topic === topic || Object.keys(l.if).some(k => k !== 'topic')))];
-      if (!pre || Math.random() < .5) lines.push(drawLine(key + ':push', L.push, ok));
-      if (!pre && Math.random() < .35) lines.push(drawLine(key + ':push', L.push, ok));
-      // your 3 answers: something this person likes, something he doesn't, and one more
-      const sty = Object.entries(P.styles), R = TK.replies[kind] || TK.replies.coach, has = k => R[k] && R[k].length;
-      const exch = lines.filter(Boolean).map(say => {
-        const good = sty.filter(([k, v]) => v > 0 && has(k)), bad = sty.filter(([k, v]) => v <= 0 && has(k));
-        const pickS = list => list.length ? pick(list)[0] : null, a = pickS(good), b = pickS(bad), c = pickS(sty.filter(([k]) => has(k) && k !== a && k !== b));
-        const opts = [a, b, c].filter(Boolean).map(stl => [stl, drawLine(`r:${kind}:${stl}`, R[stl], l => !l.char || l.char === id) || pick(R[stl].map(x => x.t || x))]);
-        return { say, opts };
+      const X = talkCtx(), kind = P.kind, fall = kind === 'coach' ? 'coach' : kind === 'ref' ? 'ref' : kind === 'mate' ? 'mate' : 'rival';
+      const own = TK.lines[id] || TK.lines[fall], base = own.base ? TK.lines[own.base] : own === TK.lines[fall] ? null : TK.lines[fall], key = TK.lines[id] ? id : fall;
+      const pool = part => (own[part] || []).concat(base ? (base[part] || []).map(l => Object.assign({ base: true }, l)) : []);
+      const ok = l => (l.r || part0 === 'close') && condOk(l.if, X, topic) && (part0 === 'close' || (l.if && l.if.topic)), mine = l => !l.base;   // every exchange names its topic
+      let part0 = 'open';
+      // what just happened comes first (he reacts to the crossover), then his own voice on this exact moment, then anything that fits
+      const evL = l => !!(l.if.ev && X.ev.length), tiers = [l => evL(l) && mine(l), evL, l => mine(l) && Object.keys(l.if).length > 1, mine, () => true];
+      const opens = pool('open').filter(l => (l.r) && condOk(l.if, X, topic) && l.if && l.if.topic), tier = tiers.find(f => opens.some(f));
+      const first = drawLine(key + ':open', pool('open'), l => ok(l) && tier(Object.assign({ if: {} }, l)), null);
+      if (!first) return [];
+      const ex = [first], want = pre ? (Math.random() < .5 ? 1 : 0) : 1 + (Math.random() < .35 ? 1 : 0);
+      part0 = 'push'; for (let k = 0; k < want; k++) { const L = drawLine(key + ':push', pool('push'), l => ok(l) && !ex.some(e => e.t === l.t), mine); if (L) ex.push(L); }
+      // your 3 answers come from the line itself: something this person likes, something he doesn't, and one more
+      const exch = ex.map(L => {
+        const avail = Object.keys(L.r), sc = st0 => P.styles[st0] || 0, good = avail.filter(k => sc(k) > 0), bad = avail.filter(k => sc(k) <= 0);
+        const a = good.length ? pick(good) : null, b = bad.length ? pick(bad) : null, c = pick(avail.filter(k => k !== a && k !== b)) || null;
+        return { say: L.t, opts: [a, b, c].filter(Boolean).map(k => [k, L.r[k]]) };
       });
-      exch.close = drawLine(key + ':close', L.close, ok);
+      part0 = 'close'; const cl = m => drawLine(key + ':close' + m, pool('close'), l => condOk(l.if, X, topic) && (l.mood || 'good') === m, mine);
+      const cg = cl('good'), cb = kind === 'rival' ? cg : cl('bad') || cg; exch.close = cg ? cg.t : null; exch.closeBad = cb ? cb.t : exch.close;   // how it ends depends on how it went
       return exch;
     }
+    /* how he answers your answer: fits the style you picked (TALK.reacts; a character can override with react) */
     if (window.__talkDebug) window.__talkDebug = { build: (type, topic, pre) => { const id = type === 'coach' ? coachId : type === 'ref' ? refId : type === 'mate' ? mateId : rivalId; return id && TK.personalities[id] ? Object.assign(buildTalk(id, TK.personalities[id], topic, pre), { id }) : null; }, st };   // automated tests only
     async function talk(type, topic, pre) {   // pre = the short pre-game talk (doesn't count toward the in-game limit)
       const id = type === 'coach' ? coachId : type === 'ref' ? refId : type === 'mate' ? mateId : rivalId, P = TK.personalities[id]; if (!P) return;
       if (pre) cnt('pretalks'); else { st.talkN++; st.talkAt = st.i; cnt('talks'); }
-      const tp = pre ? 'pre' : type === 'coach' ? (topic || pick(['play', 'minutes'])) : type === 'ref' ? 'call' : 'trash', ck = cineKind(type, topic);
-      const script = buildTalk(id, P, tp, pre);
+      const tp = pre ? 'pre' : type === 'coach' ? (topic || 'run') : type === 'ref' ? 'call' : 'trash';
+      const script = buildTalk(id, P, tp, pre); if (!script.length) { if (pre) cnt('pretalks', -1); else { st.talkN--; } return; }   // nothing fits this moment: no conversation
+      const ck = cineKind(type, topic);
       const nEx = script.length, ego = P.kind === 'rival';
       let g = ego ? 100 : P.start, backfires = 0, ended = false;
       const look = talkLook(id), name = talkName(id), first = properName(s.player.first), X = talkCtx(), fillT = t => t.replace(/\{first\}/g, first).replace(/\{last\}/g, myName).replace(/\{num\}/g, s.player.num)
-        .replace(/\{star\}/g, STAR.short).replace(/\{opp\}/g, cfg.them.name).replace(/\{us\}/g, cfg.us.name).replace(/\{score\}/g, `${Math.max(st.us, st.them)}-${Math.min(st.us, st.them)}`).replace(/\{hs\}/g, s.career.hs && LOCAL_TEAMS[s.career.hs] ? LOCAL_TEAMS[s.career.hs].name : 'the team').replace(/\{games\}/g, X.games).replace(/\{myrank\}/g, myRank ? '#' + myRank : 'unranked').replace(/\{theirrank\}/g, starRank ? '#' + starRank.rank : 'unranked');
+        .replace(/\{star\}/g, STAR.short).replace(/\{opp\}/g, cfg.them.name).replace(/\{us\}/g, cfg.us.name).replace(/\{score\}/g, `${Math.max(st.us, st.them)}-${Math.min(st.us, st.them)}`).replace(/\{hs\}/g, s.career.hs && LOCAL_TEAMS[s.career.hs] ? LOCAL_TEAMS[s.career.hs].name : 'the team').replace(/\{games\}/g, X.games).replace(/\{in\}/g, IN).replace(/\{myrank\}/g, myRank ? '#' + myRank : 'unranked').replace(/\{theirrank\}/g, starRank ? '#' + starRank.rank : 'unranked');
       const voice = { f: type === 'ref' ? 160 : type === 'rival' ? 330 : type === 'mate' ? 240 : 140, w: 'square', g: .035 }, myVoice = { f: 280, w: 'square', g: .03 };
       const tag = pre ? 'PRE-GAME' : type === 'coach' ? 'TIMEOUT' : type === 'ref' ? 'DEAD BALL' : type === 'rival' ? 'FACE-OFF' : 'HUDDLE';
       const so = { title: `${tag} · ${name}`, name, trait: P.trait, look, ego, g, gaugeLabel: ego ? 'EGO' : P.kind === 'mate' ? 'TRUST' : 'PATIENCE', startExpr: type === 'rival' ? 'smile' : 'neutral' };
@@ -2333,10 +2360,11 @@ const Match = (() => {
           if (ego) g = clamp(g - v, 0, 130); else g = clamp(g + v, 0, 100); if (!good) backfires++;
           T.gauge(g, (ego ? (good ? '−' : '+') : (good ? '+' : '−')) + Math.abs(v), good); SFX.play(good ? 'good' : 'bad');
           if (CI) { if (good && ego && g <= 60 && !shattered) { shattered = true; pk('shatter'); } else if (good) pk('aura', 'me'); else pk(ego ? 'predator' : 'glint', 'them'); }   // the peak: his composure breaks / your aura / his glare
-          await T.say('them', pick(good ? P.good : P.bad), ego ? (good ? 'angry' : 'smile') : (good ? 'smile' : 'angry'), voice);
+          await T.say('them', fillT(reactTo(P, style, good)), ego ? (good ? 'angry' : 'smile') : (good ? 'smile' : 'angry'), voice);
           T.face('me', good ? 'smile' : 'shocked'); await sleep(CI ? 200 : 700);
           if (v <= TK.endAt || (!ego && g <= 0)) ended = true;   // the wrong thing ends it early
         }
+        const bad = !ego && (g < 50 || backfires > script.length / 2); if (bad) script.close = script.closeBad;
         if (!ended && script.close) { if (CI) { pk(ck === 'faceoff' ? 'eyes' : 'aura', ck === 'faceoff' ? 'them' : 'me'); if (ck !== 'faceoff' && RK) pk('ranks'); } await T.say('them', fillT(script.close), ego ? 'fierce' : 'determined', voice); await sleep(CI ? 100 : 400); }
       } finally { await T.close(); }
       idle();
@@ -2353,7 +2381,7 @@ const Match = (() => {
         if (win && topic === 'half') { st.nextBonus = { label: 'Halftime adjustments', v: 6 }; st.morale2 = 1; pbp(`📣 ${escH(name)}'s halftime speech lands. You come out of the locker room on fire (+6%).`, 'good hot'); }
         else if (win && topic === 'clutch') { st.playCalled = true; st.nextBonus = { label: 'Clutch play call', v: 8 }; pbp(`📣 ${escH(name)} draws it up for you. Last plays run through you (+8%).`, 'good hot'); }
         else if (topic === 'half' || topic === 'clutch') pbp(`📣 ${escH(name)}: "Just go win it."`);
-        else if (win && topic === 'play') { st.playCalled = true; st.nextBonus = { label: 'Play called for you', v: 8 }; pbp(`📣 ${escH(name)} calls your number. Next trip runs through you (+8%).`, 'good hot'); }
+        else if (win && topic === 'run') { st.playCalled = true; st.nextBonus = { label: 'Play called for you', v: 8 }; pbp(`📣 ${escH(name)} calls your number. Next trip runs through you (+8%).`, 'good hot'); }
         else if (win && topic === 'minutes') { st.minutes = true; st.nextBonus = { label: 'Coach\'s trust', v: 4 }; pbp(`📣 ${escH(name)}: "You're playing the rest of the way." More minutes, more numbers.`, 'good hot'); cnt('trustWins'); }
         else if (win) { st.nextBonus = { label: 'Fired up', v: 5 }; pbp(`📣 ${escH(name)} keeps you in. Don't waste it.`, 'good'); }
         else if (g <= 0 && !PICK) { st.bench = 1; cnt('benched'); s.meta.morale = Math.max(0, s.meta.morale - 4); pbp(`🪑 ${escH(name)} has heard enough. You're on the bench for a stretch.`, 'bad'); }
@@ -2591,7 +2619,7 @@ const Match = (() => {
           zone: (.75 + Balance.eff(ME.ft) / 99 * 1.0) * WIN() * MGX('ftZone'), wobble: 1.55 + st.fatigue * .012 + (pressure ? .55 : 0),
           shooter: { num: s.player.num, name: myName, color: cfg.us.colors[0], trim: cfg.us.colors[1], skin: lk.skin, hair: lk.hairColor },
           lane: { us: cfg.us.colors[0], them: cfg.them.colors[0] }, scoreText: () => `${cfg.us.abbr} ${st.us} – ${st.them} ${cfg.them.abbr}`,
-          onShot: ok => { st.box.fta++; if (ok) { made++; st.box.ftm++; st.box.pts++; cnt('ftMade'); addPts('us', 1, playOf(U, 'ft', { def: null })); SFX.play('crowd', .6); } else { st.talkEv = 'missed_ft'; } if (!ok) SFX.play('groan'); },
+          onShot: ok => { st.box.fta++; if (ok) { made++; st.box.ftm++; st.box.pts++; cnt('ftMade'); addPts('us', 1, playOf(U, 'ft', { def: null })); SFX.play('crowd', .6); } else { st.talkEvAt = st.i, st.talkEv = 'missed_ft'; } if (!ok) SFX.play('groan'); },
         });
         idle();
         pbp(say(r.made === shots ? 'ft_all' : r.made ? 'ft_split' : 'ft_none', { n: r.made, of: shots }) + ` <i class="pct-note">${c.pct}% base</i>`, r.made === shots ? 'good' : '');
@@ -2959,11 +2987,11 @@ const Match = (() => {
       if (st.talkQ && st.talkAt < i) {   // dead ball: a quick conversation (huddle or face-off first)
         const q = st.talkQ; st.talkQ = null; formation('us');
         await guardMoment(async () => {
-          await talk(q.type, q.topic || (q.type === 'coach' ? pick(['play', 'minutes']) : null));
+          await talk(q.type, q.topic || (q.type === 'coach' ? 'run' : null));
         }, 'talk'); updBug();
         if (st.done) break;
       }
-      if (st.bench > 0 && !(cfg.script && !st.scripted && i >= n - (cfg.script.moments || 2))) { st.bench--; pbp(`🪑 You watch from the bench as ${escH(cfg.us.name)} play on.`, 'bad'); simSegment((1 - LATE) / (n + 1)); updBug(); st.lastType = 'bench'; await sleep(600); continue; }
+      if (st.bench > 0 && !(cfg.script && !st.scripted && i >= n - (cfg.script.moments || 2))) { st.bench--; pbp(`🪑 You watch from the bench as ${escH(cfg.us.name)} play on.`, 'bad'); if (!st.bench) pbp(`🏀 ${escH(talkName(coachId) || 'Coach')} waves you back in.`, 'sys'); simSegment((1 - LATE) / (n + 1)); updBug(); st.lastType = 'bench'; await sleep(600); continue; }
       if (cfg.script && !st.scripted && !FULL && i >= n - (cfg.script.moments || 2)) {   // a scripted ending (js/data-story-ch2-scenes.js): its cinematic, then the final score
         st.scripted = true;
         if (!cfg.script.noRally && st.them - st.us > 5) { const g = st.them - st.us - 5; st.us += g; updBug(); pbp(`📈 <b>A ${g}-${Math.max(0, Math.round(g / 4))} run</b> pulls ${escH(cfg.us.abbr)} back within five.`, 'good hot'); await sleep(900); }   // the story's fixed high always starts within reach

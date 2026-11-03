@@ -735,9 +735,12 @@ const UI = (() => {
   function postGame(r, summary, onContinue) {
     const s = S(), b = r.box, cfg = r.cfg;
     setBg(r.win ? 'playground' : 'playground_night', 'post');
-    const [who, quotes] = STORY.reactions[r.grade[0] === 'A' ? 'A' : r.grade[0] === 'B' ? 'B' : r.grade[0] === 'C' ? 'C' : 'F'];
-    const speaker = s.flags.lou_snub ? 'tariq' : who;
-    const quote = s.flags.lou_snub ? (r.win ? 'BRO. That was crazy. Let\'s gooo!' : 'We\'ll get \'em next time, bro. Shake it off.') : Engine.pick(quotes);
+    const gk = r.grade[0] === 'A' ? 'A' : r.grade[0] === 'B' ? 'B' : r.grade[0] === 'C' ? 'C' : 'F', [who, quotes] = STORY.reactions[gk], stg = Engine.stage(s);
+    // the quote comes from whoever you answer to right now: Lou on the playground, then your coach at each stage
+    const stageCoach = { hs: s.career.hs === 'westbrook' ? 'graves' : 'brennan', usa: 'reyes', college: s.flags.coach_fired ? 'vance' : 'ccoach', overseas: 'ocoach', grind: 'gcoach', pro: 'pcoach' }[stg];
+    const coachQ = stageCoach && STORY.characters[stageCoach] && STORY.coachReactions;
+    const speaker = coachQ ? stageCoach : s.flags.lou_snub ? 'tariq' : who;
+    const quote = coachQ ? Engine.pick(STORY.coachReactions[gk]) : s.flags.lou_snub ? (r.win ? 'BRO. That was crazy. Let\'s gooo!' : 'We\'ll get \'em next time, bro. Shake it off.') : Engine.pick(quotes);
     showScreen(`<div class="postgame">
       <div class="pg-head glass">
         <div class="pg-team">${Art.logo(cfg.us, 56)}<b>${esc(cfg.us.name)}</b></div>

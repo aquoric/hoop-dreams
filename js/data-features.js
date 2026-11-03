@@ -191,8 +191,9 @@ STORY.commentary.jelly_miss = ['{me} tries to get cute with the jelly — rolls 
 STORY.commentary.jelly_block = ['{me} flicks it right into his hand. Rejected.', 'Wrong side! He reads the jelly and swats it.'];
 STORY.feedTemplates.jelly = [
   ['courtvision', '🍯 JELLY ALERT. {name} just made a 7-footer look silly. Run it back.'],
-  ['nia', 'my brother does the JELLY now?? who taught him that 😭'],
-  ['streetball', 'The {name} jelly is the smoothest finish in the class. Not close.'],
+  ['nia', 'my brother does the JELLY now?? who taught him that 😭', { test: 'nia_ok' }],
+  ['streetball', 'The {name} jelly is the smoothest finish in the class. Not close.', { stage: ['hs', 'usa', 'college', 'overseas', 'grind'] }],
+  ['ehn', 'The {name} jelly is the smoothest finish in the league right now. Not close.', { stage: 'pro' }],
 ];
 
 /* ---------- JELLY STORY (spliced into the national team camp, js/data-usa.js) ---------- */
